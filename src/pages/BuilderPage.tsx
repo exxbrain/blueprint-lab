@@ -43,7 +43,7 @@ export default function BuilderPage() {
           Свободный режим
         </button>
       </div>
-      {(['Классика', 'System Design'] as const).map((group) => (
+      {(['Классика', 'Инструменты', 'System Design'] as const).map((group) => (
         <div key={group} className="row tabs">
           <span className="muted small tab-group">{group}:</span>
           {builderChallenges

@@ -17,7 +17,8 @@ npm run dev
 - **Конструктор архитектуры** (`#/builder`): граф из клиентов, балансировщиков, CDN, сервисов, очередей, кэша и хранилищ
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Трафик несёт профиль нагрузки, и каждое хранилище
   обрабатывает его со своей эффективностью (`src/sim/builder/model.ts`). Свободный режим, классические задачи и задачи
-  System Design с прикидкой нагрузки по DAU (`src/sim/builder/challenges.ts`).
+  System Design с прикидкой нагрузки по DAU, а также упражнения на конкретные инструменты — Redis, CDN, Kafka,
+  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`).
 - **Распил монолита** (`#/monolith`): три уровня — интернет-магазин, доставка еды и интернет-банк, 16 миссий с бюджетом, оценкой решения и порядка распила. Strangler Fig по шагам — вынос модулей, отдельные БД, саги, реплики на событиях,
   outbox, circuit breakers. 27 паттернов микросервисов как инструменты, 16 стресс-тестов и проверка на лишние паттерны
   (`src/sim/monolith/model.ts`, `src/sim/monolith/patterns.ts`).

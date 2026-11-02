@@ -128,8 +128,24 @@ console.log('\nЛовушки конструктора')
   ])
   trap('tickets', 'воркеров 20 — перегрев БД', (n, e) => [set(n, 'w1', { instances: 20 }), e])
   trap('tickets', 'воркеров 8 — очередь растёт', (n, e) => [set(n, 'w1', { instances: 8 }), e])
+  trap('tool-clickhouse', 'Elasticsearch вместо ClickHouse', (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind: 'elastic' as const } : x)), e])
+  trap('tool-cassandra', 'MongoDB вместо Cassandra', (n, e) => [n.map((x) => (x.id === 'cs' ? { ...x, kind: 'mongo' as const, instances: 6 } : x)), e])
+  trap('tool-cdn', 'S3 ×3 вместо CDN', (n) => [
+    n.filter((x) => x.id !== 'cdn').map((x) => (x.id === 's3' ? { ...x, instances: 3 } : x)),
+    [{ id: 'e1', from: 'c1', to: 's3' }],
+  ])
   trap('tickets', 'Cassandra вместо PostgreSQL', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, kind: 'cassandra' as const } : x)), e])
-  console.log('- 10 ловушек не решают свои задачи')
+  console.log('- 13 ловушек не решают свои задачи')
+  // задачи на инструмент: без него задача не решается
+  for (const c of builderChallenges.filter((x) => x.tool)) {
+    const nodes = c.solution.nodes.filter((x) => x.kind !== c.tool)
+    const ids = new Set(nodes.map((x) => x.id))
+    const edges = c.solution.edges.filter((e) => ids.has(e.from) && ids.has(e.to))
+    const r = simulate(nodes, edges)
+    if (c.goals.every((g) => g.check(r)) && r.cost <= c.budget && c.paths.every((pth) => reaches(edges, pth.from, pth.to)))
+      fail(`«${c.title}» решается и без ${c.tool}`)
+  }
+  console.log(`- ${builderChallenges.filter((x) => x.tool).length} задач на инструмент не решаются без своего инструмента`)
 }
 
 console.log('\nМодель конструктора: тупиковые блоки не обслуживают запросы')

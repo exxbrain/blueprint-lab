@@ -177,7 +177,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     desc: 'Поисковый движок: полнотекстовый поиск, подсказки, фасеты. Не источник истины',
     maxInstances: 6,
     group: 'Хранилища',
-    fit: { search: 1, analytics: 0.3, kv: 0.3 },
+    fit: { search: 1, analytics: 0.1, kv: 0.3 },
   },
   clickhouse: {
     title: 'ClickHouse',

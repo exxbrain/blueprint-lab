@@ -11,6 +11,9 @@ import { NotFound } from './pages/NotFound'
 
 const BuilderPage = lazy(() => import('./pages/BuilderPage'))
 const MonolithPage = lazy(() => import('./pages/MonolithPage'))
+const C4Page = lazy(() => import('./pages/C4Page'))
+const CapPage = lazy(() => import('./pages/CapPage'))
+const EsPage = lazy(() => import('./pages/EsPage'))
 
 export default function App() {
   const route = useRoute()
@@ -21,6 +24,9 @@ export default function App() {
   if (!first) page = <Home />
   else if (first === 'builder') page = <BuilderPage />
   else if (first === 'monolith') page = <MonolithPage />
+  else if (first === 'c4' && second === 'exercises') page = <C4Page />
+  else if (first === 'data' && second === 'cap') page = <CapPage />
+  else if (first === 'data' && second === 'es') page = <EsPage />
   else if (!mod) page = <NotFound />
   else if (!second) page = <ModulePage mod={mod} />
   else if (second === 'lesson' && third) page = <LessonPage mod={mod} lessonId={third} />
@@ -45,6 +51,12 @@ export default function App() {
           </a>
           <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
             Конструктор
+          </a>
+          <a href={href('data')} className={first === 'data' ? 'active' : ''}>
+            Данные
+          </a>
+          <a href={href('c4')} className={first === 'c4' ? 'active' : ''}>
+            C4
           </a>
         </nav>
       </header>

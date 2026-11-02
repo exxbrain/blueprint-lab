@@ -10,6 +10,10 @@ import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order
 import { builderChallenges, estimateOk } from '../src/sim/builder/challenges'
 import { reaches, simulate } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
+import { C4_EXERCISES } from '../src/sim/c4/exercises'
+import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
+import { CAP_TASKS, runCap } from '../src/sim/cap/model'
+import { ES_TASKS } from '../src/sim/es/model'
 
 let failed = 0
 const fail = (msg: string) => {
@@ -116,6 +120,57 @@ console.log('\nМодель конструктора: тупиковые бло�
   if (!aside.persisted.c) fail('cache-aside: данные клиента не доходят до хранилища')
   console.log(`- cache-aside: в БД ${Math.round(aside.nodes.d.in)} из 100 rps`)
   console.log(`- шлюз ${gw.clientSuccess}, балансировщик ${lb.clientSuccess}, кэш ${cache.clientSuccess}, рост очереди ${q.backlogGrowth}/с`)
+}
+
+console.log('\nУпражнения C4')
+for (const ex of C4_EXERCISES) {
+  const rv = reviewDiagram(ex, ex.solution)
+  const issues = rv.items.filter((i) => i.tone !== 'ok')
+  console.log(`- ${ex.title}: эталон ${rv.score}/100`)
+  if (!rv.solved || rv.score !== 100) fail(`эталон не принят: ${issues.map((i) => i.text).join('; ')}`)
+  const ps = ex.solution.placed
+  for (const p of ps) {
+    if (p.x < 0 || p.y < 0 || p.x + EL_W > CANVAS.w || p.y + EL_H > CANVAS.h) fail(`«${p.card}» выходит за холст`)
+    for (const q of ps)
+      if (p !== q && Math.abs(p.x - q.x) < EL_W && Math.abs(p.y - q.y) < EL_H) fail(`«${p.card}» накладывается на «${q.card}»`)
+  }
+  const start = reviewDiagram(ex, ex.start ?? { placed: [], rels: [] })
+  if (start.solved) fail('упражнение решено уже в исходном состоянии')
+  if (ex.start) {
+    const errs = start.items.filter((i) => i.tone === 'bad' || i.tone === 'warn')
+    console.log(`  стартовая диаграмма: ${errs.length} замечаний`)
+    for (const e of errs) console.log('    · ' + e.text)
+  }
+}
+
+console.log('\nCAP и кворумы')
+for (const t of CAP_TASKS) {
+  const ok = (cfg: typeof t.start) => {
+    const r = runCap(cfg, t.steps)
+    return t.goals.every((g) => g.check(r, cfg))
+  }
+  console.log(`- ${t.title}: эталон N=${t.solution.n} W=${t.solution.w} R=${t.solution.r} ${t.solution.shortfall}/${t.solution.resolve}`)
+  if (!ok(t.solution)) fail('эталон не выполняет цели')
+  if (ok(t.start)) fail('задача решена уже в исходном состоянии')
+  for (const [k, v] of Object.entries(t.fixed ?? {}))
+    if ((t.solution as Record<string, unknown>)[k] !== v || (t.start as Record<string, unknown>)[k] !== v) fail(`эталон или старт нарушают фиксированное ${k}`)
+}
+
+console.log('\nEvent Sourcing')
+for (const t of ES_TASKS) {
+  const ok = (cfg: Record<string, string>) => {
+    const r = t.run(cfg)
+    return t.goals.every((g) => g.check(r, cfg))
+  }
+  // перебор всех комбинаций: сколько вариантов решают задачу
+  const combos = t.options.reduce<Record<string, string>[]>(
+    (acc, o) => acc.flatMap((c) => o.choices.map((ch) => ({ ...c, [o.key]: ch.value }))),
+    [{}],
+  )
+  const solving = combos.filter(ok)
+  console.log(`- ${t.title}: решают ${solving.length} из ${combos.length} вариантов`)
+  if (!ok(t.solution)) fail('эталон не выполняет цели')
+  if (ok(t.start)) fail('задача решена уже в исходном состоянии')
 }
 
 if (failed) {

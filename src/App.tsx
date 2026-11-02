@@ -33,7 +33,7 @@ export default function App() {
     <>
       <header className="topbar">
         <a className="logo" href="#/">
-          <img src="/favicon.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
           Blueprint Lab
         </a>
         <nav>

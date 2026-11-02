@@ -111,7 +111,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 300,
     latency: 20,
     cost: 50,
-    desc: 'Обрабатывает запрос и вызывает потомков. В каждое хранилище уходят только подходящие ему запросы',
+    desc: 'Обрабатывает запрос и вызывает потомков. Каждый тип запроса уходит в самое подходящее из подключённых хранилищ',
     maxInstances: 40,
     group: 'Вычисления',
   },
@@ -401,13 +401,15 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
         case 'service': {
           // cache-aside: если сервис сам ходит в кэш, в хранилища идут только промахи
           const asideHit = Math.max(0, ...kids.map((k) => byId[k.to]).filter((c) => c.kind === 'cache').map((c) => c.hitRatio ?? 0.8))
-          // в хранилище уходят только запросы, которые оно умеет обрабатывать
+          // запрос уходит в самое подходящее из хранилищ сервиса: поиск — в поисковый движок, а не в PostgreSQL
+          const stores = kids.map((k) => byId[k.to]).filter((c) => isStorage(c.kind))
+          const best = (w: Workload) => Math.max(0, ...stores.map((c) => fitOf(c.kind, w)))
           out = isStorage(child.kind)
             ? (Object.fromEntries(
-                WL.map((w) => [
-                  w,
-                  fitOf(child.kind, w) > 0 ? admitted[w] * (CACHEABLE.includes(w) ? 1 - asideHit : 1) : 0,
-                ]),
+                WL.map((w) => {
+                  const f = fitOf(child.kind, w)
+                  return [w, f > 0 && f === best(w) ? admitted[w] * (CACHEABLE.includes(w) ? 1 - asideHit : 1) : 0]
+                }),
               ) as Vec)
             : admitted
           break
@@ -455,6 +457,13 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           break
         case 'cache':
         case 'cdn': {
+          // cache-aside: промахи обрабатывает сам сервис, когда идёт в своё хранилище — это не тупик
+          const parents = edges.filter((e) => e.to === id).map((e) => byId[e.from])
+          const aside =
+            n.kind === 'cache' &&
+            parents.length > 0 &&
+            parents.every((pn) => pn.kind === 'service' && children(pn.id).some((e) => isStorage(byId[e.to].kind)))
+          if (aside) break
           // отвечают только попадания, промахам идти некуда
           const hit = n.hitRatio ?? (n.kind === 'cdn' ? 0.9 : 0.8)
           const served = n.kind === 'cdn' ? v.blob * hit : WL.reduce((s, w) => s + (CACHEABLE.includes(w) ? v[w] * hit : 0), 0)

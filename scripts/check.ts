@@ -89,6 +89,49 @@ for (const c of builderChallenges) {
   if (startOk && start.cost <= c.budget) fail('задача решена уже в исходном состоянии')
 }
 
+// ловушки: обходные пути, которые не должны решать задачи
+console.log('\nЛовушки конструктора')
+{
+  type N = (typeof builderChallenges)[number]['solution']['nodes']
+  type E = (typeof builderChallenges)[number]['solution']['edges']
+  const trap = (id: string, name: string, patch: (n: N, e: E) => [N, E]) => {
+    const c = builderChallenges.find((x) => x.id === id)!
+    const [nodes, edges] = patch(structuredClone(c.solution.nodes), structuredClone(c.solution.edges))
+    const r = simulate(nodes, edges)
+    const passes = c.goals.every((g) => g.check(r)) && r.cost <= c.budget && c.paths.every((pth) => reaches(edges, pth.from, pth.to))
+    if (passes) fail(`ловушка «${c.title} / ${name}» решает задачу`)
+  }
+  const set = (nodes: N, id: string, p: Partial<N[number]>) => nodes.map((x) => (x.id === id ? { ...x, ...p } : x))
+  const drop = (nodes: N, edges: E, id: string): [N, E] => [nodes.filter((x) => x.id !== id), edges.filter((e) => e.from !== id && e.to !== id)]
+  trap('catalog-search', 'без Elasticsearch', (n, e) => drop(n, e, 'es'))
+  trap('catalog-search', 'без кэша', (n, e) => drop(n, e, 'k1'))
+  trap('catalog-search', 'без кэша, ES×2, PG×4', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(set(a, 'es', { instances: 2 }), 'd1', { instances: 4 }), b]
+  })
+  trap('olap', 'без ClickHouse, PG×5', (n, e) => {
+    const [a, b] = drop(n, e, 'ch')
+    return [set(a, 'd1', { instances: 5 }), b]
+  })
+  trap('profiles', 'без кэша, PG×5', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(a, 'd1', { instances: 5 }), b]
+  })
+  trap('profiles', 'кэш, PG×3', (n, e) => [set(n, 'd1', { instances: 3 }), e])
+  trap('tickets', 'без очереди', (n) => [
+    n.filter((x) => x.id !== 'q1' && x.id !== 'w1'),
+    [
+      { id: 'e1', from: 'c1', to: 'g1' },
+      { id: 'e2', from: 'g1', to: 's1' },
+      { id: 'e3', from: 's1', to: 'd1' },
+    ],
+  ])
+  trap('tickets', 'воркеров 20 — перегрев БД', (n, e) => [set(n, 'w1', { instances: 20 }), e])
+  trap('tickets', 'воркеров 8 — очередь растёт', (n, e) => [set(n, 'w1', { instances: 8 }), e])
+  trap('tickets', 'Cassandra вместо PostgreSQL', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, kind: 'cassandra' as const } : x)), e])
+  console.log('- 10 ловушек не решают свои задачи')
+}
+
 console.log('\nМодель конструктора: тупиковые блоки не обслуживают запросы')
 {
   const client = { id: 'c', kind: 'client' as const, label: 'c', x: 0, y: 0, instances: 1, rps: 100, workload: 'kv' as const }

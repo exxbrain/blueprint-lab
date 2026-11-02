@@ -43,7 +43,12 @@ export function reviewBuilder(c: BuilderChallenge, nodes: BNode[], edges: BEdge[
     // потребители за очередью могут работать «впритык»: важно лишь, чтобы очередь не росла
     const incoming = edges.filter((e) => e.to === n.id)
     const behindQueue = incoming.length > 0 && incoming.every((e) => r.edges[e.id]?.async)
-    if (st.util > HOT && behindQueue)
+    if (st.util > 1 && behindQueue)
+      items.push({
+        tone: 'info',
+        text: `«${n.label}» разбирает очередь медленнее, чем она пополняется (поток в ${st.util.toFixed(1)} раза выше мощности) — излишек копится в очереди. Для пика это нормально, если такой рост очереди заложен в задачу`,
+      })
+    else if (st.util > HOT && behindQueue)
       items.push({
         tone: 'info',
         text: `«${n.label}» за очередью загружен на ${Math.round(st.util * 100)}% — для асинхронной обработки это нормально, пока очередь не растёт`,

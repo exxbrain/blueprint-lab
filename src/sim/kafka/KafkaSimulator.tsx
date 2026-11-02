@@ -1,9 +1,10 @@
 import { tr } from '../../i18n'
-import { type ReactNode } from 'react'
-import { ORDER_STAGES, keyColor, type Acks, type KafkaConfig, type KafkaSim, type KeyStrategy, type Partition } from './engine'
+import { useState, type ReactNode } from 'react'
+import { ORDER_STAGES, keyColor, type Acks, type KafkaConfig, type KafkaSim, type KeyStrategy, type Msg, type Partition } from './engine'
 import { useKafkaSim } from './useKafkaSim'
 import { Sparkline } from '../../components/Sparkline'
 import { FlightLayer } from '../../components/FlightLayer'
+import { EVENT_TYPES, eventHeaders, eventPayload } from './events'
 
 export interface SimControls {
   partitions?: boolean
@@ -51,6 +52,7 @@ export function KafkaSimulator({ config, controls = {}, onTick, extraActions, co
   const c = controls
   const totalLag = sim.groups.reduce((s, g) => s + sim.totalLag(g), 0)
   const last = sim.history[sim.history.length - 1]
+  const [picked, setPicked] = useState<Msg | null>(null)
 
   return (
     <div className={'ksim' + (compact ? ' ksim-compact' : '')}>
@@ -88,7 +90,7 @@ export function KafkaSimulator({ config, controls = {}, onTick, extraActions, co
 
       <div className="ksim-main">
         <ProducersPanel sim={sim} act={act} c={c} />
-        <TopicPanel sim={sim} act={act} c={c} />
+        <TopicPanel sim={sim} act={act} c={c} onPick={setPicked} picked={picked} />
         <GroupsPanel sim={sim} act={act} c={c} />
         <FlightLayer queue={sim.flights} duration={650 / Math.sqrt(speed)} />
       </div>
@@ -97,6 +99,7 @@ export function KafkaSimulator({ config, controls = {}, onTick, extraActions, co
         <BrokersPanel sim={sim} act={act} c={c} />
         <EventLog sim={sim} />
       </div>
+      <EventInspector sim={sim} picked={picked} onPick={setPicked} />
     </div>
   )
 }
@@ -210,7 +213,13 @@ function parseAcks(v: string): Acks {
   return v === 'all' ? 'all' : v === '0' ? 0 : 1
 }
 
-function TopicPanel({ sim, act, c }: PanelProps) {
+function TopicPanel({
+  sim,
+  act,
+  c,
+  onPick,
+  picked,
+}: PanelProps & { onPick: (m: Msg) => void; picked: Msg | null }) {
   return (
     <section className="panel topic">
       <h4>
@@ -221,7 +230,7 @@ function TopicPanel({ sim, act, c }: PanelProps) {
         </span>
       </h4>
       {sim.partitions.map((p) => (
-        <PartitionRow key={p.id} sim={sim} p={p} />
+        <PartitionRow key={p.id} sim={sim} p={p} onPick={onPick} picked={picked} />
       ))}
       <div className="legend small muted">
         {tr(
@@ -244,7 +253,17 @@ function TopicPanel({ sim, act, c }: PanelProps) {
   )
 }
 
-function PartitionRow({ sim, p }: { sim: KafkaSim; p: Partition }) {
+function PartitionRow({
+  sim,
+  p,
+  onPick,
+  picked,
+}: {
+  sim: KafkaSim
+  p: Partition
+  onPick: (m: Msg) => void
+  picked: Msg | null
+}) {
   const leo = sim.leaderLeo(p)
   const hw = sim.hw(p)
   const start = Math.max(p.logStart, leo - WINDOW)
@@ -281,9 +300,10 @@ function PartitionRow({ sim, p }: { sim: KafkaSim; p: Partition }) {
         {cells.map((m) => (
           <span
             key={m.id}
-            className={'msg' + (m.offset >= hw ? ' unrepl' : '')}
+            className={'msg' + (m.offset >= hw ? ' unrepl' : '') + (picked?.id === m.id ? ' picked' : '')}
+            onClick={() => onPick(m)}
             style={{ background: m.offset >= hw ? 'transparent' : keyColor(m.orderId), borderColor: keyColor(m.orderId) }}
-            title={tr(`offset ${m.offset} · ключ ${m.key ?? 'null'} · заказ #${m.orderId}: ${ORDER_STAGES[m.seq]}`, `offset ${m.offset} · key ${m.key ?? 'null'} · order #${m.orderId}: ${ORDER_STAGES[m.seq]}`)}
+            title={tr(`${EVENT_TYPES[m.seq]} · offset ${m.offset} · ключ ${m.key ?? 'null'} — кликните, чтобы открыть событие`, `${EVENT_TYPES[m.seq]} · offset ${m.offset} · key ${m.key ?? 'null'} — click to open the event`)}
           >
             {m.seq + 1}
           </span>
@@ -451,6 +471,108 @@ function EventLog({ sim }: { sim: KafkaSim }) {
         ))}
         {sim.events.length === 0 && <li className="muted">{tr('Пока тихо', 'All quiet so far')}</li>}
       </ul>
+    </section>
+  )
+}
+
+/** Последние события в топике и полная запись выбранного события — как в kafka-console-consumer */
+function EventInspector({ sim, picked, onPick }: { sim: KafkaSim; picked: Msg | null; onPick: (m: Msg | null) => void }) {
+  const tail = sim.partitions
+    .flatMap((p) => p.log.slice(-8))
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 8)
+  return (
+    <section className="panel inspector">
+      <div className="card-head">
+        <h4>
+          {picked
+            ? tr(`Событие · P${picked.partition} · offset ${picked.offset}`, `Event · P${picked.partition} · offset ${picked.offset}`)
+            : tr('Поток событий в топике orders', 'Event stream in the orders topic')}
+        </h4>
+        {picked && (
+          <button className="icon" onClick={() => onPick(null)} title={tr('Назад к потоку', 'Back to the stream')}>
+            ✕
+          </button>
+        )}
+      </div>
+      {!picked && (
+        <>
+          <p className="small muted">
+            {tr(
+              'Так выглядят последние записи, если подписаться на топик консольным консьюмером. Кликните по строке или по квадратику в партиции, чтобы открыть событие целиком.',
+              'This is what the latest records look like through a console consumer. Click a line or a square in a partition to open the full event.',
+            )}
+          </p>
+          <div className="console">
+            <div className="console-cmd">$ kafka-console-consumer --topic orders --property print.key=true --property print.partition=true</div>
+            {tail.map((m) => {
+              const pl = eventPayload(m)
+              const compact = JSON.stringify({ type: pl.type, orderId: pl.orderId, ...('total' in pl ? { total: pl.total } : {}), ...('amount' in pl ? { amount: pl.amount } : {}), ...('courier' in pl ? { courier: pl.courier } : {}) })
+              return (
+                <div key={m.id} className="console-line" onClick={() => onPick(m)}>
+                  <span className="muted">Partition:{m.partition}</span> <span className="console-key">{m.key ?? 'null'}</span> {compact}
+                </div>
+              )
+            })}
+            {tail.length === 0 && <div className="muted">{tr('…ждём первые события', '…waiting for the first events')}</div>}
+          </div>
+        </>
+      )}
+      {picked && (
+        <div className="inspector-body">
+          <table className="cmp small">
+            <tbody>
+              <tr>
+                <td>topic / partition / offset</td>
+                <td>
+                  orders / {picked.partition} / {picked.offset}
+                </td>
+              </tr>
+              <tr>
+                <td>key</td>
+                <td>
+                  <code>{picked.key ?? 'null'}</code>{' '}
+                  <span className="muted">
+                    {picked.key === null
+                      ? tr('— без ключа партиция выбрана по кругу', '— no key, partition chosen round-robin')
+                      : tr('— hash(key) % партиций выбрал эту партицию', '— hash(key) % partitions picked this partition')}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>headers</td>
+                <td>
+                  {Object.entries(eventHeaders(picked)).map(([k, v]) => (
+                    <div key={k}>
+                      <code>{k}</code>: {v}
+                    </div>
+                  ))}
+                </td>
+              </tr>
+              <tr>
+                <td>{tr('подтверждено', 'acknowledged')}</td>
+                <td>{picked.acked ? tr('да', 'yes') : tr('ещё нет — ждём реплики', 'not yet — waiting for replicas')}</td>
+              </tr>
+              {sim.groups.map((g) => {
+                const done = (g.position[picked.partition] ?? 0) > picked.offset
+                return (
+                  <tr key={g.id}>
+                    <td>
+                      {tr('группа', 'group')} {g.name}
+                    </td>
+                    <td className={done ? 'ok-text' : 'warn-text'}>
+                      {done
+                        ? tr('обработала', 'processed')
+                        : tr(`ещё не дошла (позиция ${g.position[picked.partition] ?? 0})`, `not reached yet (position ${g.position[picked.partition] ?? 0})`)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <pre className="json">{JSON.stringify(eventPayload(picked), null, 2)}</pre>
+        </div>
+      )}
     </section>
   )
 }

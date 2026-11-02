@@ -2111,3 +2111,67 @@ tr.muted td {
   font-size: 1.3rem;
   width: 26px;
 }
+
+/* события Kafka с данными */
+.msg {
+  cursor: pointer;
+}
+.msg.picked {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+  transform: scale(1.15);
+}
+.inspector .console {
+  background: #06111e;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  max-height: 230px;
+  overflow: auto;
+}
+.console-cmd {
+  color: var(--ok);
+  margin-bottom: 6px;
+}
+.console-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 0;
+  cursor: pointer;
+  animation: event-in 0.3s ease-out;
+}
+.console-line:hover {
+  background: rgba(124, 196, 255, 0.1);
+}
+.console-key {
+  color: var(--accent-2);
+}
+.inspector-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.inspector-body table {
+  margin: 0;
+}
+.json {
+  margin: 0;
+  background: #06111e;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: #cfe7ff;
+  max-height: 320px;
+  overflow: auto;
+}
+@media (max-width: 1100px) {
+  .inspector-body {
+    grid-template-columns: 1fr;
+  }
+}

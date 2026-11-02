@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import type { Module } from '../content/types'
 import { markLesson, useProgress } from '../progress'
 import { href } from '../router'
@@ -15,11 +16,11 @@ export function LessonPage({ mod, lessonId }: { mod: Module; lessonId: string })
   return (
     <div className="page" style={{ maxWidth: 1300 }}>
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href={href(mod.id)}>{mod.title}</a> / Урок {idx + 1}
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Урок', 'Lesson')} {idx + 1}
       </div>
       <h1>{lesson.title}</h1>
       <p className="muted">
-        {lesson.summary} · {lesson.minutes} мин
+        {lesson.summary} · {lesson.minutes} {tr('мин', 'min')}
       </p>
       <lesson.Body />
       <div className="lesson-nav">
@@ -31,8 +32,8 @@ export function LessonPage({ mod, lessonId }: { mod: Module; lessonId: string })
             window.location.hash = next ? href(mod.id, 'lesson', next.id) : href(mod.id)
           }}
         >
-          {done ? '✓ Пройдено, ' : 'Понятно, '}
-          {next ? `дальше: ${next.title} →` : 'к модулю'}
+          {done ? tr('✓ Пройдено, ', '✓ Done, ') : tr('Понятно, ', 'Got it, ')}
+          {next ? tr(`дальше: ${next.title} →`, `next: ${next.title} →`) : tr('к модулю', 'back to module')}
         </button>
       </div>
     </div>

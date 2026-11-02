@@ -1,5 +1,6 @@
 import type { Lesson } from '../types'
 import { Callout } from '../../components/Try'
+import { tr } from '../../i18n'
 
 function Cap() {
   return (
@@ -75,6 +76,81 @@ function Cap() {
   )
 }
 
+function CapEn() {
+  return (
+    <div className="lesson">
+      <p>
+        When data is stored in several replicas, the network between them will sooner or later fail. The{' '}
+        <b>CAP theorem</b> says that during a network partition (<b>P</b>artition) the system has to pick one of two:
+      </p>
+      <ul>
+        <li>
+          <b>C</b>onsistency — every response sees the latest acknowledged write. Then some nodes reject requests until
+          the connection is restored.
+        </li>
+        <li>
+          <b>A</b>vailability — every live node responds. Then responses may be stale, and writes from the two sides may
+          conflict.
+        </li>
+      </ul>
+      <Callout>
+        “Pick two out of three” is a popular but inaccurate reading. You do not choose P: network partitions happen. The
+        choice between C and A applies only during a partition; the rest of the time a system can be both consistent and
+        available.
+      </Callout>
+      <h2>Quorums: R + W &gt; N</h2>
+      <p>
+        In Dynamo-style stores (Cassandra, Riak, DynamoDB) a write is acknowledged once <b>W</b> of <b>N</b> replicas
+        have responded, and a read queries <b>R</b> replicas. If <b>R + W &gt; N</b>, the sets overlap, and a read is
+        guaranteed to see the latest write.
+      </p>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>Setting (N = 3)</th>
+            <th>What you get</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>W = 2, R = 2</td>
+            <td>Majority quorum: consistency, survives the failure of one node</td>
+          </tr>
+          <tr>
+            <td>W = 3, R = 1</td>
+            <td>Fast, fresh reads, but any failed replica blocks writes</td>
+          </tr>
+          <tr>
+            <td>W = 1, R = 3</td>
+            <td>Fast writes, but any failed replica blocks reads</td>
+          </tr>
+          <tr>
+            <td>W = 1, R = 1</td>
+            <td>Maximum availability and speed; reads may be stale</td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>Sloppy quorum and conflict resolution</h2>
+      <p>
+        When replicas are missing, AP systems write to whichever ones are reachable (sloppy quorum, hinted handoff). Once
+        the connection is restored, the sides hold different data that must be reconciled. <b>Last write wins</b>{' '}
+        silently throws one of the versions away. A <b>merge</b> — vector clocks with manual resolution, or CRDTs — loses
+        nothing, but requires data that can be merged (a set, a counter, a shopping cart).
+      </p>
+      <h2>PACELC</h2>
+      <p>
+        An extension of CAP: if there is a partition (<b>P</b>), choose <b>A</b> or <b>C</b>; otherwise (<b>E</b>lse),
+        choose between latency (<b>L</b>atency) and consistency (<b>C</b>). Even on a perfect network, waiting for three
+        replicas takes longer than waiting for one.
+      </p>
+      <Callout>
+        Rule of thumb: money, stock levels and uniqueness (CP) — majority quorum or Raft, the minority rejects requests.
+        Carts, likes, view counters and sessions (AP) — availability plus a lossless merge.
+      </Callout>
+    </div>
+  )
+}
+
 function EventSourcing() {
   return (
     <div className="lesson">
@@ -139,19 +215,83 @@ function EventSourcing() {
   )
 }
 
+function EventSourcingEn() {
+  return (
+    <div className="lesson">
+      <p>
+        A conventional system stores the current state: “balance 700 ₽”. With <b>Event Sourcing</b> you store the entire
+        history of changes: “account opened”, “deposited 1,000”, “withdrew 300”. The current state is a <b>fold</b> over
+        the event log.
+      </p>
+      <h2>Properties of the log</h2>
+      <ul>
+        <li>
+          <b>Append-only.</b> Events are facts about the past: they are never edited or deleted. A mistake is fixed with
+          a new, compensating event.
+        </li>
+        <li>
+          <b>One stream per aggregate.</b> Each account has its own stream of events with version numbers. A command
+          loads the stream, checks the business rules and appends new events.
+        </li>
+        <li>
+          <b>Optimistic concurrency.</b> You may append only at the expected stream version. If someone got there first,
+          it is a conflict: reload and retry.
+        </li>
+      </ul>
+      <h2>Projections and CQRS</h2>
+      <p>
+        Reading the log for every query is impractical, so subscribers build <b>projections</b> — tables tailored to
+        specific queries: balance, statement, report. This is CQRS: the write model (the log) is separated from the read
+        models. A projection can be thrown away at any time and rebuilt by replaying the log from the start.
+      </p>
+      <h2>The cost of the approach</h2>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>Problem</th>
+            <th>Solution</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Long streams load slowly</td>
+            <td>State snapshots every N events</td>
+          </tr>
+          <tr>
+            <td>The event schema changes</td>
+            <td>Event versions and upcasters on read</td>
+          </tr>
+          <tr>
+            <td>Projections lag behind the log</td>
+            <td>Eventual consistency in the UI: “operation accepted”</td>
+          </tr>
+          <tr>
+            <td>Personal data must be “forgotten” (GDPR, Russian Federal Law 152-FZ)</td>
+            <td>Crypto-shredding: delete the encryption key, not the event</td>
+          </tr>
+        </tbody>
+      </table>
+      <Callout>
+        Event Sourcing shines where history is part of the business: money, accounting, logistics, auditing. For simple
+        CRUD it is unnecessary complexity. Start with a single aggregate, not the whole system.
+      </Callout>
+    </div>
+  )
+}
+
 export const dataLessons: Lesson[] = [
   {
     id: 'cap',
-    title: 'CAP, кворумы и PACELC',
-    summary: 'Что выбирает система при разрыве сети и как это настраивается',
+    title: tr('CAP, кворумы и PACELC', 'CAP, quorums and PACELC'),
+    summary: tr('Что выбирает система при разрыве сети и как это настраивается', 'What a system chooses during a network partition, and how to configure it'),
     minutes: 8,
-    Body: Cap,
+    Body: tr(Cap, CapEn),
   },
   {
     id: 'event-sourcing',
-    title: 'Event Sourcing и CQRS',
-    summary: 'Журнал событий как источник истины, проекции, снапшоты, версии',
+    title: tr('Event Sourcing и CQRS', 'Event Sourcing and CQRS'),
+    summary: tr('Журнал событий как источник истины, проекции, снапшоты, версии', 'The event log as the source of truth, projections, snapshots, versions'),
     minutes: 8,
-    Body: EventSourcing,
+    Body: tr(EventSourcing, EventSourcingEn),
   },
 ]

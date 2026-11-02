@@ -26,8 +26,10 @@ import { PROJECTS } from '../sim/monolith/projects'
 import { reviewMission } from '../sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder, type SprintMark } from '../sim/monolith/order'
 import { ReviewPanel } from '../components/ReviewPanel'
+import { RefModal } from '../components/RefCard'
 import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/patterns'
 import { markScenario, useProgress } from '../progress'
+import { tr } from '../i18n'
 
 const W = 1200
 const BOX_W = 180
@@ -64,9 +66,10 @@ export default function MonolithPage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href="#/microservices">Микросервисы</a> / Распил монолита
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/microservices">{tr('Микросервисы', 'Microservices')}</a> /{' '}
+        {tr('Распил монолита', 'Breaking up the monolith')}
       </div>
-      <h1>🪓 Распил монолита</h1>
+      <h1>🪓 {tr('Распил монолита', 'Breaking up the monolith')}</h1>
       <div className="row tabs">
         {PROJECTS.map((p, i) => (
           <button
@@ -75,7 +78,7 @@ export default function MonolithPage() {
             onClick={() => setProjectId(p.id)}
             title={p.short}
           >
-            Уровень {i + 1}: {p.title}{' '}
+            {tr('Уровень', 'Level')} {i + 1}: {p.title}{' '}
             <span className="small">
               {p.missions.filter((m) => progress.scenarios[`monolith/${p.id}/${m.id}`]).length}/{p.missions.length}
             </span>
@@ -94,11 +97,11 @@ function Level({ project }: { project: Project }) {
   return (
     <>
       <div className="row tabs missions">
-        <span className="muted small">Миссия:</span>
+        <span className="muted small">{tr('Миссия:', 'Mission:')}</span>
         {project.missions.map((m) => (
           <button key={m.id} className={m.id === missionId ? 'primary' : ''} onClick={() => setMissionId(m.id)}>
             {progress.scenarios[`monolith/${project.id}/${m.id}`] ? '✓ ' : ''}
-            {m.title} <span className="small">· {m.budget} млн ₽</span>
+            {m.title} <span className="small">· {m.budget} {tr('млн ₽', 'M ₽')}</span>
           </button>
         ))}
       </div>
@@ -121,7 +124,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const metrics = useMemo(() => evaluate(project, state, spent, mission.budget), [project, state, spent, mission.budget])
   const goals = [
     ...mission.goals.map((g) => ({ text: g.text, ok: g.check(metrics) })),
-    { text: `Уложиться в бюджет ${mission.budget} млн ₽`, ok: spent <= mission.budget },
+    { text: tr(`Уложиться в бюджет ${mission.budget} млн ₽`, `Stay within the ${mission.budget} M ₽ budget`), ok: spent <= mission.budget },
   ]
   const t = project.targets
   const solved = goals.every((g) => g.ok)
@@ -221,19 +224,22 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             <p key={para}>{para}</p>
           ))}
           <p className="small muted">
-            Каждое действие — это спринт и стоит денег: вынос модуля, миграция данных, внедрение паттерна, переделка
-            связи. Передумали — деньги уже потрачены; «Отменить» откатывает шаг целиком. Наведите курсор на связь,
-            чтобы узнать, откуда она взялась.
+            {tr(
+              'Каждое действие — это спринт и стоит денег: вынос модуля, миграция данных, внедрение паттерна, переделка связи. Передумали — деньги уже потрачены; «Отменить» откатывает шаг целиком. Наведите курсор на связь, чтобы узнать, откуда она взялась.',
+              'Every action is a sprint and costs money: extracting a module, migrating data, introducing a pattern, reworking a link. Change your mind and the money is already spent; “Undo” rolls back a whole step. Hover over a link to see where it comes from.',
+            )}
           </p>
           <details className="solution">
-            <summary>Показать эталонное решение</summary>
+            <summary>{tr('Показать эталонное решение', 'Show reference solution')}</summary>
             <ol className="small">
               {mission.solutionSteps.map((st) => (
                 <li key={st}>{st}</li>
               ))}
             </ol>
             <details className="solution">
-              <summary>Рекомендуемый порядок по спринтам ({recommended.length})</summary>
+              <summary>
+                {tr('Рекомендуемый порядок по спринтам', 'Recommended sprint order')} ({recommended.length})
+              </summary>
               <ol className="small">
                 {recommended.map((st) => (
                   <li key={st.label}>{st.label}</li>
@@ -243,7 +249,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </details>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? '✅ Миссия выполнена!' : '🎯 Цели'}</h4>
+          <h4>{solved ? tr('✅ Миссия выполнена!', '✅ Mission complete!') : tr('🎯 Цели', '🎯 Goals')}</h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -256,7 +262,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
       {solved && (
         <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>Разбор</h3>
+          <h3>{tr('Разбор', 'Debrief')}</h3>
           {mission.debrief.map((para) => (
             <p key={para}>{para}</p>
           ))}
@@ -265,24 +271,31 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
       {viewingRef && (
         <div className="ref-banner">
-          👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
+          {tr(
+            <>
+              👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
+            </>,
+            <>
+              👁 You are viewing the <b>reference solution</b> — it does not count toward your progress.
+            </>,
+          )}
           <button className="primary" onClick={toggleReference}>
-            ↩ Вернуть моё решение
+            ↩ {tr('Вернуть моё решение', 'Back to my solution')}
           </button>
         </div>
       )}
       <div className="row review-actions">
         {!solved && (
           <button onClick={() => setShowReview(!showReview)}>
-            📋 {showReview ? 'Скрыть оценку' : 'Оценить решение'}
+            📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
           </button>
         )}
-        {!viewingRef && <button onClick={toggleReference}>👁 Показать эталон на схеме</button>}
+        {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
       </div>
       {review && order && (
         <div className="review-pair">
-          <ReviewPanel review={review} title={viewingRef ? 'Итог эталона' : 'Итоговая архитектура'} />
-          <ReviewPanel review={order.review} title={viewingRef ? 'Рекомендуемый порядок' : 'Порядок распила'}>
+          <ReviewPanel review={review} title={viewingRef ? tr('Итог эталона', 'Reference solution result') : tr('Итоговая архитектура', 'Final architecture')} />
+          <ReviewPanel review={order.review} title={viewingRef ? tr('Рекомендуемый порядок', 'Recommended order') : tr('Порядок распила', 'Decomposition order')}>
             <Timeline marks={order.timeline} />
           </ReviewPanel>
         </div>
@@ -293,63 +306,95 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           <div className="metric-value">
             {spent} / {mission.budget}
           </div>
-          <div className="metric-label">потрачено, млн ₽</div>
+          <div className="metric-label">{tr('потрачено, млн ₽', 'spent, M ₽')}</div>
           <div className="progressbar">
             <div style={{ width: `${Math.min(100, (spent / mission.budget) * 100)}%` }} />
           </div>
         </div>
-        <Metric label="независимых релизов" value={`${metrics.independent.length} / ${project.modules.length}`} tone={metrics.independent.length >= 5 ? 'ok' : undefined} />
+        <Metric label={tr('независимых релизов', 'independent releases')} value={`${metrics.independent.length} / ${project.modules.length}`} tone={metrics.independent.length >= 5 ? 'ok' : undefined} />
         <Metric
           label={project.entryLabel}
-          value={`${metrics.flowLatency} мс`}
+          value={tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`)}
           tone={metrics.flowLatency <= t.latency ? 'ok' : 'bad'}
         />
         <Metric
-          label={`доступность: ${project.entryLabel}`}
+          label={tr(`доступность: ${project.entryLabel}`, `availability: ${project.entryLabel}`)}
           value={`${(metrics.flowAvailability * 100).toFixed(2)}%`}
           tone={metrics.flowAvailability >= t.availability ? 'ok' : 'bad'}
         />
         <Metric
-          label="радиус поражения"
+          label={tr('радиус поражения', 'blast radius')}
           value={`${Math.round(metrics.blastRadius * 100)}%`}
           tone={metrics.blastRadius > 0.6 ? 'warn' : 'ok'}
-          title="Какая доля функций в среднем ломается при падении одного компонента"
+          title={tr(
+            'Какая доля функций в среднем ломается при падении одного компонента',
+            'The average share of features that break when a single component fails',
+          )}
         />
-        <Metric label="сервисов / БД" value={`${metrics.services} / ${metrics.databases}`} />
-        <Metric label="сложность" value={metrics.complexity} tone={metrics.complexity <= t.complexity ? 'ok' : 'bad'} />
+        <Metric label={tr('сервисов / БД', 'services / DBs')} value={`${metrics.services} / ${metrics.databases}`} />
+        <Metric label={tr('сложность', 'complexity')} value={metrics.complexity} tone={metrics.complexity <= t.complexity ? 'ok' : 'bad'} />
         <div className="row">
           <button onClick={undo} disabled={!history.length}>
-            ↶ Отменить
+            ↶ {tr('Отменить', 'Undo')}
           </button>
-          <button onClick={reset}>↺ Заново</button>
+          <button onClick={reset}>↺ {tr('Заново', 'Start over')}</button>
         </div>
       </div>
 
       <details className="metrics-help">
-        <summary>Как считаются метрики</summary>
+        <summary>{tr('Как считаются метрики', 'How metrics are calculated')}</summary>
         <ul className="small">
-          <li>
-            <b>Радиус поражения</b> — средняя доля функций, которые перестают работать при падении одного компонента.
-            По очереди «роняем» монолит и каждый сервис: вместе с ним ломаются его модули и все, кто зависит от него
-            синхронно (REST, API, прямой SQL), по цепочке. События, саги и реплики падение не передают, circuit
-            breaker обрывает цепочку на некритичных связях. У монолита радиус 100%: упал процесс — легло всё.
-          </li>
-          <li>
-            <b>Доступность</b> ключевого сценария — произведение доступностей всех процессов и БД, которые он
-            синхронно задевает (каждый 99.9%). Каждый новый синхронный сервис на пути отнимает доступность, ретраи
-            частично возвращают.
-          </li>
-          <li>
-            <b>Латентность</b> — базовые 80 мс плюс 15 мс за каждый сетевой синхронный вызов на пути, плюс шлюз, BFF
-            и sidecar-ы mesh.
-          </li>
-          <li>
-            <b>Независимый релиз</b> — модуль вынесен, у него своя БД, никто не читает его таблицы напрямую и он не
-            участвует в распределённой транзакции без саги.
-          </li>
-          <li>
-            <b>Сложность эксплуатации</b> — 2 за каждый процесс, 1 за каждую БД и стоимость внедрённых паттернов.
-          </li>
+          {tr(
+            <>
+              <li>
+                <b>Радиус поражения</b> — средняя доля функций, которые перестают работать при падении одного компонента.
+                По очереди «роняем» монолит и каждый сервис: вместе с ним ломаются его модули и все, кто зависит от него
+                синхронно (REST, API, прямой SQL), по цепочке. События, саги и реплики падение не передают, circuit
+                breaker обрывает цепочку на некритичных связях. У монолита радиус 100%: упал процесс — легло всё.
+              </li>
+              <li>
+                <b>Доступность</b> ключевого сценария — произведение доступностей всех процессов и БД, которые он
+                синхронно задевает (каждый 99.9%). Каждый новый синхронный сервис на пути отнимает доступность, ретраи
+                частично возвращают.
+              </li>
+              <li>
+                <b>Латентность</b> — базовые 80 мс плюс 15 мс за каждый сетевой синхронный вызов на пути, плюс шлюз, BFF
+                и sidecar-ы mesh.
+              </li>
+              <li>
+                <b>Независимый релиз</b> — модуль вынесен, у него своя БД, никто не читает его таблицы напрямую и он не
+                участвует в распределённой транзакции без саги.
+              </li>
+              <li>
+                <b>Сложность эксплуатации</b> — 2 за каждый процесс, 1 за каждую БД и стоимость внедрённых паттернов.
+              </li>
+            </>,
+            <>
+              <li>
+                <b>Blast radius</b> — the average share of features that stop working when a single component fails.
+                We “take down” the monolith and each service in turn: its modules break along with it, as does everything
+                that depends on it synchronously (REST, API, direct SQL), down the chain. Events, sagas and replicas do
+                not propagate the failure, and a circuit breaker cuts the chain on non-critical links. A monolith has a
+                100% radius: the process goes down and everything goes down with it.
+              </li>
+              <li>
+                <b>Availability</b> of the key scenario is the product of the availabilities of all processes and
+                databases it touches synchronously (99.9% each). Every new synchronous service on the path reduces
+                availability; retries partly win it back.
+              </li>
+              <li>
+                <b>Latency</b> — a base of 80 ms plus 15 ms per synchronous network call on the path, plus the gateway,
+                BFF and mesh sidecars.
+              </li>
+              <li>
+                <b>Independent release</b> — the module is extracted, has its own database, nobody reads its tables
+                directly, and it takes part in no distributed transaction without a saga.
+              </li>
+              <li>
+                <b>Operational complexity</b> — 2 per process, 1 per database, plus the cost of the patterns in use.
+              </li>
+            </>,
+          )}
         </ul>
       </details>
 
@@ -394,8 +439,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
       <div className="mono-bottom">
         <section className="panel">
-          <h4>Проблемы ({metrics.problems.length})</h4>
-          {metrics.problems.length === 0 && <p className="small ok-text">Всё чисто</p>}
+          <h4>
+            {tr('Проблемы', 'Problems')} ({metrics.problems.length})
+          </h4>
+          {metrics.problems.length === 0 && <p className="small ok-text">{tr('Всё чисто', 'All clear')}</p>}
           <ul className="problems">
             {metrics.problems.map((p) => (
               <li key={p.id} className={p.severity}>
@@ -406,13 +453,16 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </section>
         <StressPanel metrics={metrics} />
         <section className="panel events">
-          <h4>Журнал спринтов</h4>
+          <h4>{tr('Журнал спринтов', 'Sprint log')}</h4>
           <ul>
-            {log.length === 0 && <li className="muted">Спринт 0: монолит работает, все страдают</li>}
+            {log.length === 0 && <li className="muted">{tr('Спринт 0: монолит работает, все страдают', 'Sprint 0: the monolith works, everyone suffers')}</li>}
             {log.map((e) => (
               <li key={e.sprint} className={e.tone === 'bad' ? 'error' : e.tone === 'warn' ? 'warn' : 'ok'}>
-                <b>Спринт {e.sprint}:</b> {e.action}
-                {e.cost > 0 && <span className="cost"> −{e.cost} млн ₽</span>}
+                <b>
+                  {tr('Спринт', 'Sprint')} {e.sprint}:
+                </b>{' '}
+                {e.action}
+                {e.cost > 0 && <span className="cost"> −{e.cost} {tr('млн ₽', 'M ₽')}</span>}
                 {e.notes.map((n) => (
                   <div key={n} className="small">
                     {n}
@@ -430,26 +480,34 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 function diff(project: Project, a: Metrics, b: Metrics): { notes: string[]; tone: LogEntry['tone'] } {
   const notes: string[] = []
   if (b.flowLatency !== a.flowLatency)
-    notes.push(`${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} мс`)
+    notes.push(tr(`${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} мс`, `${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} ms`))
   if (Math.abs(b.flowAvailability - a.flowAvailability) > 1e-6)
     notes.push(
-      `доступность: ${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
+      tr(
+        `доступность: ${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
+        `availability: ${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
+      ),
     )
   if (b.independent.length !== a.independent.length)
-    notes.push(`независимых релизов: ${a.independent.length} → ${b.independent.length}`)
+    notes.push(
+      tr(
+        `независимых релизов: ${a.independent.length} → ${b.independent.length}`,
+        `independent releases: ${a.independent.length} → ${b.independent.length}`,
+      ),
+    )
   const old = new Set(a.problems.map((p) => p.id))
   const fresh = b.problems.filter((p) => !old.has(p.id))
   const fixed = a.problems.length - b.problems.filter((p) => old.has(p.id)).length
   for (const p of fresh) {
-    if (p.severity === 'broken') notes.push('⛔ Инцидент: ' + p.text)
-    else if (p.severity === 'risk') notes.push('💥 Через неделю на проде: ' + p.text)
-    else if (p.severity === 'excess') notes.push('🧰 Оверинжиниринг: ' + p.text)
+    if (p.severity === 'broken') notes.push(tr('⛔ Инцидент: ', '⛔ Incident: ') + p.text)
+    else if (p.severity === 'risk') notes.push(tr('💥 Через неделю на проде: ', '💥 A week later in production: ') + p.text)
+    else if (p.severity === 'excess') notes.push(tr('🧰 Оверинжиниринг: ', '🧰 Over-engineering: ') + p.text)
   }
   const passedBefore = new Set(a.stress.filter((t) => t.applies && t.ok).map((t) => t.id))
   for (const t of b.stress) {
-    if (t.applies && t.ok && !passedBefore.has(t.id)) notes.push(`🔥 Учения «${t.title}» теперь проходят`)
+    if (t.applies && t.ok && !passedBefore.has(t.id)) notes.push(tr(`🔥 Учения «${t.title}» теперь проходят`, `🔥 Drill “${t.title}” now passes`))
   }
-  if (fixed > 0) notes.push(`✓ устранено проблем: ${fixed}`)
+  if (fixed > 0) notes.push(tr(`✓ устранено проблем: ${fixed}`, `✓ problems fixed: ${fixed}`))
   const tone = fresh.some((p) => p.severity === 'broken' || p.severity === 'risk')
     ? 'bad'
     : fresh.length
@@ -478,12 +536,16 @@ function Timeline({ marks }: { marks: SprintMark[] }) {
         <span
           key={m.sprint}
           className={'tl-dot ' + m.status}
-          title={`Спринт ${m.sprint}: ${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`}
+          title={tr(
+            `Спринт ${m.sprint}: ${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`,
+            `Sprint ${m.sprint}: ${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`,
+          )}
         />
       ))}
       <span className="small muted tl-legend">
-        {marks.length} спр. · <span className="ok-text">●</span> работает · <span className="warn-text">●</span> риск ·{' '}
-        <span className="bad-text">●</span> сломано
+        {marks.length} {tr('спр.', 'spr.')} · <span className="ok-text">●</span> {tr('работает', 'healthy')} ·{' '}
+        <span className="warn-text">●</span> {tr('риск', 'at risk')} · <span className="bad-text">●</span>{' '}
+        {tr('сломано', 'broken')}
       </span>
     </div>
   )
@@ -499,14 +561,15 @@ const SEVERITY_ICON: Record<Metrics['problems'][number]['severity'], string> = {
 function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metrics; apply: Apply }) {
   const excess = new Set(metrics.problems.filter((p) => p.severity === 'excess').map((p) => p.id.replace('excess-', '')))
   const enabled = (Object.keys(PATTERNS) as PatternId[]).filter((k) => state.infra[k])
-  // какие учения закрывает каждый паттерн — подсказка «зачем он»
-  const covers = (id: PatternId) => metrics.stress.filter((t) => t.applies && t.fix.includes(id)).map((t) => t.title)
+  const [refId, setRefId] = useState<string | null>(null)
   return (
     <section className="panel patterns-panel">
+      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="card-head">
-        <h4>Паттерны</h4>
+        <h4>{tr('Паттерны', 'Patterns')}</h4>
         <span className="small muted">
-          включено {enabled.length} · сложность +{enabled.reduce((s, k) => s + PATTERNS[k].cost, 0)}
+          {tr('включено', 'enabled')} {enabled.length} · {tr('сложность', 'complexity')} +
+          {enabled.reduce((s, k) => s + PATTERNS[k].cost, 0)}
         </span>
       </div>
       <div className="pattern-groups">
@@ -517,12 +580,11 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
               const info = PATTERNS[k]
               const on = state.infra[k]
               const implied = !on && has(state.infra, k)
-              const cov = covers(k)
               return (
                 <label
                   key={k}
                   className={'pattern' + (on ? ' on' : '') + (excess.has(k) ? ' excess' : '') + (implied ? ' implied' : '')}
-                  title={info.desc + (cov.length ? `\n\nПомогает в учениях: ${cov.join('; ')}` : '')}
+                  title={info.desc}
                 >
                   <input
                     type="checkbox"
@@ -530,21 +592,35 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
                     onChange={(e) =>
                       apply(
                         { ...state, infra: { ...state.infra, [k]: e.target.checked } },
-                        `${e.target.checked ? 'внедрили' : 'убрали'} «${info.title}»`,
+                        e.target.checked
+                          ? tr(`внедрили «${info.title}»`, `introduced “${info.title}”`)
+                          : tr(`убрали «${info.title}»`, `removed “${info.title}”`),
                       )
                     }
                   />
                   <span className="pattern-name">
                     {info.icon} {info.title}
                   </span>
-                  {implied && <span className="badge ok">покрыт</span>}
-                  {excess.has(k) && <span className="badge bad">лишний</span>}
+                  <button
+                    type="button"
+                    className="icon info-btn"
+                    title={tr('Что это и когда применять', 'What it is and when to use it')}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setRefId(k)
+                    }}
+                  >
+                    ⓘ
+                  </button>
+                  {implied && <span className="badge ok">{tr('покрыт', 'covered')}</span>}
+                  {excess.has(k) && <span className="badge bad">{tr('лишний', 'unnecessary')}</span>}
                   <span className="small muted">+{info.cost}</span>
                 </label>
               )
             })}
             {g.elsewhere?.map((e) => (
-              <div key={e.title} className="pattern elsewhere" title={`Настраивается: ${e.where}`}>
+              <div key={e.title} className="pattern elsewhere" title={tr(`Настраивается: ${e.where}`, `Configured via: ${e.where}`)}>
                 <span className="pattern-name">↪ {e.title}</span>
                 <span className="small muted">{e.where}</span>
               </div>
@@ -562,19 +638,18 @@ function StressPanel({ metrics }: { metrics: Metrics }) {
   return (
     <section className="panel">
       <h4>
-        🔥 Стресс-тесты {passed} / {relevant.length}
+        🔥 {tr('Стресс-тесты', 'Stress tests')} {passed} / {relevant.length}
       </h4>
       <ul className="stress">
         {metrics.stress.map((t) => (
           <li key={t.id} className={!t.applies ? 'na' : t.ok ? 'ok' : 'fail'}>
             <div>
               {!t.applies ? '·' : t.ok ? '✓' : '✗'} <b>{t.title}</b>
-              {!t.applies && <span className="small muted"> — пока не актуально</span>}
+              {!t.applies && <span className="small muted">{tr(' — пока не актуально', ' — not relevant yet')}</span>}
             </div>
             {t.applies && !t.ok && (
               <div className="small">
-                {t.fail}. Поможет:{' '}
-                {t.fix.map((f) => (f in PATTERNS ? PATTERNS[f as PatternId].title : f)).join(' + ')}
+                {t.fail}. <b>{tr('Что нужно решить:', 'What the system must do:')}</b> {t.need}
               </div>
             )}
           </li>
@@ -594,7 +669,7 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
         {m.icon} {m.title}
       </h4>
       <p className="small muted">
-        {m.desc} · команда «{m.team}»
+        {m.desc} · {tr(<>команда «{m.team}»</>, <>team “{m.team}”</>)}
       </p>
       <div className="row">
         <button
@@ -606,11 +681,15 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
                 extracted: { ...state.extracted, [id]: !ext },
                 ownDb: { ...state.ownDb, [id]: false },
               },
-              ext ? `вернули «${m.title}» в монолит` : `вынесли «${m.title}» в отдельный сервис`,
+              ext
+                ? tr(`вернули «${m.title}» в монолит`, `moved “${m.title}” back into the monolith`)
+                : tr(`вынесли «${m.title}» в отдельный сервис`, `extracted “${m.title}” into a separate service`),
             )
           }
         >
-          {ext ? '↩ Вернуть в монолит' : `🪓 Вынести в сервис · ${effortOf(m)} млн`}
+          {ext
+            ? tr('↩ Вернуть в монолит', '↩ Move back into the monolith')
+            : tr(`🪓 Вынести в сервис · ${effortOf(m)} млн`, `🪓 Extract into a service · ${effortOf(m)} M`)}
         </button>
         {ext && (
           <button
@@ -618,15 +697,19 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
             onClick={() =>
               apply(
                 { ...state, ownDb: { ...state.ownDb, [id]: !state.ownDb[id] } },
-                state.ownDb[id] ? `вернули таблицы «${m.title}» в общую БД` : `выделили «${m.title}» собственную БД`,
+                state.ownDb[id]
+                  ? tr(`вернули таблицы «${m.title}» в общую БД`, `moved the “${m.title}” tables back into the shared database`)
+                  : tr(`выделили «${m.title}» собственную БД`, `gave “${m.title}” its own database`),
               )
             }
           >
-            {state.ownDb[id] ? 'Вернуть в общую БД' : `🗄️ Своя БД · ${effortOf(m)} млн`}
+            {state.ownDb[id]
+              ? tr('Вернуть в общую БД', 'Back to the shared database')
+              : tr(`🗄️ Своя БД · ${effortOf(m)} млн`, `🗄️ Own database · ${effortOf(m)} M`)}
           </button>
         )}
       </div>
-      <h4 style={{ marginTop: 14 }}>Связи</h4>
+      <h4 style={{ marginTop: 14 }}>{tr('Связи', 'Links')}</h4>
       {deps.map((d) => (
         <DepRow key={d.id} project={project} d={d} state={state} apply={apply} />
       ))}
@@ -643,30 +726,35 @@ function DepRow({ project, d, state, apply }: { project: Project; d: Dep; state:
     <div className="dep" title={d.why}>
       <div className="small">
         {from.icon} {from.title} → {to.icon} {to.title}: <b>{d.label}</b>
-        {d.critical && <span className="badge warn" style={{ marginLeft: 6 }}>критично</span>}
+        {d.critical && <span className="badge warn" style={{ marginLeft: 6 }}>{tr('критично', 'critical')}</span>}
       </div>
       {mode === null && options.length > 1 ? (
         <>
-          <div className="small muted">в одном процессе · можно заранее подготовить развязку:</div>
+          <div className="small muted">
+            {tr('в одном процессе · можно заранее подготовить развязку:', 'in one process · you can prepare decoupling in advance:')}
+          </div>
           <select
             value={plannedMode(state, d)}
             onChange={(e) =>
               apply(
                 { ...state, modes: { ...state.modes, [d.id]: e.target.value as DepMode } },
-                `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[e.target.value as DepMode]}`,
+                tr(
+                  `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[e.target.value as DepMode]}`,
+                  `prepared inside the monolith ${from.title} → ${to.title}: ${MODE_LABEL[e.target.value as DepMode]}`,
+                ),
               )
             }
           >
             {options.map((o) => (
               <option key={o} value={o}>
-                {o === defaultMode(d) ? 'оставить как есть' : MODE_LABEL[o]}
-                {MODE_COST[o] ? ` · ${MODE_COST[o]} млн` : ''}
+                {o === defaultMode(d) ? tr('оставить как есть', 'leave as is') : MODE_LABEL[o]}
+                {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`) : ''}
               </option>
             ))}
           </select>
         </>
       ) : mode === null ? (
-        <div className="small muted">в одном процессе: обычный вызов</div>
+        <div className="small muted">{tr('в одном процессе: обычный вызов', 'in one process: a plain call')}</div>
       ) : options.length > 1 ? (
         <select
           value={mode}
@@ -680,7 +768,7 @@ function DepRow({ project, d, state, apply }: { project: Project; d: Dep; state:
           {options.map((o) => (
             <option key={o} value={o}>
               {MODE_LABEL[o]}
-              {MODE_COST[o] ? ` · ${MODE_COST[o]} млн` : ''}
+              {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`) : ''}
             </option>
           ))}
         </select>
@@ -723,7 +811,7 @@ function DepPopover({
         <b>
           {from.icon} {from.title} → {to.icon} {to.title}
         </b>
-        <button className="icon" onClick={onClose} title="Закрыть (Esc)">
+        <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
           ✕
         </button>
       </div>
@@ -731,7 +819,7 @@ function DepPopover({
         <b>{d.label}</b> · {KIND_SHORT[d.kind]}
         {d.critical && (
           <span className="badge warn" style={{ marginLeft: 6 }}>
-            критично
+            {tr('критично', 'critical')}
           </span>
         )}
       </div>
@@ -739,10 +827,13 @@ function DepPopover({
       {mode === null ? (
         <>
           <p className="small">
-            Сейчас это вызов внутри одного процесса.
+            {tr('Сейчас это вызов внутри одного процесса.', 'Right now this is a call within a single process.')}
             {options.length > 1
-              ? ' Развязку можно подготовить заранее, ещё в монолите — тогда вынос модуля пройдёт без инцидентов:'
-              : ' Вынесите один из модулей, чтобы выбрать способ связи.'}
+              ? tr(
+                  ' Развязку можно подготовить заранее, ещё в монолите — тогда вынос модуля пройдёт без инцидентов:',
+                  ' You can prepare decoupling in advance, while still in the monolith — then extracting the module will go without incidents:',
+                )
+              : tr(' Вынесите один из модулей, чтобы выбрать способ связи.', ' Extract one of the modules to choose how they communicate.')}
           </p>
           {options.length > 1 && (
             <div className="mode-options">
@@ -756,12 +847,15 @@ function DepPopover({
                       if (o !== cur)
                         apply(
                           { ...state, modes: { ...state.modes, [d.id]: o } },
-                          `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[o]}`,
+                          tr(
+                            `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[o]}`,
+                            `prepared inside the monolith ${from.title} → ${to.title}: ${MODE_LABEL[o]}`,
+                          ),
                         )
                     }}
                   >
-                    {o === defaultMode(d) ? 'оставить как есть' : MODE_LABEL[o]}
-                    {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} млн</span> : null}
+                    {o === defaultMode(d) ? tr('оставить как есть', 'leave as is') : MODE_LABEL[o]}
+                    {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M')}</span> : null}
                   </button>
                 )
               })}
@@ -772,7 +866,7 @@ function DepPopover({
               .filter((m) => !state.extracted[m.id])
               .map((m) => (
                 <button key={m.id} onClick={() => onSelectModule(m.id)}>
-                  Открыть «{m.title}»
+                  {tr(<>Открыть «{m.title}»</>, <>Open “{m.title}”</>)}
                 </button>
               ))}
           </div>
@@ -793,11 +887,16 @@ function DepPopover({
               }}
             >
               {MODE_LABEL[o]}
-              {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} млн</span> : null}
+              {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M')}</span> : null}
             </button>
           ))}
           {options.length === 1 && (
-            <p className="small muted">Критичный вызов: ответ нужен до продолжения операции, поэтому только синхронно.</p>
+            <p className="small muted">
+              {tr(
+                'Критичный вызов: ответ нужен до продолжения операции, поэтому только синхронно.',
+                'Critical call: the response is needed before the operation can continue, so only synchronous.',
+              )}
+            </p>
           )}
         </div>
       )}
@@ -912,7 +1011,7 @@ function MonolithCanvas({
       <g>
         <rect x={50} y={20} width={140} height={44} rx={8} className="mono-client" />
         <text x={120} y={47} className="mono-label" textAnchor="middle">
-          📱 Клиенты
+          📱 {tr('Клиенты', 'Clients')}
         </text>
       </g>
       {state.infra.gateway && (
@@ -920,7 +1019,7 @@ function MonolithCanvas({
           <line x1={190} y1={42} x2={260} y2={92} className="mflow mflow-sync" />
           <rect x={260} y={72} width={160} height={40} rx={8} className="mono-gw" />
           <text x={340} y={97} className="mono-label" textAnchor="middle">
-            🚪 Strangler-фасад
+            🚪 {tr('Strangler-фасад', 'Strangler facade')}
           </text>
         </g>
       )}
@@ -975,9 +1074,9 @@ function MonolithCanvas({
         className={'mono-box' + (anyExtracted ? ' shrinking' : '')}
       />
       <text x={MONO.x + 16} y={MONO.y + 24} className="mono-title">
-        🏛 Монолит
+        🏛 {tr('Монолит', 'Monolith')}
       </text>
-      <Cylinder x={MONO_DB.x} y={MONO_DB.y} w={MONO_DB.w} h={MONO_DB.h} label="Общая БД" />
+      <Cylinder x={MONO_DB.x} y={MONO_DB.y} w={MONO_DB.w} h={MONO_DB.h} label={tr('Общая БД', 'Shared database')} />
 
       {state.infra.kafka && (
         <g className="appear">
@@ -992,14 +1091,14 @@ function MonolithCanvas({
           d={`M${MONO_DB.x + MONO_DB.w},${MONO_DB.y + MONO_DB.h / 2} Q${MONO_DB.x + MONO_DB.w + 200},${MONO_DB.y + 20} 560,${H - 26}`}
           className="mflow mflow-async"
         >
-          <title>CDC: изменения из журнала транзакций БД уходят в брокер</title>
+          <title>{tr('CDC: изменения из журнала транзакций БД уходят в брокер', 'CDC: changes from the database transaction log go to the broker')}</title>
         </path>
       )}
       {state.infra.sagaOrchestrator && (
         <g className="appear">
           <rect x={560} y={H - 80} width={190} height={30} rx={6} className="mono-gw" />
           <text x={655} y={H - 60} className="mono-label small-label" textAnchor="middle">
-            🎼 Оркестратор саг
+            🎼 {tr('Оркестратор саг', 'Saga orchestrator')}
           </text>
         </g>
       )}
@@ -1017,7 +1116,7 @@ function MonolithCanvas({
           <path d={path} className={cls}>
             <title>
               {d.label}: {d.why}
-              {mode ? ` Сейчас: ${MODE_LABEL[mode]}.` : ''}
+              {mode ? tr(` Сейчас: ${MODE_LABEL[mode]}.`, ` Now: ${MODE_LABEL[mode]}.`) : ''}
             </title>
           </path>
           {isBroken && (
@@ -1045,13 +1144,17 @@ function MonolithCanvas({
               {m.icon} {m.title}
             </text>
             <text x={12} y={44} className="bnode-sub">
-              {ext ? (indep ? '🚀 независимый релиз' : 'сервис') : 'модуль монолита'}
+              {ext
+                ? indep
+                  ? tr('🚀 независимый релиз', '🚀 independent release')
+                  : tr('сервис', 'service')
+                : tr('модуль монолита', 'monolith module')}
             </text>
             {ext && state.ownDb[m.id] && <Cylinder x={BOX_W + 14} y={6} w={52} h={44} label="" small />}
             {ext && state.infra.mesh && (
               <g className="appear sidecar">
                 <rect x={BOX_W - 8} y={-8} width={16} height={16} rx={4} />
-                <title>Sidecar-прокси service mesh</title>
+                <title>{tr('Sidecar-прокси service mesh', 'Service mesh sidecar proxy')}</title>
               </g>
             )}
             {ext && state.infra.containers && (
@@ -1141,15 +1244,15 @@ const RAIL: PatternId[] = [
 const MODE_SHORT: Record<DepMode, string> = {
   sync: 'REST',
   api: 'API',
-  async: 'событие',
-  saga: 'сага',
-  replica: 'реплика',
-  direct: 'SQL в чужую БД',
+  async: tr('событие', 'event'),
+  saga: tr('сага', 'saga'),
+  replica: tr('реплика', 'replica'),
+  direct: tr('SQL в чужую БД', 'SQL into another DB'),
 }
 
 const KIND_SHORT: Record<Dep['kind'], string> = {
-  call: 'вызов',
-  tx: 'общая транзакция',
+  call: tr('вызов', 'call'),
+  tx: tr('общая транзакция', 'shared transaction'),
   read: 'JOIN',
 }
 

@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { tr } from '../../i18n'
 import { KINDS, WORKLOADS, isStorage, type BEdge, type BNode, type Result } from './model'
 
 export const NODE_W = 150
@@ -205,7 +206,7 @@ export function BuilderCanvas({
             )}
             {n.kind === 'client' ? (
               <text x={12} y={64} className="bnode-sub" style={{ fill: color }}>
-                ✓ {((st?.success ?? 1) * 100).toFixed(1)}% · {Math.round(st?.latency ?? 0)} мс
+                ✓ {((st?.success ?? 1) * 100).toFixed(1)}% · {Math.round(st?.latency ?? 0)} {tr('мс', 'ms')}
               </text>
             ) : (
               <>
@@ -223,14 +224,14 @@ export function BuilderCanvas({
             )}
             {st?.deadEnd && (
               <text x={0} y={-6} className="bnode-warn">
-                ⚠ тупик: запросам некуда идти
-                <title>Подключите к этому блоку то, что обработает запросы дальше</title>
+                ⚠ {tr('тупик: запросам некуда идти', 'dead end: requests have nowhere to go')}
+                <title>{tr('Подключите к этому блоку то, что обработает запросы дальше', 'Connect something to this block to handle requests further')}</title>
               </text>
             )}
             {(st?.unsupported ?? 0) > 0 && (
               <text x={NODE_W} y={-6} textAnchor="end" className="bnode-warn">
-                ⚠ не умеет {Math.round((st?.unsupported ?? 0) * 100)}%
-                <title>Это хранилище не подходит для части запросов: они падают</title>
+                ⚠ {tr('не умеет', 'unsupported')} {Math.round((st?.unsupported ?? 0) * 100)}%
+                <title>{tr('Это хранилище не подходит для части запросов: они падают', 'This storage cannot handle some of the requests: they fail')}</title>
               </text>
             )}
             {!isStorage(n.kind) && (
@@ -245,7 +246,7 @@ export function BuilderCanvas({
                   setLink({ from: n.id, x: p.x, y: p.y })
                 }}
               >
-                <title>Потяните, чтобы связать</title>
+                <title>{tr('Потяните, чтобы связать', 'Drag to connect')}</title>
               </circle>
             )}
           </g>

@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useRef, useState } from 'react'
 import type { Module } from '../content/types'
 import { KafkaSimulator } from '../sim/kafka/KafkaSimulator'
@@ -44,17 +45,17 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
     const p = holdStart.current === null ? 0 : Math.min(1, (sim.now - holdStart.current) / g.holdSeconds)
     const solved = p >= 1
     if (solved) markScenario(key)
-    setGoal({ progress: p, status: (armed ? '' : 'ждём аварию · ') + g.status(sim), solved })
+    setGoal({ progress: p, status: (armed ? '' : tr('ждём аварию · ', 'waiting for the failure · ')) + g.status(sim), solved })
   }
 
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href={href(mod.id)}>{mod.title}</a> / Инцидент
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Инцидент', 'Incident')}
       </div>
       <h1>
         🚨 {scenario.title} <span className="small muted">{'★'.repeat(scenario.difficulty)}</span>
-        {progress.scenarios[key] && !goal.solved && <span className="badge ok" style={{ marginLeft: 12 }}>решено ранее</span>}
+        {progress.scenarios[key] && !goal.solved && <span className="badge ok" style={{ marginLeft: 12 }}>{tr('решено ранее', 'solved earlier')}</span>}
       </h1>
       <div className="scenario-head">
         <div className="panel lesson">
@@ -67,11 +68,11 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
             </ol>
           )}
           {hints < scenario.hints.length && !goal.solved && (
-            <button onClick={() => setHints(hints + 1)}>💡 Подсказка ({hints}/{scenario.hints.length})</button>
+            <button onClick={() => setHints(hints + 1)}>💡 {tr('Подсказка', 'Hint')} ({hints}/{scenario.hints.length})</button>
           )}
         </div>
         <div className={'panel goal' + (goal.solved ? ' success' : '')}>
-          <h4>{goal.solved ? '✅ Решено!' : '🎯 Цель'}</h4>
+          <h4>{goal.solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цель', '🎯 Goal')}</h4>
           <div>{scenario.goal.text}</div>
           <div className="progressbar">
             <div style={{ width: `${goal.progress * 100}%` }} />
@@ -81,16 +82,16 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
       </div>
       {goal.solved && (
         <div className="panel success lesson" style={{ marginBottom: 16 }}>
-          <h3>Разбор</h3>
+          <h3>{tr('Разбор', 'Debrief')}</h3>
           {scenario.debrief}
           <div className="row">
             {next ? (
               <a href={href(mod.id, 'scenario', next.id)}>
-                <button className="primary">Следующий инцидент: {next.title} →</button>
+                <button className="primary">{tr('Следующий инцидент', 'Next incident')}: {next.title} →</button>
               </a>
             ) : (
               <a href={href(mod.id)}>
-                <button className="primary">К модулю</button>
+                <button className="primary">{tr('К модулю', 'Back to module')}</button>
               </a>
             )}
           </div>

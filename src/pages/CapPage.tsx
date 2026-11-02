@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
 import { markScenario, useProgress } from '../progress'
+import { tr } from '../i18n'
 
 export default function CapPage() {
   const progress = useProgress()
@@ -10,9 +11,9 @@ export default function CapPage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href="#/data">Распределённые данные</a> / CAP и кворумы
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/data">{tr('Распределённые данные', 'Distributed data')}</a> / {tr('CAP и кворумы', 'CAP and quorums')}
       </div>
-      <h1>⚖️ CAP и кворумы</h1>
+      <h1>⚖️ {tr('CAP и кворумы', 'CAP and quorums')}</h1>
       <div className="row tabs">
         {CAP_TASKS.map((t, i) => (
           <button key={t.id} className={t.id === id ? 'primary' : ''} onClick={() => setId(t.id)}>
@@ -88,7 +89,7 @@ function CapLab({ task }: { task: CapTask }) {
           <div className="row">
             {hints < task.hints.length && !solved && (
               <button onClick={() => setHints(hints + 1)}>
-                💡 Подсказка ({hints}/{task.hints.length})
+                💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -100,7 +101,7 @@ function CapLab({ task }: { task: CapTask }) {
                   setPos(0)
                 }}
               >
-                ↩ Вернуть мои настройки
+                {tr('↩ Вернуть мои настройки', '↩ Restore my settings')}
               </button>
             ) : (
               <button
@@ -110,13 +111,13 @@ function CapLab({ task }: { task: CapTask }) {
                   setPos(0)
                 }}
               >
-                👁 Показать эталон
+                {tr('👁 Показать эталон', '👁 Show reference')}
               </button>
             )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? '👁 Эталон' : '✅ Решено!') : '🎯 Цели'}</h4>
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}</h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -124,61 +125,66 @@ function CapLab({ task }: { task: CapTask }) {
               </li>
             ))}
           </ul>
-          <p className="small muted">Цели проверяются по всему сценарию — прогоните его до конца, чтобы увидеть, где что пошло не так.</p>
+          <p className="small muted">
+            {tr(
+              'Цели проверяются по всему сценарию — прогоните его до конца, чтобы увидеть, где что пошло не так.',
+              'Goals are checked against the whole scenario — play it to the end to see where things went wrong.',
+            )}
+          </p>
         </div>
       </div>
       {solved && !mine && (
         <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>Разбор</h3>
+          <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
         </div>
       )}
 
       <div className="cap-grid">
         <aside className="panel">
-          <h4>Настройки хранилища</h4>
+          <h4>{tr('Настройки хранилища', 'Storage settings')}</h4>
           <label>
-            реплик N
+            {tr('реплик N', 'replicas N')}
             <select value={cfg.n} disabled={fixed('n')} onChange={(e) => set({ n: Number(e.target.value) as 3 | 5 })}>
               <option value={3}>3 (A: 2, B: 1)</option>
               <option value={5}>5 (A: 3, B: 2)</option>
             </select>
           </label>
           <label>
-            подтверждений записи W = {cfg.w}
+            {tr('подтверждений записи W', 'write acknowledgements W')} = {cfg.w}
             <input type="range" min={1} max={cfg.n} value={cfg.w} disabled={fixed('w')} onChange={(e) => set({ w: Number(e.target.value) })} />
           </label>
           <label>
-            реплик на чтение R = {cfg.r}
+            {tr('реплик на чтение R', 'replicas per read R')} = {cfg.r}
             <input type="range" min={1} max={cfg.n} value={cfg.r} disabled={fixed('r')} onChange={(e) => set({ r: Number(e.target.value) })} />
           </label>
           <div className={'small ' + (cfg.r + cfg.w > cfg.n ? 'ok-text' : 'warn-text')}>
             R + W = {cfg.r + cfg.w} {cfg.r + cfg.w > cfg.n ? '>' : '≤'} N = {cfg.n}
-            {cfg.r + cfg.w > cfg.n ? ' — кворумы пересекаются' : ' — чтение может не увидеть запись'}
+            {cfg.r + cfg.w > cfg.n ? tr(' — кворумы пересекаются', ' — quorums overlap') : tr(' — чтение может не увидеть запись', ' — a read may miss a write')}
           </div>
           <label>
-            если реплик меньше W или R
+            {tr('если реплик меньше W или R', 'if fewer than W or R replicas')}
             <select value={cfg.shortfall} disabled={fixed('shortfall')} onChange={(e) => set({ shortfall: e.target.value as CapConfig['shortfall'] })}>
-              <option value="reject">отказать (строгий кворум)</option>
-              <option value="sloppy">работать с теми, что есть (sloppy quorum)</option>
+              <option value="reject">{tr('отказать (строгий кворум)', 'reject (strict quorum)')}</option>
+              <option value="sloppy">{tr('работать с теми, что есть (sloppy quorum)', 'use whatever is available (sloppy quorum)')}</option>
             </select>
           </label>
           <label>
-            расхождения после восстановления
+            {tr('расхождения после восстановления', 'conflicts after recovery')}
             <select value={cfg.resolve} disabled={fixed('resolve')} onChange={(e) => set({ resolve: e.target.value as CapConfig['resolve'] })}>
-              <option value="lww">последняя запись побеждает (LWW)</option>
-              <option value="merge">слить данные обеих сторон</option>
+              <option value="lww">{tr('последняя запись побеждает (LWW)', 'last write wins (LWW)')}</option>
+              <option value="merge">{tr('слить данные обеих сторон', 'merge data from both sides')}</option>
             </select>
           </label>
           <table className="cmp small">
             <tbody>
               <tr>
-                <td>чтение</td>
-                <td>{latencyFor(cfg.r)} мс</td>
+                <td>{tr('чтение', 'read')}</td>
+                <td>{latencyFor(cfg.r)} {tr('мс', 'ms')}</td>
               </tr>
               <tr>
-                <td>запись</td>
-                <td>{latencyFor(cfg.w)} мс</td>
+                <td>{tr('запись', 'write')}</td>
+                <td>{latencyFor(cfg.w)} {tr('мс', 'ms')}</td>
               </tr>
             </tbody>
           </table>
@@ -190,42 +196,42 @@ function CapLab({ task }: { task: CapTask }) {
               ◀
             </button>
             <button className="primary" onClick={() => (pos >= run.log.length ? (setPos(0), setPlaying(true)) : setPlaying(!playing))}>
-              {playing ? '⏸ Пауза' : pos >= run.log.length ? '↺ Сначала' : '▶ Проиграть'}
+              {playing ? tr('⏸ Пауза', '⏸ Pause') : pos >= run.log.length ? tr('↺ Сначала', '↺ Restart') : tr('▶ Проиграть', '▶ Play')}
             </button>
             <button onClick={() => setPos(Math.min(run.log.length, pos + 1))} disabled={pos >= run.log.length}>
-              ▶ Шаг
+              {tr('▶ Шаг', '▶ Step')}
             </button>
-            <button onClick={() => setPos(run.log.length)}>⏩ До конца</button>
+            <button onClick={() => setPos(run.log.length)}>{tr('⏩ До конца', '⏩ To the end')}</button>
             <span className="small muted">
-              шаг {pos} из {run.log.length}
+              {tr(`шаг ${pos} из ${run.log.length}`, `step ${pos} of ${run.log.length}`)}
             </span>
           </div>
           <div className={'cap-dcs' + (partitioned ? ' partitioned' : '')}>
             {(['A', 'B'] as Dc[]).map((dc) => (
               <div key={dc} className="cap-dc">
-                <h4>Дата-центр {dc}</h4>
+                <h4>{tr(`Дата-центр ${dc}`, `Data center ${dc}`)}</h4>
                 {nodes
                   .filter((x) => x.dc === dc)
                   .map((x) => (
                     <div key={x.id} className={'cap-node' + (x.up ? '' : ' down')}>
                       <div className="card-head">
-                        <b>Узел {x.id}</b>
-                        <span className={'badge ' + (x.up ? 'ok' : 'bad')}>{x.up ? 'в строю' : 'упал'}</span>
+                        <b>{tr(`Узел ${x.id}`, `Node ${x.id}`)}</b>
+                        <span className={'badge ' + (x.up ? 'ok' : 'bad')}>{x.up ? tr('в строю', 'up') : tr('упал', 'down')}</span>
                       </div>
                       <div className="cap-items">
-                        {x.items.length ? x.items.map((it) => <span key={it} className="cap-item">{it}</span>) : <span className="muted small">пусто</span>}
+                        {x.items.length ? x.items.map((it) => <span key={it} className="cap-item">{it}</span>) : <span className="muted small">{tr('пусто', 'empty')}</span>}
                       </div>
                     </div>
                   ))}
               </div>
             ))}
-            <div className="cap-link">{partitioned ? '✂️ разрыв' : '🔗'}</div>
+            <div className="cap-link">{partitioned ? tr('✂️ разрыв', '✂️ partition') : '🔗'}</div>
           </div>
           {current && <div className={'cap-current ' + current.outcome}>{current.text}</div>}
         </div>
 
         <aside className="panel">
-          <h4>Сценарий</h4>
+          <h4>{tr('Сценарий', 'Scenario')}</h4>
           <ol className="cap-steps">
             {run.log.map((s, i) => (
               <li
@@ -236,42 +242,42 @@ function CapLab({ task }: { task: CapTask }) {
               >
                 {STEP_LABEL[s.step.t]}{' '}
                 {s.step.t === 'write'
-                  ? `${s.step.client}: записать «${s.step.item}»`
+                  ? tr(`${s.step.client}: записать «${s.step.item}»`, `${s.step.client}: write “${s.step.item}”`)
                   : s.step.t === 'read'
-                    ? `${s.step.client}: прочитать`
+                    ? tr(`${s.step.client}: прочитать`, `${s.step.client}: read`)
                     : s.step.t === 'partition'
-                      ? 'разрыв связи A ↔ B'
+                      ? tr('разрыв связи A ↔ B', 'network partition A ↔ B')
                       : s.step.t === 'heal'
-                        ? 'связь восстановлена'
+                        ? tr('связь восстановлена', 'connection restored')
                         : s.step.t === 'down'
-                          ? `узел ${s.step.node} падает`
-                          : `узел ${s.step.node} возвращается`}
+                          ? tr(`узел ${s.step.node} падает`, `node ${s.step.node} goes down`)
+                          : tr(`узел ${s.step.node} возвращается`, `node ${s.step.node} comes back`)}
                 {'note' in s.step && s.step.note && <span className="muted"> — {s.step.note}</span>}
-                {i < pos && s.outcome === 'rejected' && <b className="warn-text"> · отказ</b>}
-                {i < pos && s.outcome === 'stale' && <b className="bad-text"> · устарело</b>}
+                {i < pos && s.outcome === 'rejected' && <b className="warn-text"> · {tr('отказ', 'rejected')}</b>}
+                {i < pos && s.outcome === 'stale' && <b className="bad-text"> · {tr('устарело', 'stale')}</b>}
               </li>
             ))}
           </ol>
           <table className="cmp small">
             <tbody>
               <tr>
-                <td>отказов записи A / B</td>
+                <td>{tr('отказов записи A / B', 'rejected writes A / B')}</td>
                 <td>
                   {m.rejectedWrites.A} / {m.rejectedWrites.B}
                 </td>
               </tr>
               <tr>
-                <td>отказов чтения A / B</td>
+                <td>{tr('отказов чтения A / B', 'rejected reads A / B')}</td>
                 <td>
                   {m.rejectedReads.A} / {m.rejectedReads.B}
                 </td>
               </tr>
               <tr className={m.staleReads ? 'bad-text' : ''}>
-                <td>устаревших чтений</td>
+                <td>{tr('устаревших чтений', 'stale reads')}</td>
                 <td>{m.staleReads}</td>
               </tr>
               <tr className={m.lostWrites.length ? 'bad-text' : ''}>
-                <td>потеряно подтверждённых</td>
+                <td>{tr('потеряно подтверждённых', 'acknowledged writes lost')}</td>
                 <td>{m.lostWrites.length ? m.lostWrites.join(', ') : 0}</td>
               </tr>
             </tbody>

@@ -99,6 +99,7 @@ import {
   type Patterns,
   type StressContext,
 } from './patterns'
+import { tr } from '../../i18n'
 
 export interface Goal {
   text: string
@@ -172,12 +173,12 @@ export function plannedMode(s: State, d: Dep): DepMode {
 }
 
 export const MODE_LABEL: Record<DepMode, string> = {
-  sync: 'синхронный вызов (REST)',
-  async: 'асинхронное событие',
-  saga: 'сага на событиях',
-  direct: 'прямой SQL в чужую БД',
-  api: 'запрос в API владельца',
-  replica: 'реплика по событиям (CQRS)',
+  sync: tr('синхронный вызов (REST)', 'synchronous call (REST)'),
+  async: tr('сообщение через посредника, без ожидания ответа', 'message via an intermediary, no waiting for a reply'),
+  saga: tr('шаги по событиям с откатом, если шаг не удался', 'steps via events, rolled back if a step fails'),
+  direct: tr('прямой SQL в чужую БД', 'direct SQL into another module\'s DB'),
+  api: tr('запрос в API владельца', 'call the owner\'s API'),
+  replica: tr('своя копия данных, обновляется по событиям', 'own copy of the data, updated by events'),
 }
 
 export interface Problem {
@@ -207,6 +208,7 @@ export interface StressResult {
   ok: boolean
   fix: (PatternId | string)[]
   fail: string
+  need: string
 }
 
 const BASE_LATENCY = 80
@@ -234,20 +236,26 @@ export function computeMetrics(p: Project, s: State): Metrics {
     const a = p.modules.find((x) => x.id === d.from)!.title
     const b = p.modules.find((x) => x.id === d.to)!.title
     if ((m === 'async' || m === 'saga' || m === 'replica') && !has(s.infra, 'kafka')) {
-      problems.push({ id: `${d.id}-nokafka`, severity: 'broken', text: `${a} → ${b}: выбран обмен событиями, но брокера нет` })
+      problems.push({ id: `${d.id}-nokafka`, severity: 'broken', text: tr(`${a} → ${b}: выбран обмен событиями, но брокера нет`, `${a} → ${b}: event messaging is selected, but there is no broker`) })
     }
     if ((m === 'async' || m === 'saga' || m === 'replica') && has(s.infra, 'kafka') && !has(s.infra, 'outbox') && !has(s.infra, 'cdc')) {
       problems.push({
         id: `${d.id}-dualwrite`,
         severity: 'risk',
-        text: `${a} → ${b}: dual write — запись в БД и публикация события не атомарны, событие может потеряться (нужен Outbox или CDC)`,
+        text: tr(
+          `${a} → ${b}: dual write — запись в БД и публикация события не атомарны, событие может потеряться (нужен Outbox или CDC)`,
+          `${a} → ${b}: dual write — the DB write and event publishing are not atomic, so the event may be lost (Outbox or CDC needed)`,
+        ),
       })
     }
     if (d.kind === 'tx' && m === 'sync') {
       problems.push({
         id: `${d.id}-tx`,
         severity: 'risk',
-        text: `${a} → ${b}: была ACID-транзакция, стали два сетевых вызова. Сбой между ними оставит данные записанными наполовину (${d.label})`,
+        text: tr(
+          `${a} → ${b}: была ACID-транзакция, стали два сетевых вызова. Сбой между ними оставит данные записанными наполовину (${d.label})`,
+          `${a} → ${b}: an ACID transaction became two network calls. A failure between them leaves the data half-written (${d.label})`,
+        ),
       })
     }
     if (d.kind === 'read' && m === 'direct') {
@@ -255,13 +263,19 @@ export function computeMetrics(p: Project, s: State): Metrics {
         problems.push({
           id: `${d.id}-broken`,
           severity: 'broken',
-          text: `${a} → ${b}: таблицы «${b}» переехали в отдельную БД, прямой SQL больше не работает (${d.label})`,
+          text: tr(
+            `${a} → ${b}: таблицы «${b}» переехали в отдельную БД, прямой SQL больше не работает (${d.label})`,
+            `${a} → ${b}: the “${b}” tables moved to a separate database, so direct SQL no longer works (${d.label})`,
+          ),
         })
       } else {
         problems.push({
           id: `${d.id}-shared`,
           severity: 'warn',
-          text: `${a} → ${b}: читает чужие таблицы напрямую — схему «${b}» нельзя менять без согласования`,
+          text: tr(
+            `${a} → ${b}: читает чужие таблицы напрямую — схему «${b}» нельзя менять без согласования`,
+            `${a} → ${b}: reads another module's tables directly — the “${b}” schema cannot change without coordination`,
+          ),
         })
       }
     }
@@ -271,7 +285,10 @@ export function computeMetrics(p: Project, s: State): Metrics {
       problems.push({
         id: `${m.id}-shareddb`,
         severity: 'warn',
-        text: `${m.title}: отдельный сервис, но общая БД с монолитом — распределённый монолит`,
+        text: tr(
+          `${m.title}: отдельный сервис, но общая БД с монолитом — распределённый монолит`,
+          `${m.title}: a separate service, but a shared database with the monolith — a distributed monolith`,
+        ),
       })
     }
   }
@@ -279,14 +296,20 @@ export function computeMetrics(p: Project, s: State): Metrics {
     problems.push({
       id: 'no-gateway',
       severity: 'broken',
-      text: 'Клиенты ходят напрямую в монолит: запросы к вынесенным модулям уходят в никуда. Нужен strangler-фасад',
+      text: tr(
+        'Клиенты ходят напрямую в монолит: запросы к вынесенным модулям уходят в никуда. Нужен strangler-фасад',
+        'Clients call the monolith directly: requests to extracted modules go nowhere. A strangler facade is needed',
+      ),
     })
   }
   if (ext.length >= 3 && !has(s.infra, 'tracing')) {
     problems.push({
       id: 'no-tracing',
       severity: 'warn',
-      text: 'Сервисов много, трассировки нет: поиск причины инцидента займёт часы',
+      text: tr(
+        'Сервисов много, трассировки нет: поиск причины инцидента займёт часы',
+        'Many services and no tracing: finding the root cause of an incident will take hours',
+      ),
     })
   }
 
@@ -376,10 +399,11 @@ export function computeMetrics(p: Project, s: State): Metrics {
     applies: t.applies(ctx),
     ok: t.ok(ctx),
     fix: t.fix,
+    need: t.need,
     fail: t.fail,
   }))
   for (const e of excessPatterns(s.infra, ctx)) {
-    problems.push({ id: `excess-${e.id}`, severity: 'excess', text: `Лишний паттерн «${PATTERN_TITLE(e.id)}»: ${e.reason}` })
+    problems.push({ id: `excess-${e.id}`, severity: 'excess', text: tr(`Лишний паттерн «${PATTERN_TITLE(e.id)}»: ${e.reason}`, `Unnecessary pattern “${PATTERN_TITLE(e.id)}”: ${e.reason}`) })
   }
 
   return {

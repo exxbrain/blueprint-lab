@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { tr } from '../../i18n'
 import { BOUNDARY, CANVAS, EL_H, EL_W, KIND_INFO, type C4Exercise, type DiagramState, type Placed } from './model'
 
 /** Тип данных при перетаскивании карточки из списка кандидатов */
@@ -116,7 +117,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
         const mx = (p1.x + p2.x) / 2
         const my = (p1.y + p2.y) / 2
         const sel = selected === r.id
-        const label = r.label.trim() || '⚠ без подписи'
+        const label = r.label.trim() || tr('⚠ без подписи', '⚠ no label')
         return (
           <g
             key={r.id}
@@ -160,7 +161,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
       {diagram.placed.map((p) => {
         const c = cardOf(p.card)
         const kind = p.kind
-        const typeLine = kind ? `[${KIND_INFO[kind].title}${p.tech.trim() ? ': ' + p.tech : ''}]` : '[тип не выбран]'
+        const typeLine = kind ? `[${KIND_INFO[kind].title}${p.tech.trim() ? ': ' + p.tech : ''}]` : tr('[тип не выбран]', '[no type]')
         return (
           <g
             key={p.card}
@@ -195,7 +196,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
                 setLink({ from: p.card, x: pt.x, y: pt.y })
               }}
             >
-              <title>Потяните к другому элементу, чтобы провести связь</title>
+              <title>{tr('Потяните к другому элементу, чтобы провести связь', 'Drag to another element to draw a relationship')}</title>
             </circle>
           </g>
         )

@@ -13,6 +13,7 @@ import { reviewBuilder } from '../src/sim/builder/review'
 import { C4_EXERCISES } from '../src/sim/c4/exercises'
 import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
 import { CAP_TASKS, runCap } from '../src/sim/cap/model'
+import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
 
 let failed = 0
@@ -146,6 +147,36 @@ console.log('\nЛовушки конструктора')
       fail(`«${c.title}» решается и без ${c.tool}`)
   }
   console.log(`- ${builderChallenges.filter((x) => x.tool).length} задач на инструмент не решаются без своего инструмента`)
+}
+
+// подсказки должны вести к решению через свойства, а не называть инструмент или паттерн
+console.log('\nПодсказки без названий инструментов и паттернов')
+{
+  const tools = /redis|kafka|\bcdn\b|elasticsearch|clickhouse|cassandra|mongo|\bs3\b|кэш|кеш|\bcache|очеред|\bqueue|поисков\w* движ|search engine|колоночн|columnar|объектн\w* хранилищ|object storage|балансировщик|load balancer/i
+  const patterns = /cqrs|event-driven|fan-out|\bsaga|\bсаг[аиуеой]|outbox|\bcdc\b|circuit|bulkhead|backoff|jitter|idempoten|идемпотент|canary|blue-green|tracing|трассировк|\bmtls\b|\bjwt\b|access token|\bbff\b|backend for frontend|service mesh|discovery|rate limit|anti-corruption|contract|контракт|event sourcing|cache-aside|read-through/i
+  let n = 0
+  for (const c of builderChallenges)
+    for (const h of c.hints) {
+      n++
+      const m = h.match(tools) ?? h.match(patterns)
+      if (m) fail(`подсказка задачи «${c.title}» называет «${m[0]}»: ${h.slice(0, 80)}…`)
+    }
+  for (const c of builderChallenges)
+    for (const g of [...c.goals.map((x) => x.text), ...c.paths.map((x) => x.text)]) {
+      n++
+      const m = g.match(tools) ?? g.match(patterns)
+      if (m) fail(`цель задачи «${c.title}» называет «${m[0]}»: ${g}`)
+    }
+  for (const c of builderChallenges.filter((x) => x.tool)) {
+    const m = c.title.match(tools)
+    if (m) fail(`заголовок задачи на инструмент выдаёт ответ: «${c.title}»`)
+  }
+  for (const t of STRESS_TESTS) {
+    n++
+    const m = t.need.match(patterns)
+    if (m) fail(`стресс-тест «${t.id}»: формулировка задачи называет паттерн «${m[0]}»`)
+  }
+  console.log(`- ${n} подсказок и формулировок проверено`)
 }
 
 console.log('\nМодель конструктора: тупиковые блоки не обслуживают запросы')

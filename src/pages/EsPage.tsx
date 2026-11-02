@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
 import { markScenario, useProgress } from '../progress'
+import { tr } from '../i18n'
 
 export default function EsPage() {
   const progress = useProgress()
@@ -10,7 +11,7 @@ export default function EsPage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href="#/data">Распределённые данные</a> / Event Sourcing
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/data">{tr('Распределённые данные', 'Distributed data')}</a> / Event Sourcing
       </div>
       <h1>📚 Event Sourcing</h1>
       <div className="row tabs">
@@ -27,12 +28,12 @@ export default function EsPage() {
 }
 
 const MARK_LABEL: Record<string, string> = {
-  deleted: 'удалено',
-  edited: 'изменено',
+  deleted: tr('удалено', 'deleted'),
+  edited: tr('изменено', 'edited'),
   new: '',
   upcast: 'upcast',
-  error: 'ошибка',
-  snapshot: 'снапшот',
+  error: tr('ошибка', 'error'),
+  snapshot: tr('снапшот', 'snapshot'),
 }
 
 function EsLab({ task }: { task: EsTask }) {
@@ -62,7 +63,7 @@ function EsLab({ task }: { task: EsTask }) {
           <div className="row">
             {hints < task.hints.length && !solved && (
               <button onClick={() => setHints(hints + 1)}>
-                💡 Подсказка ({hints}/{task.hints.length})
+                💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -73,7 +74,7 @@ function EsLab({ task }: { task: EsTask }) {
                   setMine(null)
                 }}
               >
-                ↩ Вернуть мой выбор
+                {tr('↩ Вернуть мой выбор', '↩ Restore my choice')}
               </button>
             ) : (
               <button
@@ -82,13 +83,13 @@ function EsLab({ task }: { task: EsTask }) {
                   setCfg(task.solution)
                 }}
               >
-                👁 Показать эталон
+                {tr('👁 Показать эталон', '👁 Show reference')}
               </button>
             )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? '👁 Эталон' : '✅ Решено!') : '🎯 Цели'}</h4>
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}</h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -100,14 +101,14 @@ function EsLab({ task }: { task: EsTask }) {
       </div>
       {solved && !mine && (
         <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>Разбор</h3>
+          <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
         </div>
       )}
 
       <div className="es-grid">
         <aside className="panel">
-          <h4>Решение</h4>
+          <h4>{tr('Решение', 'Decision')}</h4>
           {task.options.map((o) => (
             <div key={o.key} className="es-option">
               <div className="small muted">{o.label}</div>
@@ -127,7 +128,7 @@ function EsLab({ task }: { task: EsTask }) {
         </aside>
 
         <div className="panel">
-          <h4>Журнал событий</h4>
+          <h4>{tr('Журнал событий', 'Event log')}</h4>
           <ol className="es-log">
             {run.events.map((e) => (
               <li key={`${e.seq}-${e.type}`} className={'es-event ' + (e.mark ?? '')}>
@@ -154,7 +155,7 @@ function EsLab({ task }: { task: EsTask }) {
         </div>
 
         <aside className="panel">
-          <h4>Состояние</h4>
+          <h4>{tr('Состояние', 'State')}</h4>
           <table className="cmp small es-facts">
             <tbody>
               {run.facts.map((f) => (

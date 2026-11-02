@@ -16,6 +16,7 @@ import {
 import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { markScenario, useProgress } from '../progress'
+import { tr } from '../i18n'
 
 let uid = 1000
 
@@ -26,9 +27,9 @@ export default function C4Page() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href="#/c4">C4 Model</a> / Упражнения
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/c4">C4 Model</a> / {tr('Упражнения', 'Exercises')}
       </div>
-      <h1>🗺️ Упражнения по C4</h1>
+      <h1>{tr('🗺️ Упражнения по C4', '🗺️ C4 exercises')}</h1>
       <div className="row tabs">
         {C4_EXERCISES.map((x, i) => (
           <button key={x.id} className={x.id === exId ? 'primary' : ''} onClick={() => setExId(x.id)}>
@@ -123,15 +124,15 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           <div className="row">
             {hints < ex.hints.length && !review.solved && (
               <button onClick={() => setHints(hints + 1)}>
-                💡 Подсказка ({hints}/{ex.hints.length})
+                💡 {tr('Подсказка', 'Hint')} ({hints}/{ex.hints.length})
               </button>
             )}
             {!review.solved && (
               <button className="primary" onClick={() => setChecked(true)}>
-                ✔ Проверить диаграмму
+                {tr('✔ Проверить диаграмму', '✔ Check diagram')}
               </button>
             )}
-            {!viewingRef && <button onClick={toggleReference}>👁 Показать эталон</button>}
+            {!viewingRef && <button onClick={toggleReference}>{tr('👁 Показать эталон', '👁 Show reference')}</button>}
             <button
               onClick={() => {
                 setD(structuredClone(initial))
@@ -139,13 +140,13 @@ function Exercise({ ex }: { ex: C4Exercise }) {
                 setSelected(null)
               }}
             >
-              ↺ Заново
+              {tr('↺ Заново', '↺ Start over')}
             </button>
           </div>
         </div>
         <div className="panel">
-          <h4>Уровень: {LEVEL_INFO[ex.level].title}</h4>
-          <p className="small">На этой диаграмме допустимы:</p>
+          <h4>{tr('Уровень', 'Level')}: {LEVEL_INFO[ex.level].title}</h4>
+          <p className="small">{tr('На этой диаграмме допустимы:', 'Allowed on this diagram:')}</p>
           <ul className="small c4-allowed">
             {LEVEL_INFO[ex.level].allowed.map((k) => (
               <li key={k}>
@@ -154,31 +155,39 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             ))}
           </ul>
           {ex.level !== 'context' && (
-            <p className="small muted">У контейнеров, компонентов и межконтейнерных связей указывают технологию.</p>
+            <p className="small muted">
+              {tr(
+                'У контейнеров, компонентов и межконтейнерных связей указывают технологию.',
+                'Containers, components and relationships between containers carry a technology.',
+              )}
+            </p>
           )}
         </div>
       </div>
 
       {viewingRef && (
         <div className="ref-banner">
-          👁 Вы смотрите <b>эталонную диаграмму</b> — в зачёт она не идёт.
+          {tr(
+            <>👁 Вы смотрите <b>эталонную диаграмму</b> — в зачёт она не идёт.</>,
+            <>👁 You are viewing the <b>reference diagram</b> — it does not count towards your progress.</>,
+          )}
           <button className="primary" onClick={toggleReference}>
-            ↩ Вернуть мою диаграмму
+            {tr('↩ Вернуть мою диаграмму', '↩ Back to my diagram')}
           </button>
         </div>
       )}
       {review.solved && !viewingRef && (
         <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>Разбор</h3>
+          <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={ex.debrief} />
         </div>
       )}
-      {showReview && <ReviewPanel review={review} title={viewingRef ? 'Оценка эталона' : 'Проверка диаграммы'} />}
+      {showReview && <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Проверка диаграммы', 'Diagram check')} />}
 
       <div className="builder-grid c4-grid">
         <aside className="panel palette">
-          <h4>Кандидаты</h4>
-          <p className="small muted">Не все нужны. Перетащите на холст или кликните.</p>
+          <h4>{tr('Кандидаты', 'Candidates')}</h4>
+          <p className="small muted">{tr('Не все нужны. Перетащите на холст или кликните.', 'Not all are needed. Drag onto the canvas or click.')}</p>
           {unplaced.map((c) => (
             <button
               key={c.id}
@@ -197,9 +206,12 @@ function Exercise({ ex }: { ex: C4Exercise }) {
               </span>
             </button>
           ))}
-          {unplaced.length === 0 && <p className="small muted">Все карточки на холсте</p>}
+          {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на холсте', 'All cards are on the canvas')}</p>}
           <p className="small muted">
-            Связь — тяните за кружок справа от элемента. Del — удалить выделенное.
+            {tr(
+              'Связь — тяните за кружок справа от элемента. Del — удалить выделенное.',
+              'Relationship: drag from the dot on the right of an element. Del deletes the selection.',
+            )}
           </p>
         </aside>
 
@@ -223,8 +235,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
         </div>
 
         <aside className="panel props">
-          <h4>Свойства</h4>
-          {!selEl && !selRel && <p className="small muted">Выберите элемент или связь</p>}
+          <h4>{tr('Свойства', 'Properties')}</h4>
+          {!selEl && !selRel && <p className="small muted">{tr('Выберите элемент или связь', 'Select an element or a relationship')}</p>}
           {selEl && (
             <div>
               <p>
@@ -232,15 +244,15 @@ function Exercise({ ex }: { ex: C4Exercise }) {
               </p>
               <p className="small muted">{card(selEl.card).desc}</p>
               <label>
-                тип элемента
+                {tr('тип элемента', 'element type')}
                 <select
                   value={selEl.kind ?? ''}
                   onChange={(e) => patchEl(selEl.card, { kind: (e.target.value || null) as C4Kind | null })}
                 >
-                  <option value="">— выберите —</option>
+                  <option value="">{tr('— выберите —', '— select —')}</option>
                   {(Object.keys(KIND_INFO) as C4Kind[]).map((k) => (
                     <option key={k} value={k}>
-                      {KIND_INFO[k].title} — {KIND_INFO[k].short}
+                      {tr(`${KIND_INFO[k].title} — ${KIND_INFO[k].short}`, KIND_INFO[k].title)}
                     </option>
                   ))}
                 </select>
@@ -250,16 +262,16 @@ function Exercise({ ex }: { ex: C4Exercise }) {
               )}
               {(needsTech(ex.level, selEl.kind) || selEl.tech) && (
                 <label>
-                  технология
+                  {tr('технология', 'technology')}
                   <input
                     type="text"
-                    placeholder="например, Kotlin, Spring Boot"
+                    placeholder={tr('например, Kotlin, Spring Boot', 'e.g. Kotlin, Spring Boot')}
                     value={selEl.tech}
                     onChange={(e) => patchEl(selEl.card, { tech: e.target.value })}
                   />
                 </label>
               )}
-              <button onClick={remove}>Убрать с диаграммы</button>
+              <button onClick={remove}>{tr('Убрать с диаграммы', 'Remove from diagram')}</button>
             </div>
           )}
           {selRel && (
@@ -268,29 +280,29 @@ function Exercise({ ex }: { ex: C4Exercise }) {
                 <b>{card(selRel.from).name}</b> → <b>{card(selRel.to).name}</b>
               </p>
               <label>
-                что происходит
+                {tr('что происходит', 'what happens')}
                 <input
                   type="text"
                   autoFocus
-                  placeholder="например, списывает оплату"
+                  placeholder={tr('например, списывает оплату', 'e.g. charges the payment')}
                   value={selRel.label}
                   onChange={(e) => patchRel(selRel.id, { label: e.target.value })}
                 />
               </label>
               {ex.level !== 'context' && (
                 <label>
-                  протокол / технология
+                  {tr('протокол / технология', 'protocol / technology')}
                   <input
                     type="text"
-                    placeholder="например, JSON/HTTPS"
+                    placeholder={tr('например, JSON/HTTPS', 'e.g. JSON/HTTPS')}
                     value={selRel.tech}
                     onChange={(e) => patchRel(selRel.id, { tech: e.target.value })}
                   />
                 </label>
               )}
               <div className="row">
-                <button onClick={() => patchRel(selRel.id, { from: selRel.to, to: selRel.from })}>⇄ Развернуть</button>
-                <button onClick={remove}>Удалить связь</button>
+                <button onClick={() => patchRel(selRel.id, { from: selRel.to, to: selRel.from })}>{tr('⇄ Развернуть', '⇄ Reverse')}</button>
+                <button onClick={remove}>{tr('Удалить связь', 'Delete relationship')}</button>
               </div>
             </div>
           )}

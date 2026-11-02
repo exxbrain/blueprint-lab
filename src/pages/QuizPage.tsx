@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useState } from 'react'
 import type { Module } from '../content/types'
 import { recordQuiz } from '../progress'
@@ -23,22 +24,22 @@ export function QuizPage({ mod }: { mod: Module }) {
     return (
       <div className="page narrow">
         <div className="crumbs">
-          <a href="#/">Главная</a> / <a href={href(mod.id)}>{mod.title}</a> / Квиз
+          <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
         </div>
         <div className={'panel' + (ratio >= 0.8 ? ' success' : '')} style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ fontSize: '3rem' }}>{ratio >= 0.8 ? '🏆' : ratio >= 0.5 ? '👍' : '📚'}</div>
           <h2>
-            {score} из {qs.length}
+            {tr(`${score} из ${qs.length}`, `${score} of ${qs.length}`)}
           </h2>
           <p className="muted">
             {ratio >= 0.8
-              ? 'Отлично! Квиз засчитан.'
-              : 'Для зачёта нужно 80%. Перечитайте уроки и попробуйте ещё раз.'}
+              ? tr('Отлично! Квиз засчитан.', 'Great! Quiz passed.')
+              : tr('Для зачёта нужно 80%. Перечитайте уроки и попробуйте ещё раз.', 'You need 80% to pass. Review the lessons and try again.')}
           </p>
           <div className="row" style={{ justifyContent: 'center' }}>
-            <button onClick={restart}>Пройти заново</button>
+            <button onClick={restart}>{tr('Пройти заново', 'Try again')}</button>
             <a href={href(mod.id)}>
-              <button className="primary">К модулю</button>
+              <button className="primary">{tr('К модулю', 'Back to module')}</button>
             </a>
           </div>
         </div>
@@ -49,13 +50,13 @@ export function QuizPage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href={href(mod.id)}>{mod.title}</a> / Квиз
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
       </div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="muted">
-          Вопрос {i + 1} из {qs.length}
+          {tr(`Вопрос ${i + 1} из ${qs.length}`, `Question ${i + 1} of ${qs.length}`)}
         </span>
-        <span className="muted">верно: {score}</span>
+        <span className="muted">{tr('верно', 'correct')}: {score}</span>
       </div>
       <div className="progressbar" style={{ margin: '8px 0 20px' }}>
         <div style={{ width: `${(i / qs.length) * 100}%` }} />
@@ -89,7 +90,7 @@ export function QuizPage({ mod }: { mod: Module }) {
           <>
             <div className="explain">
               <b className={picked === q.correct ? 'ok-text' : 'bad-text'}>
-                {picked === q.correct ? 'Верно. ' : 'Неверно. '}
+                {picked === q.correct ? tr('Верно. ', 'Correct. ') : tr('Неверно. ', 'Incorrect. ')}
               </b>
               {q.explain}
             </div>
@@ -106,7 +107,7 @@ export function QuizPage({ mod }: { mod: Module }) {
                   }
                 }}
               >
-                {i + 1 < qs.length ? 'Дальше →' : 'Результат'}
+                {i + 1 < qs.length ? tr('Дальше →', 'Next →') : tr('Результат', 'Result')}
               </button>
             </div>
           </>

@@ -1,3 +1,4 @@
+import { tr } from '../../i18n'
 import type { Lesson } from '../types'
 import { Callout, Try } from '../../components/Try'
 import { KafkaSimulator } from '../../sim/kafka/KafkaSimulator'
@@ -382,47 +383,420 @@ function Storage() {
   )
 }
 
+// ---------- English ----------
+
+function IntroEn() {
+  return (
+    <div className="lesson">
+      <p>
+        Picture an online store. The order service has to tell billing, the warehouse, analytics and the mailing
+        service that a new order has arrived. If it calls each of them directly, it has to know about all of them,
+        wait for the slowest one, and go down together with any of them.
+      </p>
+      <p>
+        <b>Kafka</b> solves this differently. The order service simply appends an "order created" event to a shared
+        log, and everyone interested reads that log at their own pace. The writer does not know the readers, and the
+        readers do not get in each other's way.
+      </p>
+      <h2>Core concepts</h2>
+      <ul>
+        <li>
+          <b>Topic</b> — a named event log, for example <code>orders</code>.
+        </li>
+        <li>
+          <b>Producer</b> — whoever writes to a topic. Writes always go to the end (append-only).
+        </li>
+        <li>
+          <b>Consumer</b> — whoever reads. It keeps track of how far it has read: that is its <b>offset</b>.
+        </li>
+        <li>
+          <b>Broker</b> — a Kafka server. A cluster usually has 3 or more brokers.
+        </li>
+      </ul>
+      <Callout>
+        The key difference from a classic queue (RabbitMQ, SQS): a message that has been read is <b>not deleted</b>.
+        It lives until retention expires (for example, 7 days). So a new service can read the history from the very
+        beginning, and a crashed one can resume where it left off.
+      </Callout>
+      <h2>Lag</h2>
+      <p>
+        If the producer writes faster than the consumer can process, the difference piles up. This is{' '}
+        <b>consumer lag</b>: how many messages have been written but not yet processed. Lag is the key health metric
+        of any Kafka-based system.
+      </p>
+      <Try
+        title="Try it"
+        task={
+          <>
+            The consumer currently processes 8 msg/s and the producer writes 5. Raise the producer rate to 15 and watch
+            the lag grow (the ▲billing marker falls behind the end of the log). Then speed up the consumer.
+          </>
+        }
+      >
+        <KafkaSimulator config={base} controls={{ producers: true, consumerRate: true }} compact />
+      </Try>
+    </div>
+  )
+}
+
+function PartitionsEn() {
+  return (
+    <div className="lesson">
+      <p>
+        A single log is read by a single thread, and that is a ceiling. So a topic is split into <b>partitions</b>,
+        i.e. several independent logs. Each partition has its own offsets, and partitions can be read in parallel.
+      </p>
+      <h2>How a message picks a partition</h2>
+      <ul>
+        <li>
+          <b>With a key</b> → <code>hash(key) % partition_count</code>. The same key always lands in the same
+          partition.
+        </li>
+        <li>
+          <b>Without a key</b> → messages are spread across partitions (round-robin; newer clients use the sticky
+          partitioner in batches).
+        </li>
+      </ul>
+      <Callout>
+        Kafka guarantees order <b>only within a partition</b>. If the events of one order ("created" → "paid" →
+        "shipped") land in different partitions, different consumers may process them in any order, and the warehouse
+        will ship an unpaid order.
+      </Callout>
+      <p>
+        That is why the key is chosen by the entity whose order matters: <code>orderId</code>, <code>userId</code>,{' '}
+        <code>accountId</code>.
+      </p>
+      <Try
+        title="Event order"
+        task={
+          <>
+            The producer writes without a key. Watch the group's "order violations" counter. Switch the key to "order
+            id": new violations stop appearing. The digit in a square is the order stage, the color is the order
+            itself: you can see events of the same color scattering across partitions.
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 3,
+            producers: [{ rate: 20, keyStrategy: 'none', acks: 1 }],
+            groups: [{ name: 'shipping', consumers: 3, consumerRate: 9 }],
+          }}
+          controls={{ keys: true, producers: true }}
+          compact
+        />
+      </Try>
+      <h2>Pitfalls</h2>
+      <ul>
+        <li>
+          <b>Hot partition.</b> If one key has a large share of traffic (a big customer), its partition is overloaded
+          while the others sit idle.
+        </li>
+        <li>
+          <b>Adding partitions</b> changes <code>hash % N</code>: a key "moves" to another partition, and order breaks
+          during the transition. Choose the partition count with headroom up front.
+        </li>
+        <li>You cannot reduce the number of partitions.</li>
+      </ul>
+    </div>
+  )
+}
+
+function GroupsEn() {
+  return (
+    <div className="lesson">
+      <p>
+        A <b>consumer group</b> is a team of consumers that process a topic together. Kafka assigns partitions to them
+        so that <b>each partition in the group is read by exactly one consumer</b>.
+      </p>
+      <ul>
+        <li>Fewer consumers than partitions → some consumers read several partitions.</li>
+        <li>
+          More consumers than partitions → the extra ones <b>sit idle</b>. The number of partitions is the ceiling on
+          the group's parallelism.
+        </li>
+        <li>
+          Different groups read a topic <b>independently</b>: billing and analytics have their own offsets and their own
+          lag.
+        </li>
+      </ul>
+      <h2>Rebalancing</h2>
+      <p>
+        When a consumer joins the group, leaves or crashes, the group reassigns partitions. In the classic (eager)
+        protocol <b>everyone stops reading</b> during that time. Frequent rebalances, for example due to slow
+        processing and missed heartbeats, are a common cause of growing lag. The cooperative-sticky assignor and static
+        membership mitigate the problem.
+      </p>
+      <h2>Offset commits and duplicates</h2>
+      <p>
+        A consumer periodically <b>commits</b> its offset: it stores in Kafka how far it has read. By default this is
+        an auto-commit every 5 seconds (every second in the simulator). If a consumer crashes between processing and
+        committing, the new owner of the partition starts from the last commit and processes some messages{' '}
+        <b>again</b>.
+      </p>
+      <Callout>
+        These are <b>at-least-once</b> semantics, the default in most systems. The takeaway: a handler must be{' '}
+        <b>idempotent</b>, so that reprocessing does not charge money twice.
+      </Callout>
+      <Try
+        title="Groups, idle consumers and duplicates"
+        task={
+          <>
+            1) Add consumers to billing until there are more than 4, and find the idle ones. 2) Crash a consumer with
+            the 💥 button and watch the duplicates counter. 3) Stop a consumer gracefully (✕): there will be no
+            duplicates. 4) Add a second group: it has its own lag.
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 4,
+            producers: [{ rate: 30, keyStrategy: 'order', acks: 1 }],
+            groups: [{ name: 'billing', consumers: 2, consumerRate: 20 }],
+          }}
+          controls={{ consumers: true, groups: true, consumerRate: true }}
+          compact
+        />
+      </Try>
+    </div>
+  )
+}
+
+function ReplicationEn() {
+  return (
+    <div className="lesson">
+      <p>
+        Brokers fail. To avoid losing data, each partition is stored in several copies: the{' '}
+        <b>replication factor</b> (usually 3). One copy is the <b>leader</b> (★), which handles writes and reads.
+        The others are <b>followers</b>, which copy the leader.
+      </p>
+      <h2>ISR and high watermark</h2>
+      <p>
+        <b>ISR</b> (in-sync replicas) are the replicas that keep up with the leader. If a follower lags for longer than{' '}
+        <code>replica.lag.time.max.ms</code>, it drops out of the ISR. The <b>high watermark</b> is the offset up to
+        which messages exist on all ISR replicas. Consumers only see messages below the HW. In the simulator, everything
+        above the HW is drawn dashed.
+      </p>
+      <h2>acks: when the producer considers a write successful</h2>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>acks</th>
+            <th>Waits for</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0</td>
+            <td>nothing</td>
+            <td>loses data on any failure</td>
+          </tr>
+          <tr>
+            <td>1</td>
+            <td>the write on the leader</td>
+            <td>leader fails before replication — acknowledged messages are lost</td>
+          </tr>
+          <tr>
+            <td>all</td>
+            <td>the write on all ISR replicas</td>
+            <td>slower, but nothing acknowledged is lost</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <code>acks=all</code> works together with <code>min.insync.replicas</code>. If fewer replicas remain in the
+        ISR, Kafka <b>rejects writes</b>: an error is better than an illusion of reliability. A typical production
+        setup: RF=3, min.insync.replicas=2, acks=all. This way the cluster survives the loss of one broker with no data
+        loss and no downtime.
+      </p>
+      <Callout danger>
+        <b>unclean.leader.election.enable=true</b> allows a lagging replica outside the ISR to become leader. The
+        partition comes back faster, but anything the new replica did not have is lost forever.
+      </Callout>
+      <Try
+        title="Kill the leader"
+        task={
+          <>
+            With acks=1, kill broker 1 and watch "acknowledged lost". Click "Restart", set acks=all and repeat. Then
+            kill two brokers with min.insync.replicas=2: writes will start being rejected.
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 3,
+            replicationFactor: 3,
+            minInsyncReplicas: 2,
+            producers: [{ rate: 40, keyStrategy: 'order', acks: 1 }],
+            groups: [{ name: 'billing', consumers: 3, consumerRate: 20 }],
+            replicaDelay: 0.5,
+          }}
+          controls={{ brokers: true, acks: true, reliability: true }}
+          compact
+        />
+      </Try>
+    </div>
+  )
+}
+
+function SemanticsEn() {
+  return (
+    <div className="lesson">
+      <h2>Three delivery semantics</h2>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>Semantics</th>
+            <th>How you get it</th>
+            <th>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>at-most-once</td>
+            <td>commit the offset before processing</td>
+            <td>failure during processing → message lost</td>
+          </tr>
+          <tr>
+            <td>at-least-once</td>
+            <td>commit after processing</td>
+            <td>failure before the commit → reprocessing</td>
+          </tr>
+          <tr>
+            <td>exactly-once</td>
+            <td>idempotent producer + transactions (or deduplication on the consumer side)</td>
+            <td>more complex, works only within Kafka</td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>Idempotent producer</h2>
+      <p>
+        A producer retries a request if it did not get a response, and without protection the message gets written
+        twice. With <code>enable.idempotence=true</code> (the default since Kafka 3.0) the producer has an ID and a
+        sequence number for each message, and the broker discards duplicates.
+      </p>
+      <h2>Transactions</h2>
+      <p>
+        The "read → process → write to another topic → commit offset" pattern can be made atomic. Consumers with{' '}
+        <code>isolation.level=read_committed</code> do not see uncommitted transactions. This is how Kafka Streams
+        works with <code>exactly_once_v2</code>.
+      </p>
+      <Callout>
+        Exactly-once in Kafka ends at the Kafka boundary. If a handler writes to Postgres or calls a payment API, you
+        need <b>idempotency on the consumer side</b>: a unique operation key, a table of processed messages, upsert
+        instead of insert.
+      </Callout>
+      <h2>Transactional Outbox</h2>
+      <p>
+        A classic trap: a service saves an order to the database and publishes an event to Kafka. These are two
+        separate systems with no shared transaction. If the service crashes between them, the event is lost or,
+        conversely, an event goes out about an order that does not exist.
+      </p>
+      <p>
+        The solution: in <b>the same database transaction</b>, write the event to an <code>outbox</code> table, and a
+        separate process (or Debezium via CDC) moves it to Kafka. Delivery is at-least-once, so consumers again have to
+        be idempotent.
+      </p>
+    </div>
+  )
+}
+
+function StorageEn() {
+  return (
+    <div className="lesson">
+      <p>
+        On disk, a partition is a set of <b>segment</b> files. Writes go only to the active segment; old segments are
+        immutable. That is why Kafka is fast: sequential disk writes, the OS page cache, zero-copy delivery to
+        consumers.
+      </p>
+      <h2>Retention</h2>
+      <p>
+        Old segments are deleted by time (<code>retention.ms</code>, 7 days by default) or by size (
+        <code>retention.bytes</code>). If a consumer falls behind by more than the retention period, its offset points
+        to deleted data. Then <code>auto.offset.reset</code> kicks in (earliest or latest), and some events it will
+        never see.
+      </p>
+      <h2>Log compaction</h2>
+      <p>
+        With <code>cleanup.policy=compact</code> Kafka keeps <b>the latest value for each key</b> and cleans up older
+        versions. The result is a table in the form of a log: for example, the current profile of each user. To delete
+        a key, you write a <b>tombstone</b> — a message with that key and value = null.
+      </p>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>Use case</th>
+            <th>Policy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Event stream: clicks, orders, logs</td>
+            <td>delete + retention</td>
+          </tr>
+          <tr>
+            <td>Current state of entities, changelog for a KTable</td>
+            <td>compact</td>
+          </tr>
+          <tr>
+            <td>Both</td>
+            <td>compact,delete</td>
+          </tr>
+        </tbody>
+      </table>
+      <Callout>
+        Kafka is not a database for queries. You cannot find "all orders of customer X" in it. It is a transport and a
+        log. To get a queryable view, events are projected into a database (CQRS), or Kafka Streams and ksqlDB are used.
+      </Callout>
+    </div>
+  )
+}
+
 export const kafkaLessons: Lesson[] = [
   {
     id: 'intro',
-    title: 'Kafka как журнал событий',
-    summary: 'Топик, продюсер, консьюмер, offset и лаг',
+    title: tr('Kafka как журнал событий', 'Kafka as an event log'),
+    summary: tr('Топик, продюсер, консьюмер, offset и лаг', 'Topic, producer, consumer, offset and lag'),
     minutes: 6,
-    Body: Intro,
+    Body: tr(Intro, IntroEn),
   },
   {
     id: 'partitions',
-    title: 'Партиции и ключи',
-    summary: 'Параллелизм, порядок событий, горячие партиции',
+    title: tr('Партиции и ключи', 'Partitions and keys'),
+    summary: tr('Параллелизм, порядок событий, горячие партиции', 'Parallelism, event order, hot partitions'),
     minutes: 8,
-    Body: Partitions,
+    Body: tr(Partitions, PartitionsEn),
   },
   {
     id: 'groups',
-    title: 'Consumer groups и offsets',
-    summary: 'Распределение партиций, ребалансировка, дубликаты',
+    title: tr('Consumer groups и offsets', 'Consumer groups and offsets'),
+    summary: tr('Распределение партиций, ребалансировка, дубликаты', 'Partition assignment, rebalancing, duplicates'),
     minutes: 8,
-    Body: Groups,
+    Body: tr(Groups, GroupsEn),
   },
   {
     id: 'replication',
-    title: 'Репликация, ISR и acks',
-    summary: 'Как Kafka переживает падение брокеров и когда теряет данные',
+    title: tr('Репликация, ISR и acks', 'Replication, ISR and acks'),
+    summary: tr('Как Kafka переживает падение брокеров и когда теряет данные', 'How Kafka survives broker failures and when it loses data'),
     minutes: 10,
-    Body: Replication,
+    Body: tr(Replication, ReplicationEn),
   },
   {
     id: 'semantics',
-    title: 'Гарантии доставки',
-    summary: 'At-least-once, exactly-once, идемпотентность, outbox',
+    title: tr('Гарантии доставки', 'Delivery guarantees'),
+    summary: tr('At-least-once, exactly-once, идемпотентность, outbox', 'At-least-once, exactly-once, idempotency, outbox'),
     minutes: 7,
-    Body: Semantics,
+    Body: tr(Semantics, SemanticsEn),
   },
   {
     id: 'storage',
-    title: 'Хранение: retention и compaction',
-    summary: 'Сегменты, удаление старых данных, журнал как таблица',
+    title: tr('Хранение: retention и compaction', 'Storage: retention and compaction'),
+    summary: tr('Сегменты, удаление старых данных, журнал как таблица', 'Segments, deleting old data, the log as a table'),
     minutes: 5,
-    Body: Storage,
+    Body: tr(Storage, StorageEn),
   },
 ]

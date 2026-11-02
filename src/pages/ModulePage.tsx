@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import type { Module } from '../content/types'
 import { useProgress } from '../progress'
 import { href } from '../router'
@@ -10,7 +11,7 @@ export function ModulePage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">Главная</a> / {mod.title}
+        <a href="#/">{tr('Главная', 'Home')}</a> / {mod.title}
       </div>
       <h1>
         {mod.icon} {mod.title}
@@ -24,7 +25,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.lessons.length > 0 && (
         <>
-          <h2 className="section-title">📖 Уроки</h2>
+          <h2 className="section-title">📖 {tr('Уроки', 'Lessons')}</h2>
           <div className="list">
             {mod.lessons.map((l, i) => (
               <a key={l.id} className="list-item" href={href(mod.id, 'lesson', l.id)}>
@@ -33,7 +34,7 @@ export function ModulePage({ mod }: { mod: Module }) {
                   {l.title}
                   <span className="desc">{l.summary}</span>
                 </span>
-                <span className="small muted">{l.minutes} мин</span>
+                <span className="small muted">{l.minutes} {tr('мин', 'min')}</span>
                 {progress.lessons[`${mod.id}/${l.id}`] && <span className="done-mark">✓</span>}
               </a>
             ))}
@@ -43,7 +44,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.scenarios.length > 0 && (
         <>
-          <h2 className="section-title">🚨 Задачи-инциденты</h2>
+          <h2 className="section-title">🚨 {tr('Задачи-инциденты', 'Incident challenges')}</h2>
           <div className="list">
             {mod.scenarios.map((s) => (
               <a key={s.id} className="list-item" href={href(mod.id, 'scenario', s.id)}>
@@ -52,7 +53,7 @@ export function ModulePage({ mod }: { mod: Module }) {
                   {s.title}
                   <span className="desc">{s.summary}</span>
                 </span>
-                {progress.scenarios[`${mod.id}/${s.id}`] && <span className="done-mark">✓ решено</span>}
+                {progress.scenarios[`${mod.id}/${s.id}`] && <span className="done-mark">✓ {tr('решено', 'solved')}</span>}
               </a>
             ))}
           </div>
@@ -61,17 +62,17 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.quiz.length > 0 && (
         <>
-          <h2 className="section-title">❓ Проверка знаний</h2>
+          <h2 className="section-title">❓ {tr('Проверка знаний', 'Knowledge check')}</h2>
           <div className="list">
             <a className="list-item" href={href(mod.id, 'quiz')}>
               <span className="num">?</span>
               <span className="title">
-                Квиз: {mod.quiz.length} вопросов
-                <span className="desc">Засчитывается от 80% правильных ответов</span>
+                {tr(`Квиз: ${mod.quiz.length} вопросов`, `Quiz: ${mod.quiz.length} questions`)}
+                <span className="desc">{tr('Засчитывается от 80% правильных ответов', 'Passed at 80% correct answers')}</span>
               </span>
               {quizScore !== undefined && (
                 <span className={quizScore >= 0.8 ? 'done-mark' : 'warn-text'}>
-                  лучший: {Math.round(quizScore * 100)}%
+                  {tr('лучший', 'best')}: {Math.round(quizScore * 100)}%
                 </span>
               )}
             </a>
@@ -81,7 +82,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.extras.length > 0 && (
         <>
-          <h2 className="section-title">🛠 Симуляторы</h2>
+          <h2 className="section-title">🛠 {tr('Симуляторы', 'Simulators')}</h2>
           <div className="list">
             {mod.extras.map((e) => (
               <a key={e.href} className="list-item" href={e.href}>

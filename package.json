@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check": "node --import ./scripts/ts-resolve.mjs --experimental-strip-types --no-warnings scripts/check.ts"
+    "check": "node --import ./scripts/ts-resolve.mjs --experimental-strip-types --no-warnings scripts/check.ts && (BLUEPRINT_LANG=en node --import ./scripts/ts-resolve.mjs --experimental-strip-types --no-warnings scripts/check.ts > .check-en.log || (cat .check-en.log; exit 1)) && echo \"English version: OK\""
   },
   "dependencies": {
     "react": "^19.3.1",

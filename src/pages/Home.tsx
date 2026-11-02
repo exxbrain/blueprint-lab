@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { modules } from '../content/modules'
 import type { Module } from '../content/types'
 import { useProgress, type Progress } from '../progress'
@@ -17,10 +18,18 @@ export function Home() {
   return (
     <div className="page">
       <section className="hero">
-        <h1>Архитектура, которую можно потрогать</h1>
+        <h1>{tr('Архитектура, которую можно потрогать', 'Architecture you can touch')}</h1>
         <p>
-          Короткие уроки, живые симуляции и задачи-инциденты. Роняйте брокеры, разгоняйте нагрузку, распиливайте
-          монолит и смотрите, что из этого выйдет, не рискуя продом.
+          {tr(
+            <>
+              Короткие уроки, живые симуляции и задачи-инциденты. Роняйте брокеры, разгоняйте нагрузку, распиливайте
+              монолит и смотрите, что из этого выйдет, не рискуя продом.
+            </>,
+            <>
+              Short lessons, live simulations and incident challenges. Kill brokers, crank up the load, break up the
+              monolith and see what happens, without risking production.
+            </>,
+          )}
         </p>
       </section>
       <div className="tiles">
@@ -32,14 +41,14 @@ export function Home() {
               <h3>{m.title}</h3>
               <p>{m.summary}</p>
               {m.status === 'soon' ? (
-                <span className="badge warn">скоро</span>
+                <span className="badge warn">{tr('скоро', 'coming soon')}</span>
               ) : total > 0 ? (
                 <>
                   <div className="progressbar">
                     <div style={{ width: `${(done / total) * 100}%` }} />
                   </div>
                   <div className="small muted" style={{ marginTop: 6 }}>
-                    пройдено {done} из {total}
+                    {tr(`пройдено ${done} из ${total}`, `${done} of ${total} completed`)}
                   </div>
                 </>
               ) : (

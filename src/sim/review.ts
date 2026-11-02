@@ -1,3 +1,5 @@
+import { tr } from '../i18n'
+
 /**
  * Разбор решения: насколько точно собрано относительно целей и эталона.
  * Общий формат для конструктора и распила монолита.
@@ -28,11 +30,11 @@ export function grade(goalsOk: boolean, costRatio: number, items: ReviewItem[]):
   score = Math.max(0, Math.round(score))
   const stars = score >= 85 ? 3 : score >= 65 ? 2 : 1
   const verdict = !goalsOk
-    ? 'Цели пока не выполнены'
+    ? tr('Цели пока не выполнены', 'Goals not met yet')
     : stars === 3
-      ? 'Отличное решение — на уровне эталона'
+      ? tr('Отличное решение — на уровне эталона', 'Excellent solution, on par with the reference')
       : stars === 2
-        ? 'Хорошее решение, но есть что улучшить'
-        : 'Работает, но заметно дороже или рискованнее эталона'
+        ? tr('Хорошее решение, но есть что улучшить', 'Good solution, with room for improvement')
+        : tr('Работает, но заметно дороже или рискованнее эталона', 'Works, but noticeably more expensive or riskier than the reference')
   return { score, stars, verdict, items }
 }

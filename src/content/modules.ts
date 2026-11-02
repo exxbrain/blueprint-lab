@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import type { Module } from './types'
 import { kafkaLessons } from './kafka/lessons'
 import { kafkaQuiz } from './kafka/quiz'
@@ -12,15 +13,15 @@ export const modules: Module[] = [
     id: 'kafka',
     title: 'Apache Kafka',
     icon: '📜',
-    summary: 'Журнал событий: партиции, consumer groups, репликация, гарантии доставки',
+    summary: tr('Журнал событий: партиции, consumer groups, репликация, гарантии доставки', 'Event log: partitions, consumer groups, replication, delivery guarantees'),
     status: 'ready',
     lessons: kafkaLessons,
     quiz: kafkaQuiz,
     scenarios: kafkaScenarios,
     extras: [
       {
-        title: 'Песочница Kafka',
-        desc: 'Все рычаги сразу: брокеры, партиции, группы, acks',
+        title: tr('Песочница Kafka', 'Kafka sandbox'),
+        desc: tr('Все рычаги сразу: брокеры, партиции, группы, acks', 'All the levers at once: brokers, partitions, groups, acks'),
         href: '#/kafka/sandbox',
         icon: '🧰',
       },
@@ -28,23 +29,23 @@ export const modules: Module[] = [
   },
   {
     id: 'microservices',
-    title: 'Микросервисы',
+    title: tr('Микросервисы', 'Microservices'),
     icon: '🧩',
-    summary: 'Распил монолита, синхронные и асинхронные связи, отказоустойчивость',
+    summary: tr('Распил монолита, синхронные и асинхронные связи, отказоустойчивость', 'Breaking up the monolith, synchronous and asynchronous communication, resilience'),
     status: 'ready',
     lessons: [],
     quiz: [],
     scenarios: [],
     extras: [
       {
-        title: 'Распил монолита',
-        desc: 'Два уровня: интернет-магазин и интернет-банк. Выносите модули по одному и смотрите на последствия',
+        title: tr('Распил монолита', 'Breaking up the monolith'),
+        desc: tr('Два уровня: интернет-магазин и интернет-банк. Выносите модули по одному и смотрите на последствия', 'Two levels: an online store and an online bank. Extract modules one by one and watch the consequences'),
         href: '#/monolith',
         icon: '🪓',
       },
       {
-        title: 'Конструктор архитектуры',
-        desc: 'Соберите систему из блоков и подайте нагрузку',
+        title: tr('Конструктор архитектуры', 'Architecture Builder'),
+        desc: tr('Соберите систему из блоков и подайте нагрузку', 'Assemble a system from blocks and put it under load'),
         href: '#/builder',
         icon: '🏗️',
       },
@@ -52,23 +53,23 @@ export const modules: Module[] = [
   },
   {
     id: 'data',
-    title: 'Распределённые данные',
+    title: tr('Распределённые данные', 'Distributed data'),
     icon: '⚖️',
-    summary: 'CAP и кворумы, Event Sourcing и CQRS — задачи посложнее',
+    summary: tr('CAP и кворумы, Event Sourcing и CQRS — задачи посложнее', 'CAP and quorums, Event Sourcing and CQRS: harder challenges'),
     status: 'ready',
     lessons: dataLessons,
     quiz: dataQuiz,
     scenarios: [],
     extras: [
       {
-        title: 'CAP и кворумы',
-        desc: 'Разрывы сети, падения узлов, N/W/R, sloppy quorum, LWW против слияния — 4 задачи',
+        title: tr('CAP и кворумы', 'CAP and quorums'),
+        desc: tr('Разрывы сети, падения узлов, N/W/R, sloppy quorum, LWW против слияния — 4 задачи', 'Network partitions, node failures, N/W/R, sloppy quorum, LWW vs merge: 4 tasks'),
         href: '#/data/cap',
         icon: '⚖️',
       },
       {
         title: 'Event Sourcing',
-        desc: 'Сторно, перестроение проекций, снапшоты, версии событий, конкурентность — 5 задач',
+        desc: tr('Сторно, перестроение проекций, снапшоты, версии событий, конкурентность — 5 задач', 'Reversals, projection rebuilds, snapshots, event versioning, concurrency: 5 tasks'),
         href: '#/data/es',
         icon: '📚',
       },
@@ -78,15 +79,15 @@ export const modules: Module[] = [
     id: 'c4',
     title: 'C4 Model',
     icon: '🗺️',
-    summary: 'Диаграммы архитектуры по уровням: контекст, контейнеры, компоненты',
+    summary: tr('Диаграммы архитектуры по уровням: контекст, контейнеры, компоненты', 'Architecture diagrams by level: context, containers, components'),
     status: 'ready',
     lessons: c4Lessons,
     quiz: c4Quiz,
     scenarios: [],
     extras: [
       {
-        title: 'Упражнения по C4',
-        desc: 'Нарисуйте контекст, контейнеры и компоненты, найдите ошибки в чужой диаграмме',
+        title: tr('Упражнения по C4', 'C4 exercises'),
+        desc: tr('Нарисуйте контекст, контейнеры и компоненты, найдите ошибки в чужой диаграмме', "Draw context, containers and components, and find the mistakes in someone else's diagram"),
         href: '#/c4/exercises',
         icon: '✏️',
       },
@@ -96,7 +97,7 @@ export const modules: Module[] = [
     id: 'kubernetes',
     title: 'Kubernetes',
     icon: '☸️',
-    summary: 'Поды, Deployment, Service, автоскейлинг, rolling update',
+    summary: tr('Поды, Deployment, Service, автоскейлинг, rolling update', 'Pods, Deployment, Service, autoscaling, rolling update'),
     status: 'soon',
     lessons: [],
     quiz: [],

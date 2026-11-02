@@ -1,3 +1,4 @@
+import { tr } from '../../i18n'
 /**
  * Учебная модель Kafka. Не претендует на точность до байта, но честно
  * воспроизводит ключевые механики: партиции и ключи, лидеров и фолловеров,
@@ -35,7 +36,7 @@ export interface KafkaConfig {
   replicaDelay?: number
 }
 
-export const ORDER_STAGES = ['создан', 'оплачен', 'отправлен'] as const
+export const ORDER_STAGES = tr<readonly string[]>(['создан', 'оплачен', 'отправлен'], ['created', 'paid', 'shipped'])
 
 export interface Msg {
   id: number
@@ -204,8 +205,8 @@ export class KafkaSim {
 
   addPartition() {
     this.createPartition()
-    this.log(`Добавлена партиция P${this.partitions.length - 1}. Ключи теперь распределяются по-другому`, 'warn')
-    this.groups.forEach((g) => this.triggerRebalance(g, 'изменилось число партиций'))
+    this.log(tr(`Добавлена партиция P${this.partitions.length - 1}. Ключи теперь распределяются по-другому`, `Added partition P${this.partitions.length - 1}. Keys are now distributed differently`), 'warn')
+    this.groups.forEach((g) => this.triggerRebalance(g, tr('изменилось число партиций', 'partition count changed')))
   }
 
   broker(id: number): Broker {
@@ -302,7 +303,7 @@ export class KafkaSim {
     const b = this.broker(id)
     if (!b.alive) return
     b.alive = false
-    this.log(`Брокер ${id} упал`, 'error')
+    this.log(tr(`Брокер ${id} упал`, `Broker ${id} is down`), 'error')
     for (const p of this.partitions) {
       p.isr = p.isr.filter((r) => r !== id)
       if (p.leader === id) this.electLeader(p)
@@ -313,7 +314,7 @@ export class KafkaSim {
     const b = this.broker(id)
     if (b.alive) return
     b.alive = true
-    this.log(`Брокер ${id} снова в строю`, 'ok')
+    this.log(tr(`Брокер ${id} снова в строю`, `Broker ${id} is back up`), 'ok')
     for (const p of this.partitions) {
       if (!p.replicas.includes(id)) continue
       if (p.leader === null) {
@@ -322,7 +323,7 @@ export class KafkaSim {
         p.leo[id] = Math.floor(p.leo[id])
         this.truncate(p, p.leo[id])
         p.isr = [id]
-        this.log(`P${p.id} снова доступна, лидер — брокер ${id}`, 'ok')
+        this.log(tr(`P${p.id} снова доступна, лидер — брокер ${id}`, `P${p.id} is available again, leader is broker ${id}`), 'ok')
       } else {
         // Догоняет лидера, в ISR вернётся, когда догонит
         p.leo[id] = Math.min(p.leo[id], this.hw(p))
@@ -333,7 +334,7 @@ export class KafkaSim {
   toggleSlow(id: number) {
     const b = this.broker(id)
     b.slow = !b.slow
-    this.log(b.slow ? `Брокер ${id} тормозит (диск/сеть)` : `Брокер ${id} работает нормально`, b.slow ? 'warn' : 'info')
+    this.log(b.slow ? tr(`Брокер ${id} тормозит (диск/сеть)`, `Broker ${id} is slow (disk/network)`) : tr(`Брокер ${id} работает нормально`, `Broker ${id} is working normally`), b.slow ? 'warn' : 'info')
   }
 
   private electLeader(p: Partition) {
@@ -348,7 +349,7 @@ export class KafkaSim {
     if (next === undefined) {
       p.leader = null
       p.isr = []
-      this.log(`P${p.id} недоступна: в ISR не осталось живых реплик`, 'error')
+      this.log(tr(`P${p.id} недоступна: в ISR не осталось живых реплик`, `P${p.id} is unavailable: no live replicas left in the ISR`), 'error')
       return
     }
     p.leader = next
@@ -357,11 +358,11 @@ export class KafkaSim {
     this.truncate(p, newLeo)
     if (uncleanElection) {
       p.isr = [next]
-      this.log(`P${p.id}: unclean election — лидером стал отстающий брокер ${next}`, 'error')
+      this.log(tr(`P${p.id}: unclean election — лидером стал отстающий брокер ${next}`, `P${p.id}: unclean election, lagging broker ${next} became leader`), 'error')
     } else {
       p.isr = p.isr.filter((r) => this.broker(r).alive)
       if (!p.isr.includes(next)) p.isr.unshift(next)
-      this.log(`P${p.id}: новый лидер — брокер ${next}`, 'warn')
+      this.log(tr(`P${p.id}: новый лидер — брокер ${next}`, `P${p.id}: new leader is broker ${next}`), 'warn')
     }
   }
 
@@ -384,7 +385,7 @@ export class KafkaSim {
     this.lost += lostAcked.length
     this.lostAcked += lostAcked.length
     if (lostAcked.length > 0) {
-      this.log(`P${p.id}: потеряно ${lostAcked.length} сообщ., которые продюсер считал записанными!`, 'error')
+      this.log(tr(`P${p.id}: потеряно ${lostAcked.length} сообщ., которые продюсер считал записанными!`, `P${p.id}: lost ${lostAcked.length} msgs the producer considered written!`), 'error')
     }
     if (retry.length === 0) return
     if (p.leader === null) {
@@ -400,7 +401,7 @@ export class KafkaSim {
       p.log.push(m)
       p.leo[p.leader] = m.offset + 1
     }
-    this.log(`P${p.id}: ${retry.length} неподтверждённых сообщ. продюсер переотправил новому лидеру`, 'info')
+    this.log(tr(`P${p.id}: ${retry.length} неподтверждённых сообщ. продюсер переотправил новому лидеру`, `P${p.id}: the producer resent ${retry.length} unacknowledged msgs to the new leader`), 'info')
   }
 
   private replicate() {
@@ -428,10 +429,10 @@ export class KafkaSim {
         const inIsr = p.isr.includes(r)
         if (inIsr && behind > REPLICA_LAG_MAX) {
           p.isr = p.isr.filter((x) => x !== r)
-          this.log(`P${p.id}: брокер ${r} отстал и выпал из ISR`, 'warn')
+          this.log(tr(`P${p.id}: брокер ${r} отстал и выпал из ISR`, `P${p.id}: broker ${r} fell behind and dropped out of the ISR`), 'warn')
         } else if (!inIsr && behind < REPLICA_LAG_MAX / 2) {
           p.isr.push(r)
-          this.log(`P${p.id}: брокер ${r} догнал лидера и вернулся в ISR`, 'ok')
+          this.log(tr(`P${p.id}: брокер ${r} догнал лидера и вернулся в ISR`, `P${p.id}: broker ${r} caught up with the leader and rejoined the ISR`), 'ok')
         }
       }
       p.leo[p.leader] = leaderLeo
@@ -481,7 +482,7 @@ export class KafkaSim {
     const g = this.groups[gid]
     const rate = g.consumers[0]?.rate ?? 10
     this.newConsumer(g, rate)
-    this.triggerRebalance(g, `в группу вошёл ${g.consumers[g.consumers.length - 1].name}`)
+    this.triggerRebalance(g, tr(`в группу вошёл ${g.consumers[g.consumers.length - 1].name}`, `${g.consumers[g.consumers.length - 1].name} joined the group`))
   }
 
   removeConsumer(gid: number, cid: number) {
@@ -489,7 +490,7 @@ export class KafkaSim {
     const c = g.consumers.find((x) => x.id === cid)
     if (!c) return
     g.consumers = g.consumers.filter((x) => x.id !== cid)
-    this.triggerRebalance(g, `${c.name} вышел из группы`)
+    this.triggerRebalance(g, tr(`${c.name} вышел из группы`, `${c.name} left the group`))
   }
 
   killConsumer(gid: number, cid: number) {
@@ -497,10 +498,10 @@ export class KafkaSim {
     const c = g.consumers.find((x) => x.id === cid)
     if (!c || !c.alive) return
     c.alive = false
-    this.log(`${g.name}/${c.name} упал, не успев закоммитить offset`, 'error')
+    this.log(tr(`${g.name}/${c.name} упал, не успев закоммитить offset`, `${g.name}/${c.name} crashed before committing its offset`), 'error')
     const orphaned = this.partitionsOf(g, cid)
     g.consumers = g.consumers.filter((x) => x.id !== cid)
-    this.triggerRebalance(g, `${c.name} перестал слать heartbeat`, orphaned)
+    this.triggerRebalance(g, tr(`${c.name} перестал слать heartbeat`, `${c.name} stopped sending heartbeats`), orphaned)
   }
 
   setGroupRate(gid: number, rate: number) {
@@ -518,7 +519,7 @@ export class KafkaSim {
       else g.committed[+pid] = g.position[+pid]
     }
     g.assignment = {}
-    this.log(`${g.name}: ребалансировка (${reason}), чтение приостановлено`, 'warn')
+    this.log(tr(`${g.name}: ребалансировка (${reason}), чтение приостановлено`, `${g.name}: rebalance (${reason}), reading paused`), 'warn')
   }
 
   private assign(g: Group) {
@@ -573,7 +574,7 @@ export class KafkaSim {
       if (g.rebalanceUntil > 0 && this.now >= g.rebalanceUntil) {
         g.rebalanceUntil = 0
         this.assign(g)
-        this.log(`${g.name}: ребалансировка завершена`, 'info')
+        this.log(tr(`${g.name}: ребалансировка завершена`, `${g.name}: rebalance complete`), 'info')
       }
       if (this.isRebalancing(g)) continue
       for (const c of g.consumers) {

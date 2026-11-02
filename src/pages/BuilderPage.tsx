@@ -23,7 +23,21 @@ import {
 import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
+import { RefModal } from '../components/RefCard'
 import { markScenario, useProgress } from '../progress'
+import { tr } from '../i18n'
+
+const CHALLENGE_GROUP_LABEL: Record<BuilderChallenge['group'], string> = {
+  Классика: tr('Классика', 'Classics'),
+  Инструменты: tr('Инструменты', 'Tools'),
+  'System Design': 'System Design',
+}
+
+const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
+  Трафик: tr('Трафик', 'Traffic'),
+  Вычисления: tr('Вычисления', 'Compute'),
+  Хранилища: tr('Хранилища', 'Storage'),
+}
 
 let uid = 100
 const nextId = (p: string) => `${p}${++uid}`
@@ -35,17 +49,17 @@ export default function BuilderPage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">Главная</a> / <a href="#/microservices">Микросервисы</a> / Конструктор
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/microservices">{tr('Микросервисы', 'Microservices')}</a> / {tr('Конструктор', 'Builder')}
       </div>
-      <h1>🏗️ Конструктор архитектуры</h1>
+      <h1>🏗️ {tr('Конструктор архитектуры', 'Architecture Builder')}</h1>
       <div className="row tabs">
         <button className={mode === 'sandbox' ? 'primary' : ''} onClick={() => setMode('sandbox')}>
-          Свободный режим
+          {tr('Свободный режим', 'Sandbox')}
         </button>
       </div>
       {(['Классика', 'Инструменты', 'System Design'] as const).map((group) => (
         <div key={group} className="row tabs">
-          <span className="muted small tab-group">{group}:</span>
+          <span className="muted small tab-group">{CHALLENGE_GROUP_LABEL[group]}:</span>
           {builderChallenges
             .filter((c) => c.group === group)
             .map((c) => (
@@ -62,6 +76,7 @@ export default function BuilderPage() {
 }
 
 function Builder({ challenge }: { challenge?: BuilderChallenge }) {
+  const [refId, setRefId] = useState<string | null>(null)
   const start = challenge ?? sandboxStart
   const [nodes, setNodes] = useState<BNode[]>(start.nodes)
   const [edges, setEdges] = useState<BEdge[]>(start.edges)
@@ -79,8 +94,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     ? [
         ...challenge.paths.map((p) => ({ text: p.text, ok: reaches(edges, p.from, p.to) })),
         ...challenge.goals.map((g) => ({ text: g.text, ok: g.check(result) })),
-        { text: `Стоимость ≤ $${challenge.budget}`, ok: result.cost <= challenge.budget },
-        ...(challenge.estimate ? [{ text: 'Прикидка нагрузки сделана', ok: estimated }] : []),
+        { text: tr(`Стоимость ≤ $${challenge.budget}`, `Cost ≤ $${challenge.budget}`), ok: result.cost <= challenge.budget },
+        ...(challenge.estimate ? [{ text: tr('Прикидка нагрузки сделана', 'Back-of-the-envelope estimate done'), ok: estimated }] : []),
       ]
     : []
   const solved = goals.length > 0 && goals.every((g) => g.ok)
@@ -150,24 +165,28 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const connect = (from: string, to: string) => {
     const a = nodes.find((n) => n.id === from)!
     const b = nodes.find((n) => n.id === to)!
-    if (b.kind === 'client') return say('Клиенты — только источник нагрузки')
-    if (edges.some((e) => e.from === from && e.to === to)) return say('Такая связь уже есть')
+    if (b.kind === 'client') return say(tr('Клиенты — только источник нагрузки', 'Clients are only a source of load'))
+    if (edges.some((e) => e.from === from && e.to === to)) return say(tr('Такая связь уже есть', 'This connection already exists'))
     if (wouldCycle(nodes, edges, from, to)) {
       const label = (id: string) => nodes.find((x) => x.id === id)?.label ?? id
       const back = pathBetween(edges, to, from) ?? [to, from]
       return setCycleNote(
-        `Связь «${a.label} → ${b.label}» замкнула бы круг: ${[...back, to].map(label).join(' → ')}. ` +
-          'Запрос бегал бы по нему бесконечно.',
+        tr(
+          `Связь «${a.label} → ${b.label}» замкнула бы круг: ${[...back, to].map(label).join(' → ')}. ` +
+            'Запрос бегал бы по нему бесконечно.',
+          `The connection “${a.label} → ${b.label}” would close a loop: ${[...back, to].map(label).join(' → ')}. ` +
+            'A request would circle it forever.',
+        ),
       )
     }
     setCycleNote(null)
-    if (isStorage(a.kind)) return say('Хранилище никого не вызывает')
+    if (isStorage(a.kind)) return say(tr('Хранилище никого не вызывает', 'Storage does not call anything'))
     setEdges([...edges, { id: nextId('e'), from, to }])
   }
 
   const remove = () => {
     if (selNode) {
-      if (locked(selNode.id)) return say('Этот компонент — часть исходной системы')
+      if (locked(selNode.id)) return say(tr('Этот компонент — часть исходной системы', 'This component is part of the original system'))
       setNodes(nodes.filter((n) => n.id !== selNode.id))
       setEdges(edges.filter((e) => e.from !== selNode.id && e.to !== selNode.id))
     } else if (selEdge) {
@@ -204,12 +223,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             )}
             {hints < challenge.hints.length && !solved && (
               <button onClick={() => setHints(hints + 1)}>
-                💡 Подсказка ({hints}/{challenge.hints.length})
+                💡 {tr('Подсказка', 'Hint')} ({hints}/{challenge.hints.length})
               </button>
             )}
           </div>
           <div className={'panel goal' + (solved ? ' success' : '')}>
-            <h4>{solved ? '✅ Решено!' : '🎯 Цели'}</h4>
+            <h4>{solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цели', '🎯 Goals')}</h4>
             <ul className="goal-list">
               {goals.map((g) => (
                 <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -222,15 +241,22 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       )}
       {viewingRef && (
         <div className="ref-banner">
-          👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
+          {tr(
+            <>
+              👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
+            </>,
+            <>
+              👁 You are viewing the <b>reference solution</b>; it does not count toward completion.
+            </>,
+          )}
           <button className="primary" onClick={toggleReference}>
-            ↩ Вернуть моё решение
+            ↩ {tr('Вернуть моё решение', 'Back to my solution')}
           </button>
         </div>
       )}
       {solved && challenge && !viewingRef && (
         <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>Разбор задачи</h3>
+          <h3>{tr('Разбор задачи', 'Debrief')}</h3>
           <Rich paras={challenge.debrief} />
         </div>
       )}
@@ -238,25 +264,26 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         <div className="row review-actions">
           {!solved && (
             <button onClick={() => setShowReview(!showReview)}>
-              📋 {showReview ? 'Скрыть оценку' : 'Оценить решение'}
+              📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
             </button>
           )}
-          {!viewingRef && <button onClick={toggleReference}>👁 Показать эталон на схеме</button>}
+          {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
         </div>
       )}
-      {review && <ReviewPanel review={review} title={viewingRef ? 'Оценка эталона' : 'Оценка вашего решения'} />}
+      {review && <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />}
 
+      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="builder-grid">
         <aside className="panel palette">
-          <h4>Компоненты</h4>
+          <h4>{tr('Компоненты', 'Components')}</h4>
           {(['Трафик', 'Вычисления', 'Хранилища'] as const).map((group) => (
             <div key={group}>
-              <div className="pattern-group-title">{group}</div>
+              <div className="pattern-group-title">{KIND_GROUP_LABEL[group]}</div>
               {(Object.keys(KINDS) as NodeKind[])
                 .filter((k) => KINDS[k].group === group && !(challenge && k === 'client'))
                 .map((k) => (
+                  <div key={k} className="palette-row">
                   <button
-                    key={k}
                     className="palette-item"
                     onClick={() => add(k)}
                     title={KINDS[k].desc}
@@ -269,31 +296,41 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                     <span>{KINDS[k].icon}</span> {KINDS[k].title}
                     <span className="small muted">{KINDS[k].cost ? `$${KINDS[k].cost}` : ''}</span>
                   </button>
+                  <button
+                    className="icon info-btn"
+                    title={tr('Что это и когда применять', 'What it is and when to use it')}
+                    onClick={() => setRefId(k)}
+                  >
+                    ⓘ
+                  </button>
+                  </div>
                 ))}
             </div>
           ))}
           <p className="small muted">
-            Перетащите компонент на холст или кликните: если выделен блок, новый встанет справа и сразу соединится
-            с ним. Связь вручную — тяните за кружок справа от блока. Del — удалить выделенное.
+            {tr(
+              'Перетащите компонент на холст или кликните: если выделен блок, новый встанет справа и сразу соединится с ним. Связь вручную — тяните за кружок справа от блока. Del — удалить выделенное.',
+              'Drag a component onto the canvas or click it: if a block is selected, the new one is placed to its right and connected to it. To connect manually, drag from the circle on the right of a block. Del deletes the selection.',
+            )}
           </p>
         </aside>
 
         <div className="panel canvas-wrap">
           <div className="builder-stats">
-            <Stat label="нагрузка" value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
+            <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
             <Stat
-              label="успешных"
+              label={tr('успешных', 'success')}
               value={`${(result.clientSuccess * 100).toFixed(2)}%`}
               tone={result.clientSuccess >= 0.995 ? 'ok' : result.clientSuccess >= 0.95 ? 'warn' : 'bad'}
             />
             <Stat
-              label="латентность"
-              value={`${Math.round(result.clientLatency)} мс`}
+              label={tr('латентность', 'latency')}
+              value={tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}
               tone={result.clientLatency <= 150 ? 'ok' : result.clientLatency <= 500 ? 'warn' : 'bad'}
             />
             <Stat
-              label="рост очереди"
-              value={`${fmt(result.backlogGrowth)}/с`}
+              label={tr('рост очереди', 'queue growth')}
+              value={tr(`${fmt(result.backlogGrowth)}/с`, `${fmt(result.backlogGrowth)}/s`)}
               tone={result.backlogGrowth < 1 ? 'ok' : 'bad'}
             />
             <CostStat nodes={nodes} total={result.cost} budget={challenge?.budget} />
@@ -301,16 +338,28 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </div>
           {(cycleNote || result.cycle) && (
             <div className="cycle-note">
-              <button className="icon" onClick={() => setCycleNote(null)} title="Понятно">
+              <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it')}>
                 ✕
               </button>
-              <b>🔁 Цикл: связь не добавлена.</b> {cycleNote ?? 'На схеме есть замкнутый круг связей.'}
+              <b>{tr('🔁 Цикл: связь не добавлена.', '🔁 Loop: connection not added.')}</b>{' '}
+              {cycleNote ?? tr('На схеме есть замкнутый круг связей.', 'The diagram contains a closed loop of connections.')}
               <div className="small">
-                Стрелка — это направление <b>запроса</b>: кто кого вызывает. Ответ возвращается по той же стрелке
-                сам, обратную рисовать не нужно. Если вы хотели <b>cache-aside</b> (сервис сначала смотрит в Redis, а
-                при промахе идёт в БД и кладёт результат в кэш) — соедините <b>сервис → Redis</b> и{' '}
-                <b>сервис → БД</b>: в БД пойдут только промахи. Вариант <b>read-through</b> — цепочка сервис → Redis →
-                БД.
+                {tr(
+                  <>
+                    Стрелка — это направление <b>запроса</b>: кто кого вызывает. Ответ возвращается по той же стрелке
+                    сам, обратную рисовать не нужно. Если вы хотели <b>cache-aside</b> (сервис сначала смотрит в Redis, а
+                    при промахе идёт в БД и кладёт результат в кэш) — соедините <b>сервис → Redis</b> и{' '}
+                    <b>сервис → БД</b>: в БД пойдут только промахи. Вариант <b>read-through</b> — цепочка сервис → Redis →
+                    БД.
+                  </>,
+                  <>
+                    An arrow is the direction of a <b>request</b>: who calls whom. The response travels back along the
+                    same arrow, so there is no need to draw a reverse one. If you meant <b>cache-aside</b> (the service
+                    checks Redis first and, on a miss, goes to the DB and puts the result into the cache), connect{' '}
+                    <b>service → Redis</b> and <b>service → DB</b>: only misses will reach the DB. The{' '}
+                    <b>read-through</b> option is the chain service → Redis → DB.
+                  </>,
+                )}
               </div>
             </div>
           )}
@@ -328,15 +377,15 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         </div>
 
         <aside className="panel props">
-          <h4>Свойства</h4>
-          {!selNode && !selEdge && <p className="small muted">Выберите блок или связь</p>}
+          <h4>{tr('Свойства', 'Properties')}</h4>
+          {!selNode && !selEdge && <p className="small muted">{tr('Выберите блок или связь', 'Select a block or a connection')}</p>}
           {selEdge && (
             <>
               <p>
-                Связь: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
+                {tr('Связь', 'Connection')}: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
               </p>
               <p className="small muted">{fmt(result.edges[selEdge.id]?.rps ?? 0)} rps</p>
-              <button onClick={remove}>Удалить связь</button>
+              <button onClick={remove}>{tr('Удалить связь', 'Delete connection')}</button>
             </>
           )}
           {selNode && (
@@ -362,7 +411,7 @@ function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; bud
     .filter((n) => KINDS[n.kind].cost > 0)
     .map((n) => ({ text: `${KINDS[n.kind].icon} ${n.label} ×${n.instances}`, cost: KINDS[n.kind].cost * n.instances }))
     .sort((a, b) => b.cost - a.cost)
-  const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : 'Пока ничего не стоит'
+  const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : tr('Пока ничего не стоит', 'Nothing costs anything yet')
   const tone = budget === undefined ? undefined : total > budget ? 'bad' : total > budget * 0.85 ? 'warn' : 'ok'
   return (
     <div className={'metric budget ' + (tone ?? '')} title={breakdown}>
@@ -373,9 +422,9 @@ function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; bud
       <div className="metric-label">
         {budget !== undefined
           ? total > budget
-            ? `перерасход $${total - budget} в месяц`
-            : `стоимость / бюджет · запас $${budget - total}`
-          : 'стоимость в месяц'}
+            ? tr(`перерасход $${total - budget} в месяц`, `over budget by $${total - budget}/month`)
+            : tr(`стоимость / бюджет · запас $${budget - total}`, `cost / budget · $${budget - total} left`)
+          : tr('стоимость в месяц', 'cost per month')}
       </div>
       {budget !== undefined && (
         <div className="progressbar">
@@ -420,20 +469,22 @@ function NodeProps({
         {spec.icon} {spec.title}
       </div>
       <label>
-        название
+        {tr('название', 'name')}
         <input type="text" value={node.label} onChange={(e) => patch({ label: e.target.value })} />
       </label>
       <p className="small muted">{spec.desc}</p>
       {node.kind === 'client' ? (
         locked ? (
           <>
-            <p>Нагрузка: {hideLoad ? 'сначала сделайте прикидку' : `${node.rps} rps`}</p>
-            <p className="small">Профиль: {WORKLOADS[node.workload ?? 'oltp'].title}</p>
+            <p>
+              {tr('Нагрузка', 'Load')}: {hideLoad ? tr('сначала сделайте прикидку', 'make the estimate first') : `${node.rps} rps`}
+            </p>
+            <p className="small">{tr('Профиль', 'Workload')}: {WORKLOADS[node.workload ?? 'oltp'].title}</p>
           </>
         ) : (
           <>
             <label>
-              профиль нагрузки
+              {tr('профиль нагрузки', 'workload')}
               <select
                 value={node.workload ?? 'oltp'}
                 onChange={(e) => patch({ workload: e.target.value as Workload })}
@@ -446,7 +497,7 @@ function NodeProps({
               </select>
             </label>
           <label>
-            нагрузка: {node.rps} rps
+            {tr('нагрузка', 'load')}: {node.rps} rps
             <input
               type="range"
               min={50}
@@ -460,7 +511,7 @@ function NodeProps({
         )
       ) : (
         <label>
-          экземпляров: {node.instances}
+          {tr('экземпляров', 'instances')}: {node.instances}
           <input
             type="range"
             min={1}
@@ -472,7 +523,7 @@ function NodeProps({
       )}
       {node.kind === 'service' && !locked && (
         <label>
-          профиль
+          {tr('профиль', 'profile')}
           <select
             value={profile?.id ?? ''}
             onChange={(e) => {
@@ -490,17 +541,20 @@ function NodeProps({
       )}
       {node.kind === 'service' && locked && (
         <p className="small">
-          {node.capacity} rps на экземпляр, {node.latency} мс
+          {tr(`${node.capacity} rps на экземпляр, ${node.latency} мс`, `${node.capacity} rps per instance, ${node.latency} ms`)}
         </p>
       )}
       {(node.kind === 'cache' || node.kind === 'cdn') &&
         (fixedHit ? (
           <p className="small">
-            Доля попаданий {Math.round((node.hitRatio ?? 0) * 100)}% — определяется данными задачи
+            {tr(
+              `Доля попаданий ${Math.round((node.hitRatio ?? 0) * 100)}% — определяется данными задачи`,
+              `Hit ratio ${Math.round((node.hitRatio ?? 0) * 100)}%, set by the task`,
+            )}
           </p>
         ) : (
           <label>
-            доля попаданий: {Math.round((node.hitRatio ?? 0.8) * 100)}%
+            {tr('доля попаданий', 'hit ratio')}: {Math.round((node.hitRatio ?? 0.8) * 100)}%
             <input
               type="range"
               min={0}
@@ -524,7 +578,7 @@ function NodeProps({
                       <div style={{ width: `${f * 100}%` }} />
                     </div>
                   </td>
-                  <td>{f === 0 ? 'не умеет' : f >= 1 ? 'родной' : `×${f}`}</td>
+                  <td>{f === 0 ? tr('не умеет', 'unsupported') : f >= 1 ? tr('родной', 'native') : `×${f}`}</td>
                 </tr>
               )
             })}
@@ -535,39 +589,39 @@ function NodeProps({
         <table className="cmp small">
           <tbody>
             <tr>
-              <td>вход</td>
+              <td>{tr('вход', 'input')}</td>
               <td>{hideLoad ? '?' : `${fmt(stats.in)} rps`}</td>
             </tr>
             {stats.unsupported > 0 && (
               <tr className="bad-text">
-                <td>не умеет</td>
-                <td>{Math.round(stats.unsupported * 100)}% запросов</td>
+                <td>{tr('не умеет', 'unsupported')}</td>
+                <td>{tr(`${Math.round(stats.unsupported * 100)}% запросов`, `${Math.round(stats.unsupported * 100)}% of requests`)}</td>
               </tr>
             )}
             <tr>
-              <td>ёмкость</td>
+              <td>{tr('ёмкость', 'capacity')}</td>
               <td>{fmt(stats.capacity)} rps</td>
             </tr>
             <tr>
-              <td>загрузка</td>
+              <td>{tr('загрузка', 'utilization')}</td>
               <td>{Math.round(stats.util * 100)}%</td>
             </tr>
             <tr>
-              <td>успешно</td>
+              <td>{tr('успешно', 'success')}</td>
               <td>{(stats.success * 100).toFixed(1)}%</td>
             </tr>
             <tr>
-              <td>латентность</td>
-              <td>{Math.round(stats.latency)} мс</td>
+              <td>{tr('латентность', 'latency')}</td>
+              <td>{tr(`${Math.round(stats.latency)} мс`, `${Math.round(stats.latency)} ms`)}</td>
             </tr>
             <tr>
-              <td>стоимость</td>
+              <td>{tr('стоимость', 'cost')}</td>
               <td>${spec.cost * node.instances}</td>
             </tr>
           </tbody>
         </table>
       )}
-      {!locked && <button onClick={remove}>Удалить блок</button>}
+      {!locked && <button onClick={remove}>{tr('Удалить блок', 'Delete block')}</button>}
     </div>
   )
 }
@@ -587,7 +641,7 @@ function EstimatePanel({
   if (done)
     return (
       <div className="estimate done">
-        <b>📐 Прикидка:</b> {estimate.formula}
+        <b>{tr('📐 Прикидка:', '📐 Estimate:')}</b> {estimate.formula}
       </div>
     )
   const check = () => {
@@ -600,12 +654,12 @@ function EstimatePanel({
   }
   return (
     <div className="estimate">
-      <b>📐 Сначала прикидка (back-of-the-envelope):</b> {estimate.question}
+      <b>{tr('📐 Сначала прикидка (back-of-the-envelope):', '📐 First, a back-of-the-envelope estimate:')}</b> {estimate.question}
       <div className="row" style={{ marginTop: 6 }}>
         <input
           type="text"
           inputMode="numeric"
-          placeholder="ваша оценка"
+          placeholder={tr('ваша оценка', 'your estimate')}
           value={value}
           onChange={(e) => {
             setValue(e.target.value)
@@ -615,13 +669,16 @@ function EstimatePanel({
         />
         <span className="small muted">{estimate.unit}</span>
         <button className="primary" onClick={check}>
-          Проверить
+          {tr('Проверить', 'Check')}
         </button>
-        {tries >= 2 && <button onClick={onDone}>Показать расчёт</button>}
+        {tries >= 2 && <button onClick={onDone}>{tr('Показать расчёт', 'Show calculation')}</button>}
       </div>
       {wrong && (
         <div className="small warn-text">
-          Не попали в ±25%. В сутках 86 400 секунд, а пик выше среднего — проверьте множители.
+          {tr(
+            'Не попали в ±25%. В сутках 86 400 секунд, а пик выше среднего — проверьте множители.',
+            'Not within ±25%. A day has 86,400 seconds, and the peak is above average: check your multipliers.',
+          )}
         </div>
       )}
     </div>

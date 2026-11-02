@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { href, useRoute } from './router'
 import { findModule } from './content/modules'
+import { lang, setLang, tr } from './i18n'
 import { Home } from './pages/Home'
 import { ModulePage } from './pages/ModulePage'
 import { LessonPage } from './pages/LessonPage'
@@ -14,6 +15,7 @@ const MonolithPage = lazy(() => import('./pages/MonolithPage'))
 const C4Page = lazy(() => import('./pages/C4Page'))
 const CapPage = lazy(() => import('./pages/CapPage'))
 const EsPage = lazy(() => import('./pages/EsPage'))
+const ReferencePage = lazy(() => import('./pages/ReferencePage'))
 
 export default function App() {
   const route = useRoute()
@@ -27,6 +29,7 @@ export default function App() {
   else if (first === 'c4' && second === 'exercises') page = <C4Page />
   else if (first === 'data' && second === 'cap') page = <CapPage />
   else if (first === 'data' && second === 'es') page = <EsPage />
+  else if (first === 'reference') page = <ReferencePage focus={second} />
   else if (!mod) page = <NotFound />
   else if (!second) page = <ModulePage mod={mod} />
   else if (second === 'lesson' && third) page = <LessonPage mod={mod} lessonId={third} />
@@ -47,20 +50,31 @@ export default function App() {
             Kafka
           </a>
           <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''}>
-            Микросервисы
+            {tr('Микросервисы', 'Microservices')}
           </a>
           <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
-            Конструктор
+            {tr('Конструктор', 'Builder')}
           </a>
           <a href={href('data')} className={first === 'data' ? 'active' : ''}>
-            Данные
+            {tr('Данные', 'Data')}
           </a>
           <a href={href('c4')} className={first === 'c4' ? 'active' : ''}>
             C4
           </a>
+          <a href={href('reference')} className={first === 'reference' ? 'active' : ''}>
+            {tr('Справочник', 'Reference')}
+          </a>
         </nav>
+        <div className="lang-switch" role="group" aria-label="Language">
+          <button className={lang === 'ru' ? 'primary' : ''} onClick={() => lang !== 'ru' && setLang('ru')}>
+            RU
+          </button>
+          <button className={lang === 'en' ? 'primary' : ''} onClick={() => lang !== 'en' && setLang('en')}>
+            EN
+          </button>
+        </div>
       </header>
-      <Suspense fallback={<div className="page muted">Загрузка…</div>}>
+      <Suspense fallback={<div className="page muted">{tr('Загрузка…', 'Loading…')}</div>}>
         <div key={route.join('/')}>{page}</div>
       </Suspense>
     </>

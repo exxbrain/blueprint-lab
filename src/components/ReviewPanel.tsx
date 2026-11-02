@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import type { ReactNode } from 'react'
 import type { Review } from '../sim/review'
 
@@ -8,7 +9,7 @@ export function ReviewPanel({ review, title, children }: { review: Review; title
   return (
     <div className={'panel review stars-' + review.stars}>
       <div className="review-head">
-        <span className="review-stars" aria-label={`${review.stars} из 3`}>
+        <span className="review-stars" aria-label={tr(`${review.stars} из 3`, `${review.stars} of 3`)}>
           {[1, 2, 3].map((i) => (
             <span key={i} className={i <= review.stars ? 'on' : ''}>
               ★

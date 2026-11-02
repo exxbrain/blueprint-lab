@@ -1,3 +1,4 @@
+import { tr } from '../../i18n'
 import { type ReactNode } from 'react'
 import { ORDER_STAGES, keyColor, type Acks, type KafkaConfig, type KafkaSim, type KeyStrategy, type Partition } from './engine'
 import { useKafkaSim } from './useKafkaSim'
@@ -38,9 +39,9 @@ interface Props {
 }
 
 const KEY_LABELS: Record<KeyStrategy, string> = {
-  none: 'без ключа (round-robin)',
-  order: 'ключ = id заказа',
-  customer: 'ключ = клиент',
+  none: tr('без ключа (round-robin)', 'no key (round-robin)'),
+  order: tr('ключ = id заказа', 'key = order id'),
+  customer: tr('ключ = клиент', 'key = customer'),
 }
 
 const WINDOW = 22
@@ -54,10 +55,10 @@ export function KafkaSimulator({ config, controls = {}, onTick, extraActions, co
   return (
     <div className={'ksim' + (compact ? ' ksim-compact' : '')}>
       <div className="ksim-toolbar">
-        <button onClick={() => setRunning(!running)}>{running ? '⏸ Пауза' : '▶ Пуск'}</button>
-        <button onClick={reset}>↺ Сначала</button>
+        <button onClick={() => setRunning(!running)}>{running ? tr('⏸ Пауза', '⏸ Pause') : tr('▶ Пуск', '▶ Run')}</button>
+        <button onClick={reset}>{tr('↺ Сначала', '↺ Restart')}</button>
         <label className="inline">
-          скорость
+          {tr('скорость', 'speed')}
           <select value={speed} onChange={(e) => setSpeed(+e.target.value)}>
             <option value={0.5}>×0.5</option>
             <option value={1}>×1</option>
@@ -65,21 +66,21 @@ export function KafkaSimulator({ config, controls = {}, onTick, extraActions, co
             <option value={4}>×4</option>
           </select>
         </label>
-        <span className="muted">t = {sim.now.toFixed(1)} с</span>
+        <span className="muted">t = {sim.now.toFixed(1)} {tr('с', 's')}</span>
         <span className="spacer" />
         {extraActions?.(sim, act)}
       </div>
 
       <div className="ksim-metrics">
-        <Metric label="записано/с" value={last ? last.produced.toFixed(0) : '0'} />
-        <Metric label="прочитано/с" value={last ? last.consumed.toFixed(0) : '0'} />
-        <Metric label="лаг (всего)" value={totalLag} tone={totalLag > 50 ? 'bad' : totalLag > 15 ? 'warn' : 'ok'}>
+        <Metric label={tr('записано/с', 'written/s')} value={last ? last.produced.toFixed(0) : '0'} />
+        <Metric label={tr('прочитано/с', 'read/s')} value={last ? last.consumed.toFixed(0) : '0'} />
+        <Metric label={tr('лаг (всего)', 'lag (total)')} value={totalLag} tone={totalLag > 50 ? 'bad' : totalLag > 15 ? 'warn' : 'ok'}>
           <Sparkline values={sim.history.map((h) => h.lag)} />
         </Metric>
-        <Metric label="отказы записи" value={sim.rejected} tone={sim.rejected ? 'warn' : undefined} />
-        <Metric label="потеряно подтверждённых" value={sim.lostAcked} tone={sim.lostAcked ? 'bad' : 'ok'} />
+        <Metric label={tr('отказы записи', 'write rejections')} value={sim.rejected} tone={sim.rejected ? 'warn' : undefined} />
+        <Metric label={tr('потеряно подтверждённых', 'acknowledged lost')} value={sim.lostAcked} tone={sim.lostAcked ? 'bad' : 'ok'} />
         <Metric
-          label="партиций офлайн"
+          label={tr('партиций офлайн', 'partitions offline')}
           value={sim.offlinePartitions()}
           tone={sim.offlinePartitions() ? 'bad' : 'ok'}
         />
@@ -120,19 +121,19 @@ function Metric(props: { label: string; value: ReactNode; tone?: 'ok' | 'warn' |
 function ProducersPanel({ sim, act, c }: PanelProps) {
   return (
     <section className="panel">
-      <h4>Продюсеры</h4>
+      <h4>{tr('Продюсеры', 'Producers')}</h4>
       {sim.producers.map((p) => (
         <div key={p.id} className="card" data-anchor={`producer-${p.id}`}>
           <div className="card-head">
             <b>Producer {p.id}</b>
             {c.producers && sim.producers.length > 1 && (
-              <button className="icon" title="Удалить" onClick={() => act((s) => s.removeProducer(p.id))}>
+              <button className="icon" title={tr('Удалить', 'Remove')} onClick={() => act((s) => s.removeProducer(p.id))}>
                 ✕
               </button>
             )}
           </div>
           <label>
-            {p.rate} сообщ./с
+            {p.rate} {tr('сообщ./с', 'msg/s')}
             <input
               type="range"
               min={1}
@@ -143,7 +144,7 @@ function ProducersPanel({ sim, act, c }: PanelProps) {
             />
           </label>
           <label>
-            ключ
+            {tr('ключ', 'key')}
             <select
               value={p.keyStrategy}
               disabled={!c.keys}
@@ -163,13 +164,13 @@ function ProducersPanel({ sim, act, c }: PanelProps) {
               disabled={!c.acks}
               onChange={(e) => act(() => (p.acks = parseAcks(e.target.value)))}
             >
-              <option value="0">0 — не ждать</option>
-              <option value="1">1 — ждать лидера</option>
-              <option value="all">all — ждать все ISR</option>
+              <option value="0">{tr('0 — не ждать', '0 — no wait')}</option>
+              <option value="1">{tr('1 — ждать лидера', '1 — wait for leader')}</option>
+              <option value="all">{tr('all — ждать все ISR', 'all — wait for all ISR')}</option>
             </select>
           </label>
           <div className="small muted">
-            отправлено {p.sent} · подтверждено {p.acked} · ошибок {p.failed}
+            {tr(`отправлено ${p.sent} · подтверждено ${p.acked} · ошибок ${p.failed}`, `sent ${p.sent} · acked ${p.acked} · errors ${p.failed}`)}
           </div>
         </div>
       ))}
@@ -177,12 +178,12 @@ function ProducersPanel({ sim, act, c }: PanelProps) {
         <button
           onClick={() => act((s) => s.addProducer({ rate: 10, keyStrategy: 'order', acks: 'all' }))}
         >
-          + продюсер
+          + {tr('продюсер', 'producer')}
         </button>
       )}
       {c.reliability && (
         <div className="card">
-          <b>Настройки топика</b>
+          <b>{tr('Настройки топика', 'Topic settings')}</b>
           <label>
             min.insync.replicas
             <select value={sim.minIsr} onChange={(e) => act((s) => (s.minIsr = +e.target.value))}>
@@ -213,22 +214,30 @@ function TopicPanel({ sim, act, c }: PanelProps) {
   return (
     <section className="panel topic">
       <h4>
-        Топик <code>orders</code>
+        {tr('Топик', 'Topic')} <code>orders</code>
         <span className="muted small">
           {' '}
-          · {sim.partitions.length} партиций · RF={sim.config.replicationFactor}
+          · {sim.partitions.length} {tr('партиций', 'partitions')} · RF={sim.config.replicationFactor}
         </span>
       </h4>
       {sim.partitions.map((p) => (
         <PartitionRow key={p.id} sim={sim} p={p} />
       ))}
       <div className="legend small muted">
-        Квадрат = сообщение, цвет = заказ, цифра = стадия ({ORDER_STAGES.map((s, i) => `${i + 1} ${s}`).join(', ')}).
-        Пунктир = ещё не реплицировано (выше high watermark), консьюмеры его не видят.
+        {tr(
+          <>
+            Квадрат = сообщение, цвет = заказ, цифра = стадия ({ORDER_STAGES.map((s, i) => `${i + 1} ${s}`).join(', ')}).
+            Пунктир = ещё не реплицировано (выше high watermark), консьюмеры его не видят.
+          </>,
+          <>
+            Square = message, color = order, digit = stage ({ORDER_STAGES.map((s, i) => `${i + 1} ${s}`).join(', ')}).
+            Dashed = not yet replicated (above the high watermark), consumers cannot see it.
+          </>,
+        )}
       </div>
       {c.partitions && (
         <button disabled={sim.partitions.length >= 12} onClick={() => act((s) => s.addPartition())}>
-          + партиция
+          + {tr('партиция', 'partition')}
         </button>
       )}
     </section>
@@ -249,12 +258,12 @@ function PartitionRow({ sim, p }: { sim: KafkaSim; p: Partition }) {
             const alive = sim.broker(r).alive
             const cls = !alive ? 'dead' : r === p.leader ? 'leader' : p.isr.includes(r) ? 'isr' : 'out'
             const title = !alive
-              ? `брокер ${r} недоступен`
+              ? tr(`брокер ${r} недоступен`, `broker ${r} is unavailable`)
               : r === p.leader
-                ? `лидер на брокере ${r}`
+                ? tr(`лидер на брокере ${r}`, `leader on broker ${r}`)
                 : p.isr.includes(r)
-                  ? `фолловер на брокере ${r}, в ISR`
-                  : `фолловер на брокере ${r}, отстаёт на ${leo - Math.floor(p.leo[r])}`
+                  ? tr(`фолловер на брокере ${r}, в ISR`, `follower on broker ${r}, in ISR`)
+                  : tr(`фолловер на брокере ${r}, отстаёт на ${leo - Math.floor(p.leo[r])}`, `follower on broker ${r}, behind by ${leo - Math.floor(p.leo[r])}`)
             return (
               <span key={`${r}-${p.leader}-${alive}`} className={'rep ' + cls} title={title}>
                 B{r}
@@ -274,12 +283,12 @@ function PartitionRow({ sim, p }: { sim: KafkaSim; p: Partition }) {
             key={m.id}
             className={'msg' + (m.offset >= hw ? ' unrepl' : '')}
             style={{ background: m.offset >= hw ? 'transparent' : keyColor(m.orderId), borderColor: keyColor(m.orderId) }}
-            title={`offset ${m.offset} · ключ ${m.key ?? 'null'} · заказ #${m.orderId}: ${ORDER_STAGES[m.seq]}`}
+            title={tr(`offset ${m.offset} · ключ ${m.key ?? 'null'} · заказ #${m.orderId}: ${ORDER_STAGES[m.seq]}`, `offset ${m.offset} · key ${m.key ?? 'null'} · order #${m.orderId}: ${ORDER_STAGES[m.seq]}`)}
           >
             {m.seq + 1}
           </span>
         ))}
-        {p.leader === null && <span className="offline-label">НЕДОСТУПНА</span>}
+        {p.leader === null && <span className="offline-label">{tr('НЕДОСТУПНА', 'UNAVAILABLE')}</span>}
       </div>
       <div className="pmarks" style={{ height: sim.groups.length * 14 + 2 }}>
         {sim.groups.map((g, gi) => {
@@ -292,10 +301,10 @@ function PartitionRow({ sim, p }: { sim: KafkaSim; p: Partition }) {
               key={g.id}
               className={'gmark g' + (gi % 4)}
               style={{ left: `calc(${left} * var(--cell))`, top: gi * 14 }}
-              title={`${g.name}: позиция ${pos}, лаг ${lag}`}
+              title={tr(`${g.name}: позиция ${pos}, лаг ${lag}`, `${g.name}: position ${pos}, lag ${lag}`)}
             >
               ▲{g.name}
-              {idx < 0 ? ` ◀ лаг ${lag}` : lag > 0 ? ` (${lag})` : ''}
+              {idx < 0 ? tr(` ◀ лаг ${lag}`, ` ◀ lag ${lag}`) : lag > 0 ? ` (${lag})` : ''}
             </span>
           )
         })}
@@ -315,29 +324,29 @@ function GroupsPanel({ sim, act, c }: PanelProps) {
           <div key={g.id} className={'card gcard g' + (gi % 4) + (rebal ? ' rebalancing' : '')}>
             <div className="card-head">
               <b>{g.name}</b>
-              <span className={'badge ' + (rebal ? 'warn' : 'ok')}>{rebal ? 'ребалансировка…' : 'работает'}</span>
+              <span className={'badge ' + (rebal ? 'warn' : 'ok')}>{rebal ? tr('ребалансировка…', 'rebalancing…') : tr('работает', 'running')}</span>
             </div>
-            {g.consumers.length === 0 && <div className="small muted">нет консьюмеров</div>}
+            {g.consumers.length === 0 && <div className="small muted">{tr('нет консьюмеров', 'no consumers')}</div>}
             {g.consumers.map((cn) => {
               const parts = sim.partitionsOf(g, cn.id)
               return (
                 <div key={cn.id} className="consumer" data-anchor={`consumer-${g.id}-${cn.id}`}>
                   <span className="cname">{cn.name}</span>
                   <span className="cparts">
-                    {rebal ? '—' : parts.length ? parts.map((p) => `P${p}`).join(' ') : <i className="muted">простаивает</i>}
+                    {rebal ? '—' : parts.length ? parts.map((p) => `P${p}`).join(' ') : <i className="muted">{tr('простаивает', 'idle')}</i>}
                   </span>
                   {c.consumers && (
                     <>
                       <button
                         className="icon"
-                        title="Уронить (без коммита offset)"
+                        title={tr('Уронить (без коммита offset)', 'Crash (no offset commit)')}
                         onClick={() => act((s) => s.killConsumer(gi, cn.id))}
                       >
                         💥
                       </button>
                       <button
                         className="icon"
-                        title="Штатно остановить"
+                        title={tr('Штатно остановить', 'Stop gracefully')}
                         onClick={() => act((s) => s.removeConsumer(gi, cn.id))}
                       >
                         ✕
@@ -349,11 +358,11 @@ function GroupsPanel({ sim, act, c }: PanelProps) {
             })}
             {c.consumers && (
               <button onClick={() => act((s) => s.addConsumer(gi))} disabled={g.consumers.length >= 12}>
-                + консьюмер
+                + {tr('консьюмер', 'consumer')}
               </button>
             )}
             <label>
-              обработка: {rate} сообщ./с на консьюмера
+              {tr(`обработка: ${rate} сообщ./с на консьюмера`, `processing: ${rate} msg/s per consumer`)}
               <input
                 type="range"
                 min={1}
@@ -364,9 +373,9 @@ function GroupsPanel({ sim, act, c }: PanelProps) {
               />
             </label>
             <div className="small">
-              лаг <b>{sim.totalLag(g)}</b> · обработано {g.processed} ·{' '}
-              <span className={g.duplicates ? 'warn-text' : ''}>дубликатов {g.duplicates}</span> ·{' '}
-              <span className={g.violations ? 'bad-text' : ''}>нарушений порядка {g.violations}</span>
+              {tr('лаг', 'lag')} <b>{sim.totalLag(g)}</b> · {tr('обработано', 'processed')} {g.processed} ·{' '}
+              <span className={g.duplicates ? 'warn-text' : ''}>{tr('дубликатов', 'duplicates')} {g.duplicates}</span> ·{' '}
+              <span className={g.violations ? 'bad-text' : ''}>{tr('нарушений порядка', 'order violations')} {g.violations}</span>
             </div>
           </div>
         )
@@ -383,7 +392,7 @@ function GroupsPanel({ sim, act, c }: PanelProps) {
             )
           }
         >
-          + группа
+          + {tr('группа', 'group')}
         </button>
       )}
     </section>
@@ -393,7 +402,7 @@ function GroupsPanel({ sim, act, c }: PanelProps) {
 function BrokersPanel({ sim, act, c }: PanelProps) {
   return (
     <section className="panel">
-      <h4>Брокеры</h4>
+      <h4>{tr('Брокеры', 'Brokers')}</h4>
       <div className="brokers">
         {sim.brokers.map((b) => {
           const leads = sim.partitions.filter((p) => p.leader === b.id).map((p) => `P${p.id}`)
@@ -403,22 +412,22 @@ function BrokersPanel({ sim, act, c }: PanelProps) {
           return (
             <div key={b.id} className={'broker' + (b.alive ? '' : ' dead') + (b.slow ? ' slow' : '')}>
               <div className="card-head">
-                <b>Брокер {b.id}</b>
+                <b>{tr('Брокер', 'Broker')} {b.id}</b>
                 <span className={'badge ' + (b.alive ? (b.slow ? 'warn' : 'ok') : 'bad')}>
-                  {b.alive ? (b.slow ? 'тормозит' : 'в строю') : 'упал'}
+                  {b.alive ? (b.slow ? tr('тормозит', 'slow') : tr('в строю', 'up')) : tr('упал', 'down')}
                 </span>
               </div>
-              <div className="small">лидер: {leads.join(' ') || '—'}</div>
-              <div className="small muted">реплики: {follows.join(' ') || '—'}</div>
+              <div className="small">{tr('лидер', 'leader')}: {leads.join(' ') || '—'}</div>
+              <div className="small muted">{tr('реплики', 'replicas')}: {follows.join(' ') || '—'}</div>
               {c.brokers && (
                 <div className="row">
                   {b.alive ? (
-                    <button onClick={() => act((s) => s.killBroker(b.id))}>💥 Уронить</button>
+                    <button onClick={() => act((s) => s.killBroker(b.id))}>💥 {tr('Уронить', 'Kill')}</button>
                   ) : (
-                    <button onClick={() => act((s) => s.restartBroker(b.id))}>↑ Поднять</button>
+                    <button onClick={() => act((s) => s.restartBroker(b.id))}>↑ {tr('Поднять', 'Restart')}</button>
                   )}
                   <button disabled={!b.alive} onClick={() => act((s) => s.toggleSlow(b.id))}>
-                    {b.slow ? 'Починить' : '🐢 Замедлить'}
+                    {b.slow ? tr('Починить', 'Fix') : tr('🐢 Замедлить', '🐢 Slow down')}
                   </button>
                 </div>
               )}
@@ -433,14 +442,14 @@ function BrokersPanel({ sim, act, c }: PanelProps) {
 function EventLog({ sim }: { sim: KafkaSim }) {
   return (
     <section className="panel events">
-      <h4>Журнал событий</h4>
+      <h4>{tr('Журнал событий', 'Event log')}</h4>
       <ul>
         {sim.events.slice(0, 14).map((e, i) => (
           <li key={sim.events.length - i + '-' + e.t} className={e.kind}>
-            <span className="muted">{e.t.toFixed(1)}с</span> {e.text}
+            <span className="muted">{e.t.toFixed(1)}{tr('с', 's')}</span> {e.text}
           </li>
         ))}
-        {sim.events.length === 0 && <li className="muted">Пока тихо</li>}
+        {sim.events.length === 0 && <li className="muted">{tr('Пока тихо', 'All quiet so far')}</li>}
       </ul>
     </section>
   )

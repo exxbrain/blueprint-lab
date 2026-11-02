@@ -20,7 +20,12 @@ npm run dev
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Трафик несёт профиль нагрузки, и каждое хранилище
   обрабатывает его со своей эффективностью (`src/sim/builder/model.ts`). Свободный режим, классические задачи и задачи
   System Design с прикидкой нагрузки по DAU, а также упражнения на конкретные инструменты — Redis, CDN, Kafka,
-  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`).
+  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`). Это центр приложения: главная страница
+  открывается живой схемой и каталогом задач, у каждой задачи своя ссылка `#/builder/<id>`. По схеме идёт живой
+  трафик (`src/sim/builder/emulate.ts`): настоящие запросы (`GET /api/products/1042`, `POST /ingest`), операции блоков
+  (`GET product:1042` в Redis, SQL в PostgreSQL, CQL в Cassandra, `_search` в Elasticsearch, produce в Kafka) и
+  реальные ошибки там, где их предсказывает модель: 503 и таймауты при перегрузке, `too many clients`, 502 из тупика,
+  неподходящее хранилище, Seq Scan, отставание консьюмеров. Журнал запросов, водопад трассы и лог каждого блока.
 - **Распил монолита** (`#/monolith`): три уровня — интернет-магазин, доставка еды и интернет-банк, 16 миссий с бюджетом, оценкой решения и порядка распила. Strangler Fig по шагам — вынос модулей, отдельные БД, саги, реплики на событиях,
   outbox, circuit breakers. 27 паттернов микросервисов как инструменты, 16 стресс-тестов и проверка на лишние паттерны
   (`src/sim/monolith/model.ts`, `src/sim/monolith/patterns.ts`).

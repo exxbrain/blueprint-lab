@@ -15,6 +15,7 @@ import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
 import { CAP_TASKS, runCap } from '../src/sim/cap/model'
 import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
+import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
 
 let failed = 0
 const fail = (msg: string) => {
@@ -262,6 +263,26 @@ for (const t of ES_TASKS) {
   if (!ok(t.solution)) fail('эталон не выполняет цели')
   if (ok(t.start)) fail('задача решена уже в исходном состоянии')
 }
+
+// живой трафик должен показывать то же, что предсказывает модель: доля ошибок в эмуляции ≈ модельной
+console.log('\nЭмуляция трафика конструктора')
+for (const ch of builderChallenges) {
+  for (const [name, g] of [['исходная', ch], ['эталон', ch.solution]] as const) {
+    const r = simulate(g.nodes, g.edges)
+    let ok = 0
+    const N = 600
+    for (let i = 0; i < N; i++) {
+      const c = pickClient(g.nodes)
+      const t = c && emulateRequest(g.nodes, g.edges, r, c.id)
+      if (!t) throw new Error('эмуляция не вернула запрос')
+      if (t.status === 'ok') ok++
+      if (t.spans.some((s) => !s.op)) fail(`${ch.title} (${name}): блок без операции`)
+    }
+    const diff = Math.abs(ok / N - r.clientSuccess)
+    if (diff > 0.1) fail(`${ch.title} (${name}): эмуляция ${(ok / N).toFixed(2)}, модель ${r.clientSuccess.toFixed(2)}`)
+  }
+}
+console.log('- доля успешных запросов совпадает с моделью во всех задачах')
 
 if (failed) {
   console.log(`\nНерешаемых или сломанных задач: ${failed}`)

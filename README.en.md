@@ -20,7 +20,13 @@ npm run dev
 - **Architecture Builder** (`#/builder`): a graph of clients, load balancers, CDN, services, queues, cache and storages
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Traffic carries a workload profile and every storage
   handles it with its own efficiency (`src/sim/builder/model.ts`). Sandbox mode, classic tasks, tool drills and
-  system design tasks that start with a back-of-the-envelope estimate (`src/sim/builder/challenges.ts`).
+  system design tasks that start with a back-of-the-envelope estimate (`src/sim/builder/challenges.ts`). This is the
+  heart of the app: the home page opens with a live diagram and the challenge catalog, and every challenge has its own
+  link `#/builder/<id>`. Live traffic flows through the diagram (`src/sim/builder/emulate.ts`): real requests
+  (`GET /api/products/1042`, `POST /ingest`), block operations (`GET product:1042` in Redis, SQL in PostgreSQL, CQL in
+  Cassandra, `_search` in Elasticsearch, produce to Kafka) and real errors exactly where the model predicts them: 503s and
+  timeouts under overload, `too many clients`, 502 from a dead end, an unsuitable storage, Seq Scan, consumer lag. A
+  request log, a trace waterfall and a per-block log.
 - **Breaking up the monolith** (`#/monolith`): three levels — online store, food delivery and an online bank,
   16 missions with a budget, a review of the final architecture and of the decomposition order. Strangler Fig step by
   step: extracting modules, separate databases, sagas, event-carried replicas, outbox, circuit breakers,

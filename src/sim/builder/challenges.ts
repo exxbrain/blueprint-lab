@@ -35,6 +35,13 @@ export interface BuilderChallenge {
   solution: { nodes: BNode[]; edges: BEdge[] }
 }
 
+/** Подписи групп задач (ключи — внутренние идентификаторы) */
+export const CHALLENGE_GROUP_LABEL: Record<BuilderChallenge['group'], string> = {
+  Классика: tr('Классика', 'Classics'),
+  Инструменты: tr('Инструменты', 'Tools'),
+  'System Design': 'System Design',
+}
+
 export const SERVICE_PROFILES = [
   { id: 'fast', title: tr('Обычный: 300 rps, 20 мс', 'Standard: 300 rps, 20 ms'), capacity: 300, latency: 20 },
   { id: 'light', title: tr('Лёгкий stateless: 1000 rps, 5 мс', 'Light stateless: 1000 rps, 5 ms'), capacity: 1000, latency: 5 },

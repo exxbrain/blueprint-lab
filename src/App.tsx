@@ -24,7 +24,7 @@ export default function App() {
 
   let page
   if (!first) page = <Home />
-  else if (first === 'builder') page = <BuilderPage />
+  else if (first === 'builder') page = <BuilderPage id={second} />
   else if (first === 'monolith') page = <MonolithPage />
   else if (first === 'c4' && second === 'exercises') page = <C4Page />
   else if (first === 'data' && second === 'cap') page = <CapPage />
@@ -46,14 +46,14 @@ export default function App() {
           Blueprint Lab
         </a>
         <nav>
+          <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
+            {tr('Конструктор', 'Builder')}
+          </a>
           <a href={href('kafka')} className={first === 'kafka' ? 'active' : ''}>
             Kafka
           </a>
           <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''}>
             {tr('Микросервисы', 'Microservices')}
-          </a>
-          <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
-            {tr('Конструктор', 'Builder')}
           </a>
           <a href={href('data')} className={first === 'data' ? 'active' : ''}>
             {tr('Данные', 'Data')}

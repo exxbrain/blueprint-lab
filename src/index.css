@@ -80,7 +80,12 @@ h4 {
   color: var(--accent);
 }
 
-button {
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
+button,
+a.btn {
   font: inherit;
   font-size: 0.9rem;
   color: var(--text);
@@ -94,6 +99,7 @@ button {
     border-color 0.15s,
     transform 0.1s;
 }
+a.btn:hover,
 button:hover:not(:disabled) {
   border-color: var(--accent);
   background: rgba(124, 196, 255, 0.18);
@@ -105,12 +111,14 @@ button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+a.btn.primary,
 button.primary {
   background: var(--accent);
   color: #062038;
   border-color: var(--accent);
   font-weight: 600;
 }
+a.btn.primary:hover,
 button.primary:hover:not(:disabled) {
   background: #a5d7ff;
 }
@@ -2175,3 +2183,180 @@ tr.muted td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- живой трафик конструктора ---------- */
+.tdot {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.tmark {
+  font-size: 12px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--bg, #0f1420);
+  stroke-width: 3px;
+}
+.tmark.error { fill: #ff6b7a; }
+.tmark.hit { fill: #5be49b; }
+.tmark.miss { fill: #ffb454; }
+.tmark.slow { fill: #ff9f43; }
+.tmark.queued { fill: #ffd166; }
+.traffic-locked { margin: 8px 4px 0; }
+.traffic-panel {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.traffic-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.traffic-head h4 { margin: 0; }
+.traffic-cols {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) 1.6fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+@media (max-width: 900px) {
+  .traffic-cols { grid-template-columns: 1fr; }
+}
+.access-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  max-height: 330px;
+  overflow: auto;
+}
+.access-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 6px;
+  text-align: left;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  font: inherit;
+  color: var(--text);
+  animation: row-in 0.3s ease-out;
+}
+.access-row:hover { border-color: var(--line); }
+.access-row.active { background: var(--panel-2); border-color: var(--accent); }
+.access-row.err .req { color: #ffc2c8; }
+.access-row .req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.access-row .dur, .wf-ms { color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+@keyframes row-in { from { opacity: 0; transform: translateY(-4px); } }
+.code { font-family: var(--mono); font-weight: 700; }
+.code.ok { color: var(--ok); }
+.code.bad { color: var(--bad); }
+.waterfall {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px;
+  font-size: 12px;
+  overflow: auto;
+  max-height: 330px;
+}
+.wf-req { margin-bottom: 6px; word-break: break-all; }
+.wf-req code { font-size: 11.5px; }
+.wf-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 56px;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+.wf-name {
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.wf-name:hover { color: var(--accent); }
+.wf-track { position: relative; height: 10px; background: rgba(255, 255, 255, 0.04); border-radius: 3px; }
+.wf-bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
+.wf-row.hit .wf-bar { background: var(--ok); }
+.wf-row.miss .wf-bar, .wf-row.slow .wf-bar { background: var(--warn); }
+.wf-row.error .wf-bar { background: var(--bad); }
+.wf-row.queued .wf-bar, .wf-row.async .wf-bar { background: var(--accent-2); opacity: 0.8; }
+.wf-op {
+  grid-column: 1 / -1;
+  padding: 0 0 4px 16px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.wf-op code, .log-line code { font-size: 11px; color: #c8defa; }
+.wf-status { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
+.wf-status.ok { color: var(--ok); }
+.wf-status.hit { color: var(--ok); }
+.wf-status.miss, .wf-status.slow { color: var(--warn); }
+.wf-status.error { color: var(--bad); }
+.wf-status.queued, .wf-status.async { color: var(--accent-2); }
+.wf-detail { color: var(--bad); font-family: var(--mono); font-size: 11px; margin-top: 2px; }
+.wf-row.slow .wf-detail, .log-line.slow .wf-detail, .wf-row.queued .wf-detail, .wf-row.async .wf-detail, .log-line.async .wf-detail, .log-line.queued .wf-detail { color: var(--warn); }
+.node-log { margin-top: 12px; }
+.log-line {
+  border-left: 3px solid var(--accent);
+  padding: 2px 6px;
+  margin: 3px 0;
+  word-break: break-all;
+  animation: row-in 0.3s ease-out;
+}
+.log-line.hit { border-color: var(--ok); }
+.log-line.miss, .log-line.slow { border-color: var(--warn); }
+.log-line.error { border-color: var(--bad); }
+.log-line.queued, .log-line.async { border-color: var(--accent-2); }
+
+/* ---------- главная: конструктор как центр ---------- */
+.hub-hero {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) 1.3fr;
+  gap: 24px;
+  align-items: center;
+}
+@media (max-width: 1000px) {
+  .hub-hero { grid-template-columns: 1fr; }
+}
+.hub-hero .row { align-items: center; gap: 10px; flex-wrap: wrap; }
+a.btn.big { padding: 9px 18px; font-size: 1rem; }
+.hub-demo { padding: 10px; }
+.hub-demo-head { justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.hub-demo-head .tabs { margin: 0; }
+.hub-demo .builder-canvas { pointer-events: none; }
+.hub-log { max-height: none; min-height: 112px; margin-top: 6px; }
+.hub-log .access-row { cursor: default; }
+.hub-group { margin: 28px 0 8px; }
+.hub-group h2 { margin-bottom: 4px; }
+.challenge-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.challenge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.challenge-card:hover { text-decoration: none; transform: translateY(-2px); border-color: var(--accent); }
+.challenge-card.done { border-color: rgba(94, 230, 168, 0.5); }
+.cc-title { font-weight: 600; }
+.cc-meta { color: var(--accent-2); margin-top: auto; }
+.hub-more { margin-top: 36px; }

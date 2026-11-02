@@ -15,6 +15,7 @@ import {
 } from '../sim/builder/model'
 import {
   builderChallenges,
+  CHALLENGE_GROUP_LABEL,
   estimateOk,
   sandboxStart,
   SERVICE_PROFILES,
@@ -26,12 +27,8 @@ import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { markScenario, useProgress } from '../progress'
 import { tr } from '../i18n'
-
-const CHALLENGE_GROUP_LABEL: Record<BuilderChallenge['group'], string> = {
-  Классика: tr('Классика', 'Classics'),
-  Инструменты: tr('Инструменты', 'Tools'),
-  'System Design': 'System Design',
-}
+import { href } from '../router'
+import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
   Трафик: tr('Трафик', 'Traffic'),
@@ -42,20 +39,21 @@ const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хра
 let uid = 100
 const nextId = (p: string) => `${p}${++uid}`
 
-export default function BuilderPage() {
+export default function BuilderPage({ id }: { id?: string }) {
   const progress = useProgress()
-  const [mode, setMode] = useState<string>('sandbox')
+  const mode = id && builderChallenges.some((c) => c.id === id) ? id : 'sandbox'
   const challenge = builderChallenges.find((c) => c.id === mode)
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/microservices">{tr('Микросервисы', 'Microservices')}</a> / {tr('Конструктор', 'Builder')}
+        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href('builder')}>{tr('Конструктор', 'Builder')}</a>
+        {challenge && <> / {challenge.title}</>}
       </div>
-      <h1>🏗️ {tr('Конструктор архитектуры', 'Architecture Builder')}</h1>
+      <h1>🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder')}</h1>
       <div className="row tabs">
-        <button className={mode === 'sandbox' ? 'primary' : ''} onClick={() => setMode('sandbox')}>
+        <a className={'btn' + (mode === 'sandbox' ? ' primary' : '')} href={href('builder')}>
           {tr('Свободный режим', 'Sandbox')}
-        </button>
+        </a>
       </div>
       {(['Классика', 'Инструменты', 'System Design'] as const).map((group) => (
         <div key={group} className="row tabs">
@@ -63,10 +61,10 @@ export default function BuilderPage() {
           {builderChallenges
             .filter((c) => c.group === group)
             .map((c) => (
-              <button key={c.id} className={mode === c.id ? 'primary' : ''} onClick={() => setMode(c.id)}>
+              <a key={c.id} className={'btn' + (mode === c.id ? ' primary' : '')} href={href('builder', c.id)}>
                 {progress.scenarios[`builder/${c.id}`] ? '✓ ' : ''}
                 {c.title}
-              </button>
+              </a>
             ))}
         </div>
       ))}
@@ -89,6 +87,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const [mine, setMine] = useState<{ nodes: BNode[]; edges: BEdge[] } | null>(null)
   const viewingRef = mine !== null
   const result = useMemo(() => simulate(nodes, edges), [nodes, edges])
+  const traffic = useLiveTraffic(nodes, edges, result, estimated)
 
   const goals = challenge
     ? [
@@ -373,7 +372,15 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             onConnect={connect}
             hideLoad={!estimated}
             onDropKind={(kind, x, y) => kind in KINDS && add(kind as NodeKind, { x, y })}
+            traces={traffic.inFlight}
           />
+          {estimated ? (
+            <TrafficPanel log={traffic.log} nodes={nodes} running={traffic.running} setRunning={traffic.setRunning} onPickNode={setSelected} />
+          ) : (
+            <p className="small muted traffic-locked">
+              📡 {tr('Живой трафик включится после прикидки нагрузки.', 'Live traffic starts once the load estimate is done.')}
+            </p>
+          )}
         </div>
 
         <aside className="panel props">
@@ -399,6 +406,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               remove={remove}
             />
           )}
+          {selNode && estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
         </aside>
       </div>
     </div>

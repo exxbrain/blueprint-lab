@@ -1,6 +1,7 @@
-import { useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
 import { KINDS, WORKLOADS, isStorage, type BEdge, type BNode, type Result } from './model'
+import type { SpanStatus, Trace } from './emulate'
 
 export const NODE_W = 150
 export const NODE_H = 74
@@ -17,9 +18,18 @@ interface Props {
   hideLoad?: boolean
   /** Компонент перетащили из палитры: координаты центра в системе холста */
   onDropKind?: (kind: string, x: number, y: number) => void
+  /** Живые запросы: точки бегут по связям */
+  traces?: LiveTrace[]
+  /** Обрезать холст по блокам (для витрины на главной) */
+  fit?: boolean
   width?: number
   height?: number
 }
+
+export type LiveTrace = Trace & { born: number }
+
+/** Время одного перехода точки по связи, мс */
+export const HOP_MS = 520
 
 export function utilColor(util: number, success: number): string {
   if (success < 0.99 || util >= 1) return 'var(--bad)'
@@ -37,6 +47,8 @@ export function BuilderCanvas({
   onConnect,
   hideLoad,
   onDropKind,
+  traces,
+  fit,
   width = 1000,
   height = 540,
 }: Props) {
@@ -84,7 +96,7 @@ export function BuilderCanvas({
     <svg
       ref={svgRef}
       className="builder-canvas"
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={fit && nodes.length ? fitBox(nodes) : `0 0 ${width} ${height}`}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
@@ -125,7 +137,7 @@ export function BuilderCanvas({
         const x2 = b.x
         const y2 = b.y + NODE_H / 2
         const mx = (x1 + x2) / 2
-        const d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 2},${y2}`
+        const d = edgePath(a, b)
         const w = rps > 0 ? Math.min(8, 1.5 + Math.log10(rps + 1) * 1.6) : 1.5
         const dur = rps > 0 ? Math.max(0.25, Math.min(4, 60 / Math.sqrt(rps))) : 0
         const childOk = (result.nodes[e.to]?.success ?? 1) >= 0.99
@@ -252,6 +264,7 @@ export function BuilderCanvas({
           </g>
         )
       })}
+      {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} />}
     </svg>
   )
 }
@@ -285,4 +298,138 @@ export function fmt(n: number): string {
   if (n >= 10000) return (n / 1000).toFixed(0) + 'k'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   return n.toFixed(0)
+}
+
+function edgeGeom(a: BNode, b: BNode) {
+  const x1 = a.x + NODE_W
+  const y1 = a.y + NODE_H / 2
+  const x2 = b.x - 2
+  const y2 = b.y + NODE_H / 2
+  const mx = (x1 + x2 + 2) / 2
+  return { x1, y1, x2, y2, mx }
+}
+
+function edgePath(a: BNode, b: BNode): string {
+  const { x1, y1, x2, y2, mx } = edgeGeom(a, b)
+  return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`
+}
+
+/** Точка на кривой связи при t ∈ [0, 1] */
+function pointOn(a: BNode, b: BNode, t: number) {
+  const { x1, y1, x2, y2, mx } = edgeGeom(a, b)
+  const u = 1 - t
+  const bez = (p0: number, p1: number, p2: number, p3: number) => u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3
+  return { x: bez(x1, mx, mx, x2), y: bez(y1, y1, y2, y2) }
+}
+
+const DOT: Record<SpanStatus, string> = {
+  ok: '#7cc4ff',
+  hit: '#5be49b',
+  miss: '#ffb454',
+  slow: '#ff9f43',
+  error: '#ff6b7a',
+  queued: '#ffd166',
+  async: '#ffd166',
+}
+
+interface Flight {
+  key: string
+  a: BNode
+  b: BNode
+  start: number
+  status: SpanStatus
+}
+
+interface Mark {
+  key: string
+  node: BNode
+  at: number
+  text: string
+  status: SpanStatus
+}
+
+/** Раскладывает запрос во времени: дочерние вызовы идут по очереди, после ответа предыдущего */
+export function schedule(t: LiveTrace, nodes: Record<string, BNode>, edges: BEdge[]) {
+  const byEdge = Object.fromEntries(edges.map((e) => [e.id, e]))
+  const ready: Record<string, number> = { [t.clientId]: t.born }
+  const flights: Flight[] = []
+  const marks: Mark[] = []
+  let end = t.born
+  t.hops.forEach((h, i) => {
+    const e = byEdge[h.edgeId]
+    if (!e || !nodes[e.from] || !nodes[e.to]) return
+    const start = ready[e.from] ?? t.born
+    const arrive = start + HOP_MS
+    flights.push({ key: `${t.id}-${i}`, a: nodes[e.from], b: nodes[e.to], start, status: h.status })
+    ready[e.to] = arrive
+    // следующий вызов того же блока — после того, как этот ответил
+    ready[e.from] = start + HOP_MS * (h.status === 'queued' || h.status === 'async' ? 0.6 : 1.4)
+    end = Math.max(end, arrive)
+    const text =
+      h.status === 'error' ? (t.httpStatus ? String(t.httpStatus) : 'ERR')
+      : h.status === 'hit' ? 'HIT'
+      : h.status === 'miss' ? 'MISS'
+      : h.status === 'slow' ? tr('медленно', 'slow')
+      : h.status === 'queued' ? 'ack'
+      : ''
+    if (text) marks.push({ key: `${t.id}-m${i}`, node: nodes[e.to], at: arrive, text, status: h.status })
+  })
+  if (t.status === 'error' && !t.hops.length && nodes[t.clientId])
+    marks.push({ key: `${t.id}-c`, node: nodes[t.clientId], at: t.born, text: 'ECONNREFUSED', status: 'error' })
+  return { flights, marks, end }
+}
+
+function TrafficLayer({ traces, nodes, edges }: { traces: LiveTrace[]; nodes: Record<string, BNode>; edges: BEdge[] }) {
+  const [now, setNow] = useState(() => performance.now())
+  useEffect(() => {
+    let raf = 0
+    const tick = () => {
+      setNow(performance.now())
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const dots: ReactElement[] = []
+  const labels: ReactElement[] = []
+  for (const t of traces) {
+    const { flights, marks } = schedule(t, nodes, edges)
+    for (const f of flights) {
+      const p = (now - f.start) / HOP_MS
+      if (p < 0 || p > 1) continue
+      const pt = pointOn(f.a, f.b, p)
+      dots.push(<circle key={f.key} cx={pt.x} cy={pt.y} r={f.status === 'error' ? 6 : 5} fill={DOT[f.status]} className="tdot" />)
+    }
+    for (const m of marks) {
+      const age = now - m.at
+      if (age < 0 || age > 1400) continue
+      labels.push(
+        <text
+          key={m.key}
+          x={m.node.x + NODE_W - 8}
+          y={m.node.y + 18 - age / 60}
+          textAnchor="end"
+          className={'tmark ' + m.status}
+          style={{ opacity: 1 - age / 1400 }}
+        >
+          {m.text}
+        </text>,
+      )
+    }
+  }
+  return (
+    <g className="traffic" pointerEvents="none">
+      {dots}
+      {labels}
+    </g>
+  )
+}
+
+function fitBox(nodes: BNode[]): string {
+  const pad = 30
+  const x0 = Math.min(...nodes.map((n) => n.x)) - pad
+  const y0 = Math.min(...nodes.map((n) => n.y)) - pad
+  const x1 = Math.max(...nodes.map((n) => n.x + NODE_W)) + pad
+  const y1 = Math.max(...nodes.map((n) => n.y + NODE_H)) + pad
+  return `${x0} ${y0} ${x1 - x0} ${Math.max(y1 - y0, 200)}`
 }

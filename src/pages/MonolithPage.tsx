@@ -163,7 +163,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const [spent, setSpent] = useState(0)
   const [history, setHistory] = useState<Snapshot[]>([])
   const [log, setLog] = useState<LogEntry[]>([])
-  const [selected, setSelected] = useState<ModuleId | null>(project.modules[0].id)
+  const [selected, setSelected] = useState<ModuleId | null>(null)
   const metrics = useMemo(() => evaluate(project, state, spent, mission.budget), [project, state, spent, mission.budget])
   const traffic = useMonoTraffic(project, state, metrics)
   const goals = [
@@ -254,7 +254,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
     setPopover({ id, x: e.clientX - r.left, y: e.clientY - r.top })
   }
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPopover(null)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setPopover(null)
+      setSelected(null)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
@@ -476,7 +480,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             }}
             activeDep={popover?.id ?? null}
             onDepClick={openDep}
-            onBackground={() => setPopover(null)}
+            onBackground={() => {
+              setPopover(null)
+              setSelected(null)
+            }}
             traces={traffic.inFlight}
           />
           <TrafficPanel
@@ -486,6 +493,12 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             setRunning={traffic.setRunning}
             onPickNode={(id) => project.modules.some((m) => m.id === id) && setSelected(id)}
           />
+          {mod && !popover && (
+            <ModulePopover wrap={wrapRef.current} id={mod.id} onClose={() => setSelected(null)}>
+              <ModulePanel project={project} id={mod.id} state={state} apply={apply} />
+              <NodeLog nodeId={mod.id} log={traffic.log} />
+            </ModulePopover>
+          )}
           {popover && (
             <DepPopover
               project={project}
@@ -503,10 +516,6 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             />
           )}
         </div>
-        <aside className="panel props">
-          {mod && <ModulePanel project={project} id={mod.id} state={state} apply={apply} />}
-          {mod && <NodeLog nodeId={mod.id} log={traffic.log} />}
-        </aside>
       </div>
 
       <PatternsPanel state={state} metrics={metrics} apply={apply} />
@@ -1212,6 +1221,7 @@ function MonolithCanvas({
         return (
           <g
             key={m.id}
+            data-id={m.id}
             className={'mmod' + (selected === m.id ? ' selected' : '') + (ext ? ' extracted' : '') + (indep ? ' indep' : '')}
             transform={`translate(${p.x},${p.y})`}
             onClick={() => onSelect(m.id)}
@@ -1483,5 +1493,29 @@ function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId:
       {dots}
       {marks}
     </g>
+  )
+}
+
+/** Окно модуля рядом с ним на холсте: справа, а если не помещается — слева */
+function ModulePopover({ wrap, id, onClose, children }: { wrap: HTMLDivElement | null; id: ModuleId; onClose: () => void; children: React.ReactNode }) {
+  const W = 330
+  let style: React.CSSProperties = { left: 8, top: 8 }
+  const el = wrap?.querySelector(`.mmod[data-id="${id}"]`)
+  if (wrap && el) {
+    const wr = wrap.getBoundingClientRect()
+    const r = el.getBoundingClientRect()
+    const left = r.left - wr.left + wrap.scrollLeft
+    const right = r.right - wr.left + wrap.scrollLeft
+    const top = r.top - wr.top + wrap.scrollTop
+    const x = right + 12 + W <= wrap.scrollWidth ? right + 12 : Math.max(8, left - 12 - W)
+    style = { left: x, top: Math.max(8, top - 8) }
+  }
+  return (
+    <div className="node-popover module-popover" style={style} onClick={(e) => e.stopPropagation()} role="dialog">
+      <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+        ✕
+      </button>
+      {children}
+    </div>
   )
 }

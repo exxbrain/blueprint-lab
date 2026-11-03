@@ -2992,3 +2992,6 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   .result-modal { width: 100vw; max-height: 92vh; border-radius: 14px 14px 0 0; align-self: end; }
 }
 .result-btn.reserved { visibility: hidden; }
+.mono-grid { grid-template-columns: minmax(0, 1fr); }
+.module-popover { width: 330px; padding-top: 10px; }
+.popover-x { position: absolute; top: 8px; right: 8px; }

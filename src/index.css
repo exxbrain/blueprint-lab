@@ -2243,14 +2243,12 @@ tr.muted td {
   border: 1px solid transparent;
   font: inherit;
   color: var(--text);
-  animation: row-in 0.3s ease-out;
 }
 .access-row:hover { border-color: var(--line); }
 .access-row.active { background: var(--panel-2); border-color: var(--accent); }
 .access-row.err .req { color: #ffc2c8; }
 .access-row .req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .access-row .dur, .wf-ms { color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
-@keyframes row-in { from { opacity: 0; transform: translateY(-4px); } }
 .code { font-family: var(--mono); font-weight: 700; }
 .code.ok { color: var(--ok); }
 .code.bad { color: var(--bad); }
@@ -2312,7 +2310,6 @@ tr.muted td {
   padding: 2px 6px;
   margin: 3px 0;
   word-break: break-all;
-  animation: row-in 0.3s ease-out;
 }
 .log-line.hit { border-color: var(--ok); }
 .log-line.miss, .log-line.slow { border-color: var(--warn); }

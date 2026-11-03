@@ -112,7 +112,7 @@ export function BuilderCanvas({
   /** Нажатие на связь: окно открываем при отпускании без сдвига — иначе это начало жеста двумя пальцами */
   const tap = useRef<{ id: string; pid: number; x: number; y: number } | null>(null)
   /** Все указатели, что сейчас нажаты на холсте: второй палец превращает любое касание в масштаб и сдвиг */
-  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pointers = useRef(new Map<number, { x: number; y: number; touch?: boolean }>())
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
 
   // ---- масштаб, как в Figma: видимая часть холста; null — весь холст. Пропорции как у холста, высота не прыгает
@@ -173,12 +173,15 @@ export function BuilderCanvas({
       return clampView({ x: p.x - (p.x - c.x) * (w / c.w), y: p.y - (p.y - c.y) * (w / c.w), w })
     })
   /** Показать прямоугольник схемы целиком и как можно крупнее */
-  const fitBoxView = (x0: number, y0: number, x1: number, y1: number) => {
-    const w = Math.max(x1 - x0, (y1 - y0) / A())
+  const fitBoxView = (x0: number, y0: number, x1: number, y1: number, maxScale = MAX_SCALE) => {
+    const cw = svgRef.current?.clientWidth || width
+    // ширину ограничиваем сразу, до расчёта угла: иначе упор в предел масштаба сдвигает схему от центра
+    const raw = Math.max(x1 - x0, (y1 - y0) / A(), cw / maxScale)
+    const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), raw))
     setView(clampView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - (w * A()) / 2, w }))
   }
-  /** Shift+1 — вписать схему */
-  const fitNodes = () => {
+  /** Shift+1 — вписать схему; при входе — не крупнее 100%, чтобы одиночный блок не раздувался на весь экран */
+  const fitNodes = (maxScale = MAX_SCALE) => {
     if (!nodes.length) return setView(null)
     const pad = 30
     fitBoxView(
@@ -186,6 +189,7 @@ export function BuilderCanvas({
       Math.min(...nodes.map((n) => n.y)) - pad,
       Math.max(...nodes.map((n) => n.x + NODE_W)) + pad,
       Math.max(...nodes.map((n) => n.y + NODE_H)) + pad,
+      maxScale,
     )
   }
   /** Shift+2 — к выбранному блоку или связи */
@@ -215,7 +219,7 @@ export function BuilderCanvas({
   useEffect(() => {
     if (!autoFit || fitted.current || !box.w) return
     fitted.current = true
-    fitNodes()
+    fitNodes(1)
     // только один раз, когда стал известен размер
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFit, box.w])
@@ -224,8 +228,13 @@ export function BuilderCanvas({
   useEffect(() => {
     if (!zoomMenu) return
     const close = (e: PointerEvent) => !zoomRef.current?.contains(e.target as Node) && setZoomMenu(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setZoomMenu(false)
     document.addEventListener('pointerdown', close, true)
-    return () => document.removeEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', esc)
+    }
   }, [zoomMenu])
 
   // жесты: одним пальцем или мышью по пустому месту — сдвиг приближенной схемы; двумя пальцами где угодно — масштаб и сдвиг;
@@ -323,7 +332,7 @@ export function BuilderCanvas({
     else if (e.shiftKey && !mod && e.code === 'Digit0') zoomTo100()
     else if ((e.key === '+' || e.key === '=') && (!mod || hover.current)) zoomBy(1.5)
     else if ((e.key === '-' || e.key === '_') && (!mod || hover.current)) zoomBy(1 / 1.5)
-    else if (e.code === 'Space' && hover.current && !mod) {
+    else if (e.code === 'Space' && hover.current && !mod && !(document.activeElement instanceof HTMLButtonElement) && !(document.activeElement instanceof HTMLAnchorElement)) {
       if (!e.repeat) {
         spaceRef.current = true
         setSpace(true)
@@ -387,7 +396,8 @@ export function BuilderCanvas({
     nodes.find((n) => x >= n.x && x <= n.x + NODE_W && y >= n.y && y <= n.y + NODE_H)
 
   const onPointerMove = (e: RPointerEvent) => {
-    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const was = pointers.current.get(e.pointerId)
+    if (was) pointers.current.set(e.pointerId, { ...was, x: e.clientX, y: e.clientY })
     if (touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
       moveGesture()
@@ -468,9 +478,10 @@ export function BuilderCanvas({
               [
                 [tr('Приблизить', 'Zoom in'), '+', () => zoomBy(1.5), scale < MAX_SCALE - 0.01],
                 [tr('Отдалить', 'Zoom out'), '−', () => zoomBy(1 / 1.5), !!view],
-                [tr('Вписать схему', 'Zoom to fit'), 'Shift+1', fitNodes, nodes.length > 0],
+                [tr('Вписать схему', 'Zoom to fit'), 'Shift+1', () => fitNodes(), nodes.length > 0],
                 [tr('К выбранному', 'Zoom to selection'), 'Shift+2', fitSelection, !!selected],
-                ['100%', 'Shift+0', zoomTo100, true],
+                // 100% недостижимо, если весь холст и так крупнее (широкий экран)
+                ['100%', 'Shift+0', zoomTo100, (svgRef.current?.clientWidth || width) / maxW() < 1],
                 [tr('Весь холст', 'Whole canvas'), '', () => setView(null), !!view],
               ] as const
             ).map(([label, key, act, ok]) => (
@@ -507,14 +518,19 @@ export function BuilderCanvas({
         // при захвате указателя «уход» с холста не конец жеста
         if (!touches.current.has(e.pointerId)) onPointerUp(e)
       }}
-      onContextMenu={() => {
-        // меню браузера забирает указатель: отпускания может не быть — жест не должен «залипнуть»
+      onContextMenu={(e) => {
+        // долгое касание пальцем — не меню: перетаскивание блока продолжается
+        if ([...pointers.current.values()].some((p) => p.touch)) {
+          e.preventDefault()
+          return
+        }
+        // меню браузера забирает указатель мыши: отпускания может не быть — жест не должен «залипнуть»
         cancelDrag()
         resetPointers()
       }}
       onPointerDownCapture={(e) => {
         if (fit) return
-        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' })
         const mouse = e.pointerType === 'mouse'
         const panMouse = mouse && (e.button === 1 || (e.button === 0 && spaceRef.current))
         const secondFinger = !mouse && pointers.current.size >= 2

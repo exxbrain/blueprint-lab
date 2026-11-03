@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from 'react'
 import { tr } from '../i18n'
 
 /**
@@ -87,22 +87,44 @@ export function Tool({ icon, label, on, onClick, badge }: { icon: string; label:
   )
 }
 
+/**
+ * Затемнение под модальным окном: закрывает его нажатием по самому затемнению.
+ * Щелчок — «хвост» касания, которое это окно открыло (Android шлёт click элементу, что под пальцем к отпусканию), — не считается.
+ */
+export function Scrim({ onClose }: { onClose: () => void }) {
+  const down = useRef(false)
+  return (
+    <div
+      className="sheet-scrim"
+      aria-hidden
+      onPointerDown={() => (down.current = true)}
+      onClick={() => {
+        if (down.current) onClose()
+        down.current = false
+      }}
+    />
+  )
+}
+
 /** Модальная шторка снизу: затемнение (нажатие закрывает), закреплённый заголовок, Esc */
 export function Sheet({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
+  // закрытие — через ref: родители передают новую функцию на каждой отрисовке, а фокус должен ставиться один раз
+  const close = useRef(onClose)
+  close.current = onClose
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     ref.current?.focus({ preventScroll: true })
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current()
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)
       if (prev?.isConnected) prev.focus({ preventScroll: true })
     }
-  }, [onClose])
+  }, [])
   return (
     <>
-      <div className="sheet-scrim" onClick={onClose} aria-hidden />
+      <Scrim onClose={onClose} />
       <div className="ws-sheet open" ref={ref} tabIndex={-1} role="dialog" aria-modal aria-label={typeof title === 'string' ? title : undefined}>
         <div className="ws-panel-head">
           <b>{title}</b>
@@ -128,8 +150,14 @@ interface T {
  * Масштаб и сдвиг поля пальцами, как в Figma: двумя пальцами — масштаб и сдвиг (где бы они ни лежали),
  * одним по пустому месту — сдвиг; на тачпаде — щипок и прокрутка. Поле — содержимое естественного размера w×h.
  */
-export function usePanZoom(w: number, h: number) {
-  const outer = useRef<HTMLDivElement>(null)
+export function usePanZoom(w: number, h: number, { interactive }: { interactive?: string } = {}) {
+  // поле может появиться позже (телефон повернули): ref-колбэк, и всё подключается к новому элементу
+  const outer = useRef<HTMLDivElement | null>(null)
+  const [el, setEl] = useState<HTMLDivElement | null>(null)
+  const bind = useCallback((node: HTMLDivElement | null) => {
+    outer.current = node
+    setEl(node)
+  }, [])
   const [t, setT] = useState<T>({ s: 1, x: 0, y: 0 })
   const tRef = useRef(t)
   tRef.current = t
@@ -178,7 +206,6 @@ export function usePanZoom(w: number, h: number) {
   const touched = useRef(false)
   // вписать при открытии и при смене размера экрана (поворот телефона), пока масштаб не трогали
   useEffect(() => {
-    const el = outer.current
     if (!el) return
     const ro = new ResizeObserver(() => {
       if (!touched.current) fit()
@@ -194,11 +221,10 @@ export function usePanZoom(w: number, h: number) {
     }
     // fit читает размеры при вызове
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [w, h])
+  }, [el, w, h])
 
   // колесо и тачпад: Ctrl/⌘ или щипок — масштаб у курсора, иначе — сдвиг
   useEffect(() => {
-    const el = outer.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -209,7 +235,7 @@ export function usePanZoom(w: number, h: number) {
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [el])
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<{ t: T; mid: { x: number; y: number }; dist: number; ids: number[] } | null>(null)
@@ -223,8 +249,9 @@ export function usePanZoom(w: number, h: number) {
       dist: two ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0,
     }
   }
-  /** Пустое место поля: сам контейнер, корневой svg или помеченный фон */
-  const isBackground = (el: Element) => el === outer.current || el.classList.contains('pz-inner') || el.tagName.toLowerCase() === 'svg' || el.classList.contains('pz-bg')
+  /** Пустое место поля: всё, что не элемент схемы (блоки, связи, точки связи); без списка — контейнер и корневой svg */
+  const isBackground = (t: Element) =>
+    interactive ? !t.closest(interactive) : t === outer.current || t.classList.contains('pz-inner') || t.tagName.toLowerCase() === 'svg' || t.classList.contains('pz-bg')
   const handlers = {
     onPointerDownCapture: (e: RPointerEvent<HTMLDivElement>) => {
       if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return
@@ -283,7 +310,7 @@ export function usePanZoom(w: number, h: number) {
     touched.current = false
     fit()
   }
-  return { outer, handlers, inner, scale: t.s, fit: refit, zoomIn: () => zoomAt(1.5), zoomOut: () => zoomAt(1 / 1.5), to100 }
+  return { bind, handlers, inner, scale: t.s, fit: refit, zoomIn: () => zoomAt(1.5), zoomOut: () => zoomAt(1 / 1.5), to100 }
 }
 
 /** Масштаб одним инструментом: проценты и меню, как в Figma */
@@ -296,11 +323,18 @@ export function ZoomMenu({ pz }: { pz: ReturnType<typeof usePanZoom> }) {
     document.addEventListener('pointerdown', close, true)
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
-  const items: [string, string, () => void][] = [
-    [tr('Приблизить', 'Zoom in'), '+', pz.zoomIn],
-    [tr('Отдалить', 'Zoom out'), '−', pz.zoomOut],
-    [tr('Вписать схему', 'Zoom to fit'), 'Shift+1', pz.fit],
-    ['100%', 'Shift+0', pz.to100],
+  // Esc закрывает меню
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+  const items: [string, () => void][] = [
+    [tr('Приблизить', 'Zoom in'), pz.zoomIn],
+    [tr('Отдалить', 'Zoom out'), pz.zoomOut],
+    [tr('Вписать схему', 'Zoom to fit'), pz.fit],
+    ['100%', pz.to100],
   ]
   return (
     <div className="ws-zoom" ref={ref}>
@@ -309,7 +343,7 @@ export function ZoomMenu({ pz }: { pz: ReturnType<typeof usePanZoom> }) {
       </button>
       {open && (
         <div className="panel zoom-menu" role="menu">
-          {items.map(([label, key, act]) => (
+          {items.map(([label, act]) => (
             <button
               key={label}
               role="menuitem"
@@ -319,7 +353,6 @@ export function ZoomMenu({ pz }: { pz: ReturnType<typeof usePanZoom> }) {
               }}
             >
               <span>{label}</span>
-              <kbd>{key}</kbd>
             </button>
           ))}
           <p className="small muted">{tr('Двумя пальцами — масштаб и сдвиг, одним по пустому месту — сдвиг.', 'Two fingers zoom and pan; one finger on empty space pans.')}</p>
@@ -332,7 +365,7 @@ export function ZoomMenu({ pz }: { pz: ReturnType<typeof usePanZoom> }) {
 /** Поле со схемой: масштаб и сдвиг пальцами */
 export function PanZoomField({ pz, children }: { pz: ReturnType<typeof usePanZoom>; children: ReactNode }) {
   return (
-    <div className="pz" ref={pz.outer} {...pz.handlers}>
+    <div className="pz" ref={pz.bind} {...pz.handlers}>
       <div className="pz-inner" style={pz.inner}>
         {children}
       </div>

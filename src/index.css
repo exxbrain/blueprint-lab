@@ -3257,10 +3257,8 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .ws-panel-head,
 .ws-start { display: none; }
 /* холст на компьютере держит пропорции 1000×540 сам, что бы ни показывала видимая часть */
-.builder-canvas { aspect-ratio: 1000 / 540; }
+.builder-canvas:not(.c4-canvas):not(.mono-canvas) { aspect-ratio: 1000 / 540; }
 .hub-demo .builder-canvas { aspect-ratio: auto; }
-/* у диаграммы C4 свой размер холста — пропорции берутся из него */
-.c4-canvas { aspect-ratio: auto; }
 /* границы холста: за них блоки не уходят */
 .canvas-frame { fill: none; stroke: rgba(124, 196, 255, 0.2); stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; pointer-events: none; }
 .ws-pill { display: flex; align-items: center; gap: 4px; }
@@ -3286,7 +3284,7 @@ body.ws-mode .page { animation: none; }
 /* плавающие плашки сверху: слева — назад, название, задача; справа — масштаб, подсказки, результат */
 .ws .canvas-zoom.ws-bar {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   top: calc(8px + env(safe-area-inset-top));
   left: 8px;
   right: 8px;
@@ -3393,7 +3391,7 @@ body.ws-mode .page { animation: none; }
 .ws .ws-traffic { display: none; }
 .ws .ws-panel.open,
 .ws .ws-traffic.open,
-.ws .ws-sheet.open {
+.ws-sheet.open {
   display: block;
   position: fixed;
   left: 0;
@@ -3410,7 +3408,8 @@ body.ws-mode .page { animation: none; }
   box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
   animation: sheet-in 0.22s ease-out;
 }
-.ws .ws-panel-head {
+.ws .ws-panel-head,
+.ws-sheet .ws-panel-head {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -3421,7 +3420,8 @@ body.ws-mode .page { animation: none; }
   padding: 12px 0 8px;
   background: #0d2742;
 }
-.ws .ws-start { display: block; width: 100%; margin-top: 12px; }
+.ws .ws-start,
+.ws-sheet .ws-start { display: block; width: 100%; margin-top: 12px; }
 .ws .scenario-head { grid-template-columns: minmax(0, 1fr); }
 
 /* общий рабочий экран (распил, контексты, C4): поле на весь экран, панели плавают поверх */
@@ -3434,7 +3434,7 @@ body.ws-mode .page { animation: none; }
 }
 .wsx-top {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   top: calc(8px + env(safe-area-inset-top));
   left: 8px;
   right: 8px;
@@ -3443,7 +3443,8 @@ body.ws-mode .page { animation: none; }
   gap: 8px;
   pointer-events: none;
 }
-.ws .ws-sheet { display: none; }
+/* шторки рисуются и вне рабочего экрана (поверх него): стили не зависят от предка */
+.ws-sheet { display: none; }
 .ws-zoom { position: relative; }
 .ws .ws-tool-icon { position: relative; }
 .ws-badge {
@@ -3498,4 +3499,4 @@ body.ws-mode .page { animation: none; }
 }
 .ws .ref-banner { position: absolute; z-index: 3; left: 8px; right: 8px; top: calc(92px + env(safe-area-inset-top)); margin: 0; }
 .ws-note { margin-bottom: 10px; }
-
+.ws-tap { position: absolute; inset: 0; }

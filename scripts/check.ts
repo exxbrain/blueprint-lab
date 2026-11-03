@@ -402,6 +402,19 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
         }
         break
       }
+      // ложное узнавание: название упоминает контекст, но его стикеров в группе — меньшинство
+      {
+        const big = [...t.contexts].sort((x, y) => t.cards.filter((c) => c.ctx === y.id).length - t.cards.filter((c) => c.ctx === x.id).length)
+        const [host, guest] = big
+        const st = referenceState(t)
+        const stray = t.cards.find((c) => c.ctx === guest.id)!
+        st.place[stray.id] = `g-${host.id}`
+        // как «Письма о заказах»: в названии — только чужой контекст, а его стикер в группе один
+        st.groups = st.groups.map((g) => (g.id === `g-${host.id}` ? { ...g, name: `О: ${guest.name}` } : g))
+        const wrong = misplacedCards(t, st).map((c) => c.id)
+        if (wrong.length !== 1 || wrong[0] !== stray.id)
+          fail(`${projectId}/${t.id}: группа «О: ${guest.name}» с одним стикером «${guest.name}» узнана по названию: не на месте ${wrong.length}`)
+      }
       console.log(`- ${project?.title}: ${t.cards.length} карточек, ${t.contexts.length} контекстов`)
     } else {
       const ids = new Set(t.contexts.map((c) => c.id))
@@ -504,7 +517,17 @@ console.log('\nВход по логину и паролю')
   if ((await worker.fetch(req(basic('guest', env.AUTH_PASSWORD)), { ...env, ASSETS: assets })).status !== 200 || served[0] !== '/assets/index.js') fail('Worker не отдал файл после входа')
   // конфигурация Worker'а: без run_worker_first Cloudflare отдаёт файлы мимо Worker'а, без адресов версий — старые версии закрыты
   const { readFileSync } = await import('node:fs')
-  const cfg = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''))
+  // JSONC: комментарии и висячие запятые убираем (строк с // внутри в конфиге нет)
+  const jsonc = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:"])\/\/.*$/gm, '$1')
+    .replace(/,(\s*[}\]])/g, '$1')
+  let cfg: { main?: string; preview_urls?: boolean; assets?: { directory?: string; binding?: string; run_worker_first?: unknown } } = {}
+  try {
+    cfg = JSON.parse(jsonc)
+  } catch (err) {
+    fail(`wrangler.jsonc не читается: ${(err as Error).message}`)
+  }
   if (cfg.assets?.run_worker_first !== true) fail('wrangler.jsonc: нет assets.run_worker_first: true — файлы сайта отдаются без пароля')
   if (cfg.preview_urls !== false) fail('wrangler.jsonc: адреса версий не выключены (preview_urls: false)')
   if (cfg.main !== 'worker/index.js' || cfg.assets?.directory !== './dist' || cfg.assets?.binding !== 'ASSETS') fail('wrangler.jsonc: Worker, папка сборки или привязка ASSETS не те')

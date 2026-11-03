@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C4_EXERCISES } from '../sim/c4/exercises'
 import { C4Canvas, C4_MIME } from '../sim/c4/C4Canvas'
 import {
@@ -66,7 +66,13 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   // условие при входе — модальным окном (на телефоне)
   const [panelOpen, setPanelOpen] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
-  const pz = usePanZoom(CANVAS.w, CANVAS.h)
+  const pz = usePanZoom(CANVAS.w, CANVAS.h, { interactive: '.c4-el, .c4-rel, .bnode-port' })
+  // свойства на телефоне — шторкой по касанию элемента (без сдвига); при нажатии и перетаскивании — нет
+  const [propsOpen, setPropsOpen] = useState(false)
+  const tapStart = useRef<{ id: number; x: number; y: number; n: number } | null>(null)
+  const pointersDown = useRef(0)
+  const selectedNow = useRef(selected)
+  selectedNow.current = selected
   const hintState = useHints(`c4/${ex.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<DiagramState | null>(null)
@@ -343,7 +349,28 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             </>
           }
         >
-          <PanZoomField pz={pz}>{canvasEl}</PanZoomField>
+          <div
+            className="ws-tap"
+            onPointerDownCapture={(e) => {
+              pointersDown.current++
+              tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, n: pointersDown.current }
+            }}
+            onPointerUpCapture={(e) => {
+              const t = tapStart.current
+              pointersDown.current = Math.max(0, pointersDown.current - 1)
+              tapStart.current = null
+              // касание одним пальцем почти без сдвига, и элемент выбран — открыть его свойства
+              if (t && t.id === e.pointerId && t.n === 1 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
+                // выбор уже обновлён: нажатие — отдельное событие, React отрисовал его до отпускания
+                selectedNow.current && setPropsOpen(true)
+            }}
+            onPointerCancelCapture={() => {
+              pointersDown.current = 0
+              tapStart.current = null
+            }}
+          >
+            <PanZoomField pz={pz}>{canvasEl}</PanZoomField>
+          </div>
           {refEl}
         </Workspace>
         {addOpen && (
@@ -356,6 +383,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
                 onClick={() => {
                   place(c.id)
                   setAddOpen(false)
+                  // поставили элемент — сразу его свойства: тип и технология
+                  setPropsOpen(true)
                 }}
               >
                 <span>
@@ -367,8 +396,14 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на диаграмме', 'All cards are on the diagram')}</p>}
           </Sheet>
         )}
-        {(selEl || selRel) && (
-          <Sheet title={tr('Свойства', 'Properties')} onClose={() => setSelected(null)}>
+        {propsOpen && (selEl || selRel) && (
+          <Sheet
+            title={tr('Свойства', 'Properties')}
+            onClose={() => {
+              setPropsOpen(false)
+              setSelected(null)
+            }}
+          >
             {propsEl}
           </Sheet>
         )}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useBottomSheet, useCloseOnOutside, usePhone } from './popover'
+import { Scrim } from './Workspace'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -75,7 +76,7 @@ export function PopoverDialog({
   // через портал в body: position: fixed внутри панелей с эффектами считался бы от панели
   return createPortal(
     <>
-      <div className="sheet-scrim" onClick={onClose} aria-hidden />
+      <Scrim onClose={onClose} />
       <div
         {...rootProps}
         ref={ref}

@@ -33,7 +33,7 @@ import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
 import { sideColumn, usePhone, usePopoverReflow } from '../components/popover'
-import { PanZoomField, Sheet, Tool, Workspace, ZoomMenu, usePanZoom } from '../components/Workspace'
+import { PanZoomField, Scrim, Sheet, Tool, Workspace, ZoomMenu, usePanZoom } from '../components/Workspace'
 import { PopoverDialog } from '../components/PopoverDialog'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
@@ -223,10 +223,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   // условие при входе — модальным окном (на телефоне); паттерны, проблемы и трафик — шторками
   const [panelOpen, setPanelOpen] = useState(true)
   const [sheet, setSheet] = useState<'patterns' | 'problems' | 'traffic' | null>(null)
-  const pz = usePanZoom(W, layout(project.modules.length).H)
+  const pz = usePanZoom(W, layout(project.modules.length).H, { interactive: '.mmod, .mdep, .dep-chip' })
   const openDep = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const r = wrapRef.current!.getBoundingClientRect()
+    // на телефоне окно связи — шторка, место на холсте ему не нужно (и холста-обёртки там нет)
+    const r = wrapRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
     setPopover({ id, x: e.clientX - r.left, y: e.clientY - r.top })
   }
   useEffect(() => {
@@ -317,7 +318,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
       </div>
     </>
-  const resultReviewEl = <>
+  const resultEl = <>
       <ResultModal
         open={result$.open}
         onClose={() => result$.setOpen(false)}
@@ -340,6 +341,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           ))}
         </div>
       </ResultModal>
+    </>
+  const reviewEl = <>
       {review && order && showReview && !(solved && !viewingRef) && (
         <div className="review-pair">
           <ReviewPanel review={review} title={viewingRef ? tr('Итог эталона', 'Reference solution result') : tr('Итоговая архитектура', 'Final architecture')} />
@@ -557,6 +560,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             <>
               {headEl}
               {actionsEl}
+              {reviewEl}
               {metricsEl}
               {helpEl}
             </>
@@ -610,10 +614,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             {trafficEl}
           </Sheet>
         )}
-        {popover && <div className="sheet-scrim" onClick={() => setPopover(null)} aria-hidden />}
+        {popover && <Scrim onClose={() => setPopover(null)} />}
         <div className="ws ws-dep">{depPopEl}</div>
         {modPopEl}
-        {resultReviewEl}
+        {resultEl}
       </>
     )
 
@@ -622,7 +626,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       {headEl}
       {refEl}
       {actionsEl}
-      {resultReviewEl}
+      {resultEl}
+      {reviewEl}
       {metricsEl}
       {helpEl}
       <div className="mono-grid">

@@ -168,16 +168,19 @@ function stems(name: string): string[] {
     .map((w) => w.slice(0, 5))
 }
 
-/** Контекст, который игрок сам назвал в имени группы, — если он однозначен и его стикеры в группе есть */
-function namedContext(t: PartitionTask, name: string, present: Set<string>): string | undefined {
+/**
+ * Контекст, который игрок сам назвал в имени группы. Только если он однозначен и подкреплён стикерами:
+ * его стикеров в группе — больше трети. «Письма о заказах» с одним стикером заказа — это не группа «Заказы».
+ */
+function namedContext(t: PartitionTask, name: string, counts: Record<string, number>): string | undefined {
   const mine = new Set(stems(name))
   if (!mine.size) return
-  const candidates = t.contexts.filter((c) => present.has(c.id))
-  // сначала — все слова названия контекста есть в имени группы, потом — хотя бы первое
-  for (const fits of [(c: DddContext) => stems(c.name).every((w) => mine.has(w)), (c: DddContext) => mine.has(stems(c.name)[0])]) {
-    const hits = candidates.filter((c) => stems(c.name).length && fits(c))
-    if (hits.length === 1) return hits[0].id
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  // название упоминает контекст: все его слова — или хотя бы одно; упомянуто несколько — неоднозначно
+  for (const fits of [(c: DddContext) => stems(c.name).every((w) => mine.has(w)), (c: DddContext) => stems(c.name).some((w) => mine.has(w))]) {
+    const hits = t.contexts.filter((c) => stems(c.name).length && fits(c))
     if (hits.length > 1) return
+    if (hits.length === 1) return (counts[hits[0].id] ?? 0) * 3 > total ? hits[0].id : undefined
   }
 }
 
@@ -190,7 +193,7 @@ export function groupContexts(t: PartitionTask, s: PartitionState): Record<strin
   for (const g of s.groups) {
     const counts: Record<string, number> = {}
     for (const c of t.cards) if (s.place[c.id] === g.id) counts[c.ctx] = (counts[c.ctx] ?? 0) + 1
-    const named = namedContext(t, g.name, new Set(Object.keys(counts)))
+    const named = namedContext(t, g.name, counts)
     out[g.id] = named ? { ctx: named, byName: true } : { ctx: Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0], byName: false }
   }
   return out

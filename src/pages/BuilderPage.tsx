@@ -32,6 +32,7 @@ import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { isTyping, sideColumn, usePhone, usePopoverReflow } from '../components/popover'
 import { PopoverDialog } from '../components/PopoverDialog'
+import { Scrim } from '../components/Workspace'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -306,7 +307,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   return (
     <div className={'builder' + (ws ? ' ws' : '')}>
-      {ws && panelOpen && <div className="sheet-scrim" onClick={() => setPanelOpen(false)} aria-hidden />}
+      {ws && panelOpen && <Scrim onClose={() => setPanelOpen(false)} />}
       <div
         className={'ws-panel' + (panelOpen ? ' open' : '')}
         role={ws ? 'dialog' : undefined}
@@ -433,7 +434,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             />
           </div>
           )}
-          {addOpen && <div className="sheet-scrim" onClick={() => setAddOpen(false)} aria-hidden />}
+          {addOpen && <Scrim onClose={() => setAddOpen(false)} />}
           {addOpen && (
             <div className="panel palette add-menu" role="menu">
           {(['Трафик', 'Вычисления', 'Хранилища'] as const).map((group) => (
@@ -538,7 +539,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             traces={traffic.inFlight}
             onDragging={setDragging}
             reveal={revealId}
-            autoFit
+            autoFit={ws}
             lead={
               ws ? (
                 <>
@@ -653,7 +654,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               )}
             </ElementPopover>
           )}
-          {ws && trafficOpen && <div className="sheet-scrim" onClick={() => setTrafficOpen(false)} aria-hidden />}
+          {ws && trafficOpen && <Scrim onClose={() => setTrafficOpen(false)} />}
           <div className={'ws-traffic' + (trafficOpen ? ' open' : '')} role={ws ? 'dialog' : undefined} aria-label={ws ? tr('Живой трафик', 'Live traffic') : undefined}>
           {ws && (
             <div className="ws-panel-head">

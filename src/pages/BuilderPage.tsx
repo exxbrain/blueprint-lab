@@ -30,7 +30,7 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { isTyping, sideColumn, usePopoverReflow } from '../components/popover'
+import { isTyping, sideColumn, usePhone, usePopoverReflow } from '../components/popover'
 import { PopoverDialog } from '../components/PopoverDialog'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
@@ -209,9 +209,21 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping(e.target)) remove()
+      // стрелки, как в Figma: сдвиг выбранного блока на шаг сетки, с Shift — на пять
+      const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]
+      if (step && selNode && !isTyping(e.target) && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        const d = e.shiftKey ? 50 : 10
+        patch(selNode.id, {
+          x: Math.max(0, Math.min(1000 - NODE_W, selNode.x + step[0] * d)),
+          y: Math.max(0, Math.min(540 - NODE_H, selNode.y + step[1] * d)),
+        })
+      }
       if (e.key === 'Escape') {
         setSelected(null)
         setAddOpen(false)
+        setPanelOpen(false)
+        setTrafficOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -220,6 +232,16 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [addOpen, setAddOpen] = useState(false)
+  // телефон: рабочий экран, как в Figma — схема на весь экран, инструменты на плавающих панелях;
+  // задача при входе открыта модальным окном
+  const ws = usePhone()
+  const [panelOpen, setPanelOpen] = useState(() => !!challenge)
+  const [trafficOpen, setTrafficOpen] = useState(false)
+  useEffect(() => {
+    if (!ws) return
+    document.body.classList.add('ws-mode')
+    return () => document.body.classList.remove('ws-mode')
+  }, [ws])
   /** Только что добавленный блок: холст покажет и подсветит его */
   const [revealId, setRevealId] = useState<string | null>(null)
   useEffect(() => {
@@ -234,7 +256,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   useEffect(() => {
     if (!addOpen) return
     const onDown = (e: PointerEvent) => {
-      if (!addRef.current?.contains(e.target as Node)) setAddOpen(false)
+      const t = e.target as Element
+      // кнопка «Компонент» на панели телефона сама открывает и закрывает меню
+      if (!addRef.current?.contains(t) && !t.closest?.('.ws-add')) setAddOpen(false)
     }
     // в фазе погружения: блоки на холсте останавливают всплытие, а меню должно закрыться и от щелчка по ним
     document.addEventListener('pointerdown', onDown, true)
@@ -256,8 +280,50 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   }
   const patch = (id: string, p: Partial<BNode>) => setNodes(nodes.map((n) => (n.id === id ? { ...n, ...p } : n)))
 
+  const statsEl = (
+    <div className="builder-stats">
+      <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
+      <Stat
+        label={tr('успешных', 'success')}
+        value={`${(result.clientSuccess * 100).toFixed(2)}%`}
+        tone={result.clientSuccess >= 0.995 ? 'ok' : result.clientSuccess >= 0.95 ? 'warn' : 'bad'}
+      />
+      <Stat
+        label={tr('латентность', 'latency')}
+        value={tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}
+        tone={result.clientLatency <= 150 ? 'ok' : result.clientLatency <= 500 ? 'warn' : 'bad'}
+      />
+      <Stat
+        label={tr('рост очереди', 'queue growth')}
+        value={tr(`${fmt(result.backlogGrowth)}/с`, `${fmt(result.backlogGrowth)}/s`)}
+        tone={result.backlogGrowth < 1 ? 'ok' : 'bad'}
+      />
+      <CostStat nodes={nodes} total={result.cost} budget={challenge?.budget} />
+      {flash && <span className="flash">{flash}</span>}
+    </div>
+  )
+  const title = challenge?.title ?? tr('Свободный режим', 'Sandbox')
+
   return (
-    <div className="builder">
+    <div className={'builder' + (ws ? ' ws' : '')}>
+      {ws && panelOpen && <div className="sheet-scrim" onClick={() => setPanelOpen(false)} aria-hidden />}
+      <div
+        className={'ws-panel' + (panelOpen ? ' open' : '')}
+        role={ws ? 'dialog' : undefined}
+        aria-modal={ws || undefined}
+        aria-label={ws ? title : undefined}
+      >
+      {ws && (
+        <div className="ws-panel-head">
+          <b>{title}</b>
+          <button className="icon" onClick={() => setPanelOpen(false)} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
+            ✕
+          </button>
+        </div>
+      )}
+      {ws && !challenge && (
+        <p className="muted">{tr('Собирайте что угодно: блоки — на панели внизу, задачи — на карте уровней.', 'Build anything: blocks are on the bottom bar, challenges are on the level map.')}</p>
+      )}
       {challenge && (
         <div className="scenario-head">
           <div className="panel lesson">
@@ -320,6 +386,13 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       {review && showReview && !(solved && !viewingRef) && (
         <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />
       )}
+      {ws && statsEl}
+      {ws && (
+        <button className="primary ws-start" onClick={() => setPanelOpen(false)}>
+          {tr('К схеме', 'To the diagram')} →
+        </button>
+      )}
+      </div>
       {challenge && (
         <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={stars ?? 1}>
           {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment')} />}
@@ -335,6 +408,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
         <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
           <div ref={addRef}>
+          {!ws && (
           <div className="add-bar">
             {/* на телефоне — плавающая кнопка в углу экрана: до неё не нужно прокручивать */}
             <button
@@ -358,6 +432,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               }}
             />
           </div>
+          )}
           {addOpen && <div className="sheet-scrim" onClick={() => setAddOpen(false)} aria-hidden />}
           {addOpen && (
             <div className="panel palette add-menu" role="menu">
@@ -396,10 +471,15 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             </div>
           ))}
           <p className="small muted">
-            {tr(
-              'Кликните — компонент появится внизу холста, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
-              'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
-            )}
+            {ws
+              ? tr(
+                  'Нажмите — компонент появится на схеме. Связь — тяните за кружок справа от блока.',
+                  'Tap to place a component on the diagram. To connect, drag from the circle on the right of a block.',
+                )
+              : tr(
+                  'Кликните — компонент появится внизу холста, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
+                  'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
+                )}
           </p>
           <p className="small muted">
             {tr(
@@ -410,26 +490,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             </div>
           )}
           </div>
-          <div className="builder-stats">
-            <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
-            <Stat
-              label={tr('успешных', 'success')}
-              value={`${(result.clientSuccess * 100).toFixed(2)}%`}
-              tone={result.clientSuccess >= 0.995 ? 'ok' : result.clientSuccess >= 0.95 ? 'warn' : 'bad'}
-            />
-            <Stat
-              label={tr('латентность', 'latency')}
-              value={tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}
-              tone={result.clientLatency <= 150 ? 'ok' : result.clientLatency <= 500 ? 'warn' : 'bad'}
-            />
-            <Stat
-              label={tr('рост очереди', 'queue growth')}
-              value={tr(`${fmt(result.backlogGrowth)}/с`, `${fmt(result.backlogGrowth)}/s`)}
-              tone={result.backlogGrowth < 1 ? 'ok' : 'bad'}
-            />
-            <CostStat nodes={nodes} total={result.cost} budget={challenge?.budget} />
-            {flash && <span className="flash">{flash}</span>}
-          </div>
+          {!ws && statsEl}
+          {ws && flash && <div className="ws-toast">{flash}</div>}
           {(cycleNote || result.cycle) && (
             <div className="cycle-note">
               <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it')}>
@@ -476,7 +538,69 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             traces={traffic.inFlight}
             onDragging={setDragging}
             reveal={revealId}
+            autoFit={ws}
+            lead={
+              ws ? (
+                <>
+                  <a className="btn icon ws-btn" href="#/" title={tr('На карту', 'To the map')} aria-label={tr('На карту', 'To the map')}>
+                    ←
+                  </a>
+                  <button className="ws-title" onClick={() => setPanelOpen(true)}>
+                    {title}
+                  </button>
+                  <button className="icon ws-btn" onClick={() => setPanelOpen(true)} title={tr('Задача и цели', 'Task and goals')} aria-label={tr('Задача и цели', 'Task and goals')}>
+                    ▤
+                  </button>
+                </>
+              ) : undefined
+            }
+            extra={
+              ws ? (
+                <>
+                  <HintDock
+                    hints={challenge?.hints ?? []}
+                    used={hints}
+                    take={hintState.take}
+                    live={live}
+                    liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
+                    onPick={(id) => setSelected(id)}
+                    compact
+                  />
+                  {challenge && solved && !viewingRef && (
+                    <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                      ★
+                    </button>
+                  )}
+                </>
+              ) : undefined
+            }
           />
+          {ws && (
+            <>
+              <button className="ws-metrics" onClick={() => setPanelOpen(true)} title={tr('Метрики и цели', 'Metrics and goals')}>
+                <span className={result.clientSuccess >= 0.995 ? 'ok-text' : result.clientSuccess >= 0.95 ? 'warn-text' : 'bad-text'}>
+                  ✓ {(result.clientSuccess * 100).toFixed(1)}%
+                </span>
+                <span>{tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}</span>
+                <span className={challenge && result.cost > challenge.budget ? 'bad-text' : ''}>
+                  ${result.cost}
+                  {challenge ? `/${challenge.budget}` : ''}
+                </span>
+                {challenge && <span>{goals.filter((g) => g.ok).length}/{goals.length} 🎯</span>}
+              </button>
+              <div className="ws-tools" role="toolbar" aria-label={tr('Компоненты', 'Components')}>
+                <button className={'ws-tool ws-add' + (addOpen ? ' on' : '')} onClick={() => setAddOpen(!addOpen)} aria-expanded={addOpen} aria-haspopup="menu">
+                  <span className="ws-tool-icon">＋</span>
+                  <span className="ws-tool-label">{tr('Компонент', 'Component')}</span>
+                </button>
+                <span className="ws-sep" aria-hidden />
+                <button className={'ws-tool' + (trafficOpen ? ' on' : '')} onClick={() => setTrafficOpen(!trafficOpen)} aria-expanded={trafficOpen}>
+                  <span className="ws-tool-icon">📡</span>
+                  <span className="ws-tool-label">{tr('Трафик', 'Traffic')}</span>
+                </button>
+              </div>
+            </>
+          )}
           {(selNode || selEdge) && !dragging && (
             <ElementPopover
               label={selNode ? selNode.label : tr('Связь', 'Connection')}
@@ -529,13 +653,27 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               )}
             </ElementPopover>
           )}
+          {ws && trafficOpen && <div className="sheet-scrim" onClick={() => setTrafficOpen(false)} aria-hidden />}
+          <div className={'ws-traffic' + (trafficOpen ? ' open' : '')} role={ws ? 'dialog' : undefined} aria-label={ws ? tr('Живой трафик', 'Live traffic') : undefined}>
+          {ws && (
+            <div className="ws-panel-head">
+              <b>📡 {tr('Живой трафик', 'Live traffic')}</b>
+              <button className="icon" onClick={() => setTrafficOpen(false)} aria-label={tr('Закрыть', 'Close')}>
+                ✕
+              </button>
+            </div>
+          )}
           {estimated ? (
-            <TrafficPanel log={traffic.log} nodes={nodes} running={traffic.running} setRunning={traffic.setRunning} onPickNode={setSelected} />
+            <TrafficPanel log={traffic.log} nodes={nodes} running={traffic.running} setRunning={traffic.setRunning} onPickNode={(id) => {
+              setSelected(id)
+              setTrafficOpen(false)
+            }} />
           ) : (
             <p className="small muted traffic-locked">
               📡 {tr('Живой трафик включится после прикидки нагрузки.', 'Live traffic starts once the load estimate is done.')}
             </p>
           )}
+          </div>
         </div>
 
       </div>

@@ -502,6 +502,12 @@ console.log('\nВход по логину и паролю')
   const req = (auth?: string) => new Request('https://x.workers.dev/assets/index.js', { headers: auth ? { Authorization: auth } : {} })
   if ((await worker.fetch(req(), { ...env, ASSETS: assets })).status !== 401 || served.length) fail('Worker отдал файл сборки без входа')
   if ((await worker.fetch(req(basic('guest', env.AUTH_PASSWORD)), { ...env, ASSETS: assets })).status !== 200 || served[0] !== '/assets/index.js') fail('Worker не отдал файл после входа')
+  // конфигурация Worker'а: без run_worker_first Cloudflare отдаёт файлы мимо Worker'а, без адресов версий — старые версии закрыты
+  const { readFileSync } = await import('node:fs')
+  const cfg = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''))
+  if (cfg.assets?.run_worker_first !== true) fail('wrangler.jsonc: нет assets.run_worker_first: true — файлы сайта отдаются без пароля')
+  if (cfg.preview_urls !== false) fail('wrangler.jsonc: адреса версий не выключены (preview_urls: false)')
+  if (cfg.main !== 'worker/index.js' || cfg.assets?.directory !== './dist' || cfg.assets?.binding !== 'ASSETS') fail('wrangler.jsonc: Worker, папка сборки или привязка ASSETS не те')
   console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
 }
 

@@ -940,22 +940,59 @@ table.cmp th {
 /* сетка холста рисуется в SVG и масштабируется вместе со схемой; линии — всегда в 1 px */
 .canvas-grid-line { fill: none; stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .canvas-stage { position: relative; }
-/* кнопки масштаба — в углу холста */
+/* масштаб — строкой над схемой, как панель Figma: не закрывает углы схемы */
 .canvas-zoom {
-  position: absolute;
-  right: 8px;
-  top: 8px;
+  position: relative;
   display: flex;
+  justify-content: flex-end;
+  align-items: center;
   gap: 4px;
-  z-index: 2;
+  margin-bottom: 6px;
 }
-.canvas-zoom button {
+.canvas-zoom button.icon {
   width: 32px;
   height: 32px;
   padding: 0;
   font-size: 1.05rem;
-  background: rgba(10, 31, 54, 0.85);
 }
+.zoom-pct {
+  min-width: 76px;
+  height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-menu {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 25;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.zoom-menu button {
+  display: flex;
+  justify-content: space-between;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.zoom-menu button:hover:not(:disabled) { background: rgba(124, 196, 255, 0.12); }
+.zoom-menu kbd { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.zoom-menu p { margin: 6px 6px 2px; }
+/* курсоры, как в Figma: стрелка; с пробелом — рука; при сдвиге — сжатая рука */
+.builder-canvas { cursor: default; }
+.canvas-stage.space .builder-canvas,
+.canvas-stage.space .bnode,
+.canvas-stage.space .bedge { cursor: grab; }
+.canvas-stage.panning .builder-canvas,
+.canvas-stage.panning .bnode,
+.canvas-stage.panning .bedge { cursor: grabbing; }
+/* блок и связь под курсором подсвечиваются */
+.bnode:hover .bnode-box { stroke-width: 3; }
+.bedge:hover .bedge-line { opacity: 0.9; }
 /* только что добавленный блок пару секунд светится */
 .bnode-new .bnode-box { animation: bnode-new 0.8s ease-out 3; }
 @keyframes bnode-new {
@@ -963,10 +1000,7 @@ table.cmp th {
   100% { stroke-width: 1.5px; filter: none; }
 }
 .bnode {
-  cursor: grab;
-}
-.bnode:active {
-  cursor: grabbing;
+  cursor: default;
 }
 .bnode-box {
   fill: #0f2d4d;
@@ -1547,7 +1581,7 @@ tr.muted td {
 /* палитра: перетаскивание и всегда под рукой */
 .palette {
   position: sticky;
-  top: 70px;
+  top: calc(var(--topbar-h, 60px) + 10px);
   max-height: calc(100vh - 90px);
   overflow: auto;
 }
@@ -2775,7 +2809,10 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   /* холст во всю ширину; вертикально пальцем листается страница, двумя пальцами — масштаб, вбок — сдвиг схемы */
   .canvas-wrap { padding: 6px; }
   .builder-canvas { touch-action: pan-y; }
-  .canvas-zoom button { width: 38px; height: 38px; }
+  /* приближенную схему пальцем двигаем во все стороны, страница при этом не листается */
+  .builder-canvas.zoomed { touch-action: none; }
+  .canvas-zoom button.icon, .zoom-pct { height: 38px; }
+  .canvas-zoom button.icon { width: 38px; }
   .bnode, .bnode-port, .bedge { touch-action: none; }
   .palette > p { display: none; }
   .palette-row { display: inline-flex; align-items: center; }
@@ -2795,7 +2832,7 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 /* ---------- поиск границ контекстов (Event Storming) ---------- */
 .ddd-board { display: grid; grid-template-columns: minmax(240px, 0.8fr) 2fr; gap: 12px; align-items: start; }
 @media (max-width: 900px) { .ddd-board { grid-template-columns: minmax(0, 1fr); } }
-.ddd-pool { position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow: auto; }
+.ddd-pool { position: sticky; top: calc(var(--topbar-h, 60px) + 10px); max-height: calc(100vh - var(--topbar-h, 60px) - 30px); overflow: auto; }
 @media (max-width: 900px) { .ddd-pool { position: static; max-height: none; } }
 .ddd-pool h4, .ddd-group h4 { margin: 0 0 6px; }
 .ddd-cards { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -3211,3 +3248,173 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .live-hint-link { background: none; border: none; padding: 0; color: var(--text); text-align: left; font: inherit; cursor: pointer; }
 .live-hint-link:hover { color: var(--accent); }
 .live-hints { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+
+/* ---------- телефон: рабочий экран, как в Figma ---------- */
+/* на компьютере обёртки панели задачи и трафика на раскладку не влияют */
+.ws-panel,
+.ws-traffic { display: contents; }
+.ws-panel-head,
+.ws-start { display: none; }
+/* холст на компьютере держит пропорции 1000×540 сам, что бы ни показывала видимая часть */
+.builder-canvas { aspect-ratio: 1000 / 540; }
+.hub-demo .builder-canvas { aspect-ratio: auto; }
+/* границы холста: за них блоки не уходят */
+.canvas-frame { fill: none; stroke: rgba(124, 196, 255, 0.2); stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; pointer-events: none; }
+.ws-pill { display: flex; align-items: center; gap: 4px; }
+.ws-right { position: relative; }
+
+body.ws-mode { overflow: hidden; }
+body.ws-mode .topbar { display: none; }
+/* схема — на весь экран */
+.ws .builder-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+}
+.ws .canvas-stage { position: absolute; inset: 0; }
+.ws .builder-canvas { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; touch-action: none; }
+/* плавающие плашки сверху: слева — назад, название, задача; справа — масштаб, подсказки, результат */
+.ws .canvas-zoom.ws-bar {
+  position: absolute;
+  z-index: 3;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  right: 8px;
+  margin: 0;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.ws .ws-pill {
+  pointer-events: auto;
+  padding: 4px;
+  background: rgba(13, 39, 66, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.ws .ws-left { min-width: 0; flex: 0 1 auto; }
+.ws .ws-right { flex: none; }
+.ws .ws-btn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; flex: none; }
+.ws .ws-title {
+  min-width: 0;
+  max-width: 42vw;
+  height: 36px;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+}
+.ws .zoom-pct { height: 36px; min-width: 62px; border: none; background: transparent; }
+.ws .hint-dock { margin: 0; }
+.ws .hint-dock-btn { height: 36px; padding: 0 8px; }
+.ws .hint-dock-card,
+.ws .zoom-menu { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 8px; right: 8px; width: auto; max-height: 70dvh; overflow: auto; }
+/* главные цифры — маленькой плашкой под панелью; нажатие открывает задачу и все метрики */
+.ws .ws-metrics {
+  position: absolute;
+  z-index: 3;
+  top: calc(58px + env(safe-area-inset-top));
+  left: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  background: rgba(13, 39, 66, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+/* компоненты — панелью инструментов внизу: нажатие добавляет блок на схему */
+.ws .ws-tools {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 16px);
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgba(13, 39, 66, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.4);
+}
+.ws .ws-tools::-webkit-scrollbar { display: none; }
+.ws .ws-tool {
+  flex: none;
+  width: 60px;
+  height: 54px;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+}
+.ws .ws-tool.on,
+.ws .ws-tool:active { background: rgba(124, 196, 255, 0.18); }
+.ws .ws-tool-icon { font-size: 1.3rem; line-height: 1; }
+.ws .ws-add .ws-tool-icon { font-size: 1.6rem; color: var(--accent); }
+.ws .add-menu { background: #0d2742; max-height: 75dvh; }
+.ws .ws-tool-label { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6rem; color: var(--muted); }
+.ws .ws-sep { flex: none; width: 1px; margin: 6px 4px; background: var(--line); }
+.ws .ws-toast,
+.ws .cycle-note {
+  position: absolute;
+  z-index: 4;
+  top: calc(92px + env(safe-area-inset-top));
+  left: 8px;
+  right: 8px;
+  margin: 0;
+}
+.ws .ws-toast { padding: 8px 12px; border-radius: 10px; background: rgba(13, 39, 66, 0.95); border: 1px solid var(--warn); color: var(--warn); font-size: 0.85rem; }
+/* задача и трафик — модальными шторками поверх схемы */
+.ws .ws-panel,
+.ws .ws-traffic { display: none; }
+.ws .ws-panel.open,
+.ws .ws-traffic.open {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  max-height: 88dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+  background: #0d2742;
+  border-top: 2px solid var(--accent);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
+  animation: sheet-in 0.22s ease-out;
+}
+.ws .ws-panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 8px;
+  background: #0d2742;
+}
+.ws .ws-start { display: block; width: 100%; margin-top: 12px; }
+.ws .scenario-head { grid-template-columns: minmax(0, 1fr); }
+

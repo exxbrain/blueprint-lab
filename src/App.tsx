@@ -23,6 +23,14 @@ const K8sPage = lazy(() => import('./pages/K8sPage'))
 export default function App() {
   const route = useRoute()
   const [first, second, third] = route
+  // высота шапки — в переменную --topbar-h: липкие панели страниц встают сразу под неё, даже когда меню в две строки
+  useEffect(() => {
+    const bar = document.querySelector('.topbar')
+    if (!bar) return
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${bar.getBoundingClientRect().height}px`))
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [])
   // строка меню прокручивается вбок, если не помещается: активный пункт всегда в видимой части
   useEffect(() => {
     document.querySelector('.topbar nav a.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })

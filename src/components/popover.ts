@@ -7,9 +7,12 @@ export function usePopoverReflow() {
     const h = () => setTick((t) => t + 1)
     window.addEventListener('resize', h)
     window.addEventListener('scroll', h, true)
+    // масштаб и сдвиг схемы — элемент на экране переехал
+    window.addEventListener('canvas-view', h)
     return () => {
       window.removeEventListener('resize', h)
       window.removeEventListener('scroll', h, true)
+      window.removeEventListener('canvas-view', h)
     }
   }, [])
 }

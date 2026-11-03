@@ -13,6 +13,7 @@ export function HintDock({
   live,
   liveLocked,
   onPick,
+  compact,
 }: {
   hints: string[]
   used: number
@@ -22,6 +23,8 @@ export function HintDock({
   /** Почему диагностика пока молчит (например, до прикидки нагрузки) */
   liveLocked?: string
   onPick?: (nodeId: string) => void
+  /** Только значок и счётчик — для плавающей панели на телефоне */
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -38,10 +41,10 @@ export function HintDock({
   const worst = live?.find((d) => d.tone === 'bad') ? 'bad' : live?.find((d) => d.tone === 'warn') ? 'warn' : live?.length ? 'ok' : null
   return (
     <div className="hint-dock" ref={ref}>
-      <button className={'hint-dock-btn' + (open ? ' primary' : '')} onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button className={'hint-dock-btn' + (open ? ' primary' : '')} onClick={() => setOpen(!open)} aria-expanded={open} aria-label={tr('Подсказки', 'Hints')}>
         {worst && !liveLocked && <span className={'hint-dot ' + worst} />}
-        💡 {tr('Подсказки', 'Hints')}
-        {hints.length > 0 && ` (${shown}/${hints.length})`}
+        💡{!compact && ` ${tr('Подсказки', 'Hints')}`}
+        {hints.length > 0 && (compact ? ` ${shown}/${hints.length}` : ` (${shown}/${hints.length})`)}
       </button>
       {open && (
         <div className="panel hint-dock-card" role="dialog">

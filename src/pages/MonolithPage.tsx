@@ -33,7 +33,7 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
-import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
+import { sideColumn, useBottomSheet, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
 import { tr } from '../i18n'
@@ -1471,16 +1471,21 @@ function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId:
 function ModulePopover({ wrap, id, onClose, children }: { wrap: HTMLDivElement | null; id: ModuleId; onClose: () => void; children: React.ReactNode }) {
   usePopoverReflow()
   const ref = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   useCloseOnOutside(ref, onClose, '.mmod, .mdep, .dep-chip, .dep-popover, .access-row, .wf-name')
+  const sheet = useBottomSheet(ref, body, onClose)
   const el = wrap?.querySelector(`.mmod[data-id="${id}"]`)
   const r = el?.getBoundingClientRect()
   const style: React.CSSProperties = r ? sideColumn(r.left, r.right, 330) : { left: 8, top: 72, bottom: 8 }
   return createPortal(
-    <div ref={ref} className="node-popover module-popover" style={style} onClick={(e) => e.stopPropagation()} role="dialog">
-      <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
-        ✕
-      </button>
-      {children}
+    <div ref={ref} className={'node-popover module-popover' + (sheet.full ? ' sheet-full' : '')} style={style} onClick={(e) => e.stopPropagation()} role="dialog">
+      <div className="sheet-handle" {...sheet.handle} aria-hidden />
+      <div className="popover-body" ref={body}>
+        <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+          ✕
+        </button>
+        {children}
+      </div>
     </div>,
     document.body,
   )

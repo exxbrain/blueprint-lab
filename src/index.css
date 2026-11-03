@@ -2936,17 +2936,6 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 }
 .node-popover .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
 .node-popover .node-log { max-height: 220px; overflow: auto; }
-@media (max-width: 640px) {
-  .node-popover {
-    position: fixed;
-    left: 8px !important;
-    right: 8px;
-    top: auto !important;
-    bottom: 8px;
-    width: auto;
-    max-height: 60vh;
-  }
-}
 .status-badge {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -3034,13 +3023,99 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   border-color: var(--accent);
 }
 @media (max-width: 640px) {
-  .add-menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 60vh; }
+  /* меню компонентов — шторкой снизу, как окно параметров */
+  .add-menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-height: 62dvh;
+    border-width: 2px 0 0;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
+    overscroll-behavior: contain;
+    animation: sheet-in 0.22s ease-out;
+  }
+  /* «Добавить компонент» — плавающая круглая кнопка в правом нижнем углу */
+  .add-btn {
+    position: fixed;
+    right: 16px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    z-index: 14;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1.8rem;
+    line-height: 1;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #062038;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  }
+  .add-btn .add-label { display: none; }
+  .add-bar > .small { display: none; }
+  /* пока открыта шторка, кнопка не перекрывает её */
+  .add-btn.fab-hidden { display: none; }
 }
 /* окно параметров — колонка сбоку от элемента на всю видимую высоту */
 .node-popover { position: fixed; max-height: none; overflow: auto; }
 .popover-x { position: sticky; float: right; top: 0; z-index: 1; }
+/* полоска шторки — только на телефоне */
+.sheet-handle { display: none; }
+/* телефон: окно — шторка снизу; растёт при прокрутке и тянется за полоску (useBottomSheet) */
 @media (max-width: 640px) {
-  .node-popover { max-height: 60vh; }
+  .node-popover,
+  .module-popover {
+    left: 0 !important;
+    right: 0;
+    top: auto !important;
+    bottom: 0 !important;
+    width: auto;
+    max-height: 62dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    border-width: 2px 0 0;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.55);
+    transition: max-height 0.25s ease, transform 0.2s ease;
+    animation: sheet-in 0.22s ease-out;
+  }
+  .node-popover.sheet-full { max-height: calc(100dvh - 48px); }
+  .sheet-handle {
+    display: block;
+    flex: none;
+    height: 24px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-handle::before {
+    content: '';
+    display: block;
+    width: 44px;
+    height: 5px;
+    margin: 10px auto 0;
+    border-radius: 3px;
+    background: var(--muted);
+    opacity: 0.7;
+  }
+  .popover-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0 14px calc(14px + env(safe-area-inset-bottom));
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
 }
 /* подсказки прямо на поле */
 .hint-dock { position: relative; margin-left: auto; }

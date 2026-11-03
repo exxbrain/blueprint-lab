@@ -31,7 +31,7 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
+import { sideColumn, useBottomSheet, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -328,8 +328,14 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
           <div ref={addRef}>
           <div className="add-bar">
-            <button className={'add-btn' + (addOpen ? ' primary' : '')} onClick={() => setAddOpen(!addOpen)} aria-expanded={addOpen}>
-              ＋ {tr('Добавить компонент', 'Add a component')}
+            {/* на телефоне — плавающая кнопка в углу экрана: до неё не нужно прокручивать */}
+            <button
+              className={'add-btn' + (addOpen ? ' primary' : '') + (selNode || selEdge || addOpen ? ' fab-hidden' : '')}
+              onClick={() => setAddOpen(!addOpen)}
+              aria-expanded={addOpen}
+              aria-label={tr('Добавить компонент', 'Add a component')}
+            >
+              ＋<span className="add-label"> {tr('Добавить компонент', 'Add a component')}</span>
             </button>
             <span className="small muted">{tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…')}</span>
             <HintDock
@@ -827,7 +833,9 @@ function ElementPopover({
 }) {
   usePopoverReflow()
   const ref = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   useCloseOnOutside(ref, onClose, '.bnode, .bedge, .access-row, .wf-name')
+  const sheet = useBottomSheet(ref, body, onClose)
   const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
   let style: React.CSSProperties = { left: 8, top: 72, bottom: 8 }
   if (svg) {
@@ -838,8 +846,11 @@ function ElementPopover({
   }
   // через портал в body: у панелей есть backdrop-filter, и position: fixed внутри них считался бы от панели
   return createPortal(
-    <div ref={ref} className={'node-popover tone-' + tone} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
-      {children}
+    <div ref={ref} className={'node-popover tone-' + tone + (sheet.full ? ' sheet-full' : '')} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
+      <div className="sheet-handle" {...sheet.handle} aria-hidden />
+      <div className="popover-body" ref={body}>
+        {children}
+      </div>
     </div>,
     document.body,
   )

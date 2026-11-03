@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type RefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 
 /** Перерисовка при прокрутке и изменении окна — колонка держится у элемента */
 export function usePopoverReflow() {
@@ -37,3 +37,65 @@ export function useCloseOnOutside(ref: RefObject<HTMLElement | null>, onClose: (
     return () => document.removeEventListener('pointerdown', onDown)
   }, [ref, onClose, keep])
 }
+
+const PHONE = '(max-width: 640px)'
+
+/**
+ * На телефоне окно — шторка снизу. Сначала она занимает чуть больше половины экрана;
+ * стоит прокрутить содержимое — вытягивается почти до шапки. За полоску сверху её тянут:
+ * вверх — развернуть, вниз — свернуть, а свёрнутую — закрыть. Касание полоски — развернуть или свернуть.
+ * На компьютере ничего не делает: там окно — колонка сбоку.
+ */
+export function useBottomSheet(root: RefObject<HTMLElement | null>, body: RefObject<HTMLElement | null>, onClose: () => void) {
+  const [full, setFull] = useState(false)
+  const drag = useRef<{ y: number; h: number; dy: number } | null>(null)
+  useEffect(() => {
+    const el = body.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollTop > 4 && window.matchMedia(PHONE).matches) setFull(true)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [body])
+
+  const style = (css: Partial<CSSStyleDeclaration>) => root.current && Object.assign(root.current.style, css)
+  const handle = {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      if (!root.current) return
+      drag.current = { y: e.clientY, h: root.current.getBoundingClientRect().height, dy: 0 }
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        /* синтетические события без захвата */
+      }
+      style({ transition: 'none' })
+    },
+    onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
+      const d = drag.current
+      if (!d) return
+      d.dy = e.clientY - d.y
+      // вниз шторка уезжает целиком, вверх — растёт
+      if (d.dy > 0) style({ transform: `translateY(${d.dy}px)`, maxHeight: '' })
+      else style({ transform: '', maxHeight: `${d.h - d.dy}px` })
+    },
+    onPointerUp: () => {
+      const d = drag.current
+      if (!d) return
+      drag.current = null
+      style({ transition: '', transform: '', maxHeight: '' })
+      if (Math.abs(d.dy) < 6) setFull(!full)
+      else if (d.dy < -40) setFull(true)
+      else if (d.dy > 60) {
+        if (full) setFull(false)
+        else onClose()
+      }
+    },
+    onPointerCancel: () => {
+      drag.current = null
+      style({ transition: '', transform: '', maxHeight: '' })
+    },
+  }
+  return { full, handle }
+}
+

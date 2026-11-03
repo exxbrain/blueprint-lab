@@ -124,9 +124,20 @@ export function BuilderCanvas({
   useEffect(() => {
     const svg = svgRef.current
     if (!svg) return
-    const ro = new ResizeObserver(() => setBox({ w: svg.clientWidth, h: svg.clientHeight }))
+    const ro = new ResizeObserver(() => {
+      const w = svg.clientWidth
+      const h = svg.clientHeight
+      if (!w || !h) return
+      // холст сменил форму (растянулся на весь экран, телефон повернули): видимая часть сохраняет свой центр
+      const was = aspectRef.current
+      aspectRef.current = h / w
+      if (Math.abs(was - h / w) > 1e-6) setView((v) => v && clampView({ x: v.x, y: v.y + (v.w * (was - h / w)) / 2, w: v.w }))
+      setBox({ w, h })
+    })
     ro.observe(svg)
     return () => ro.disconnect()
+    // clampView читает пропорции через ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // пропорции видимой части — как у холста на экране; через ref: колесо и клавиши читают свежие
   const aspectRef = useRef(height / width)
@@ -147,12 +158,11 @@ export function BuilderCanvas({
     const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), v.w))
     if (w >= maxW() - 1) return null
     const h = w * A()
-    // по оси, где видимая часть больше холста, — по центру; иначе — не выходить за холст
-    return {
-      x: w >= width ? (width - w) / 2 : Math.max(0, Math.min(width - w, v.x)),
-      y: h >= height ? (height - h) / 2 : Math.max(0, Math.min(height - h, v.y)),
-      w,
-    }
+    // видимая часть меньше холста — не выходит за холст; больше — держит холст целиком в кадре,
+    // но может сдвинуться, чтобы посередине оказалась схема, а не пустой край холста
+    const along = (pos: number, size: number, total: number) =>
+      size <= total ? Math.max(0, Math.min(total - size, pos)) : Math.max(total - size, Math.min(0, pos))
+    return { x: along(v.x, w, width), y: along(v.y, h, height), w }
   }
   /** Приблизить в k раз, держа точку at (координаты холста) на месте; без at — относительно середины */
   const zoomBy = (k: number, at?: { x: number; y: number }) =>

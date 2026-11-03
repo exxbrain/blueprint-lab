@@ -538,7 +538,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             traces={traffic.inFlight}
             onDragging={setDragging}
             reveal={revealId}
-            autoFit={ws}
+            autoFit
             lead={
               ws ? (
                 <>

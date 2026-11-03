@@ -1,7 +1,7 @@
 {
   "name": "blueprint-lab",
   "private": true,
-  "license": "MIT",
+  "license": "UNLICENSED",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

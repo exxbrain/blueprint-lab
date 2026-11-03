@@ -58,4 +58,4 @@ UI and content are bilingual via `tr('русский', 'English')` from `src/i18
 
 ## License
 
-[MIT](LICENSE)
+Proprietary, all rights reserved. Use, copying and distribution require the author's written permission. See [LICENSE](LICENSE).

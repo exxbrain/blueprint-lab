@@ -866,7 +866,7 @@ table.cmp th {
 }
 .builder-grid {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 230px;
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -2901,3 +2901,32 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .ev-row.warn span:nth-child(2), .ev-row.warn span:nth-child(3) { color: var(--warn); }
 .goal-stars { margin-left: 8px; letter-spacing: 1px; color: rgba(255, 255, 255, 0.2); }
 .goal-stars .on { color: #ffd166; text-shadow: 0 0 6px rgba(255, 209, 102, 0.6); }
+
+/* параметры элемента конструктора — окно рядом с блоком */
+.builder-wrap { position: relative; }
+.node-popover {
+  position: absolute;
+  z-index: 15;
+  width: 320px;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  padding: 12px;
+  background: #0d2742;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  animation: page-in 0.15s ease-out;
+}
+.node-popover .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.node-popover .node-log { max-height: 220px; overflow: auto; }
+@media (max-width: 640px) {
+  .node-popover {
+    position: fixed;
+    left: 8px !important;
+    right: 8px;
+    top: auto !important;
+    bottom: 8px;
+    width: auto;
+    max-height: 60vh;
+  }
+}

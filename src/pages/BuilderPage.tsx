@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BuilderCanvas, NODE_H, NODE_W, PALETTE_MIME, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
@@ -211,11 +211,27 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && !(e.target instanceof HTMLInputElement)) remove()
+      if (e.key === 'Escape') setSelected(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const wrapRef = useRef<HTMLDivElement>(null)
+  /** Где на холсте выбранный элемент (в координатах схемы 1000×540) */
+  const anchorOf = (n?: BNode, e?: BEdge) => {
+    if (n) return { x: n.x, y: n.y, w: NODE_W, h: NODE_H }
+    if (e) {
+      const a = nodes.find((x) => x.id === e.from)
+      const b = nodes.find((x) => x.id === e.to)
+      if (a && b) {
+        const x = (a.x + NODE_W + b.x) / 2
+        const y = (a.y + b.y + NODE_H) / 2
+        return { x: x - 10, y: y - 10, w: 20, h: 20 }
+      }
+    }
+    return { x: 0, y: 0, w: 0, h: 0 }
+  }
   const patch = (id: string, p: Partial<BNode>) => setNodes(nodes.map((n) => (n.id === id ? { ...n, ...p } : n)))
 
   return (
@@ -328,7 +344,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </p>
         </aside>
 
-        <div className="panel canvas-wrap">
+        <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
           <div className="builder-stats">
             <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
             <Stat
@@ -388,6 +404,46 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             onDropKind={(kind, x, y) => kind in KINDS && add(kind as NodeKind, { x, y })}
             traces={traffic.inFlight}
           />
+          {(selNode || selEdge) && (
+            <ElementPopover anchor={anchorOf(selNode, selEdge)} wrap={wrapRef.current}>
+              {selEdge && (
+                <>
+                  <div className="card-head">
+                    <b>
+                      {tr('Связь', 'Connection')}: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
+                    </b>
+                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+                      ✕
+                    </button>
+                  </div>
+                  <p className="small muted">{estimated ? `${fmt(result.edges[selEdge.id]?.rps ?? 0)} rps` : '? rps'}{result.edges[selEdge.id]?.async ? ' · async' : ''}</p>
+                  <button onClick={remove}>{tr('Удалить связь', 'Delete connection')}</button>
+                </>
+              )}
+              {selNode && (
+                <>
+                  <div className="card-head">
+                    <b>
+                      {KINDS[selNode.kind].icon} {selNode.label}
+                    </b>
+                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+                      ✕
+                    </button>
+                  </div>
+                  <NodeProps
+                    node={selNode}
+                    hideLoad={!estimated}
+                    fixedHit={challenge ? challenge.hitRatio : null}
+                    stats={result.nodes[selNode.id]}
+                    locked={locked(selNode.id)}
+                    patch={(p) => patch(selNode.id, p)}
+                    remove={remove}
+                  />
+                  {estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
+                </>
+              )}
+            </ElementPopover>
+          )}
           {estimated ? (
             <TrafficPanel log={traffic.log} nodes={nodes} running={traffic.running} setRunning={traffic.setRunning} onPickNode={setSelected} />
           ) : (
@@ -397,31 +453,6 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           )}
         </div>
 
-        <aside className="panel props">
-          <h4>{tr('Свойства', 'Properties')}</h4>
-          {!selNode && !selEdge && <p className="small muted">{tr('Выберите блок или связь', 'Select a block or a connection')}</p>}
-          {selEdge && (
-            <>
-              <p>
-                {tr('Связь', 'Connection')}: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
-              </p>
-              <p className="small muted">{fmt(result.edges[selEdge.id]?.rps ?? 0)} rps</p>
-              <button onClick={remove}>{tr('Удалить связь', 'Delete connection')}</button>
-            </>
-          )}
-          {selNode && (
-            <NodeProps
-              node={selNode}
-              hideLoad={!estimated}
-              fixedHit={challenge ? challenge.hitRatio : null}
-              stats={result.nodes[selNode.id]}
-              locked={locked(selNode.id)}
-              patch={(p) => patch(selNode.id, p)}
-              remove={remove}
-            />
-          )}
-          {selNode && estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
-        </aside>
       </div>
     </div>
   )
@@ -703,6 +734,48 @@ function EstimatePanel({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+const POPOVER_W = 320
+
+/** Окно параметров рядом с элементом: справа от него, а если не помещается — слева */
+function ElementPopover({
+  anchor,
+  wrap,
+  children,
+}: {
+  anchor: { x: number; y: number; w: number; h: number }
+  wrap: HTMLDivElement | null
+  children: ReactNode
+}) {
+  // перерисовываемся при изменении размеров окна, чтобы окно держалось у элемента
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const h = () => setTick((t) => t + 1)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [])
+  const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
+  let style: React.CSSProperties = { left: 8, top: 8 }
+  if (wrap && svg) {
+    const wr = wrap.getBoundingClientRect()
+    const sr = svg.getBoundingClientRect()
+    const vb = svg.viewBox.baseVal
+    const k = sr.width / (vb.width || 1000)
+    const ox = sr.left - wr.left + wrap.scrollLeft
+    const oy = sr.top - wr.top + wrap.scrollTop
+    const left = ox + (anchor.x - vb.x) * k
+    const top = oy + (anchor.y - vb.y) * k
+    const right = left + anchor.w * k
+    const fitsRight = right + 12 + POPOVER_W <= wrap.scrollWidth
+    const x = fitsRight ? right + 12 : Math.max(8, left - 12 - POPOVER_W)
+    style = { left: x, top: Math.max(8, top - 8) }
+  }
+  return (
+    <div className="node-popover" style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
+      {children}
     </div>
   )
 }

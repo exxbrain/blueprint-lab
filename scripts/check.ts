@@ -16,6 +16,8 @@ import { CAP_TASKS, runCap } from '../src/sim/cap/model'
 import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
 import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
+import { DDD_STAGES } from '../src/sim/ddd/tasks'
+import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
 
 let failed = 0
 const fail = (msg: string) => {
@@ -274,6 +276,38 @@ for (const t of ES_TASKS) {
   console.log(`- ${t.title}: решают ${solving.length} из ${combos.length} вариантов`)
   if (!ok(t.solution)) fail('эталон не выполняет цели')
   if (ok(t.start)) fail('задача решена уже в исходном состоянии')
+}
+
+// границы контекстов: эталон решает задачу, а «всё в одну кучу» и «каждая карточка отдельно» — нет
+console.log('\nГраницы контекстов и карта контекстов')
+for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
+  const project = PROJECTS.find((p) => p.id === projectId)
+  if (!project) fail(`${projectId}: нет проекта распила`)
+  for (const t of stages) {
+    if (t.type === 'partition') {
+      const ids = new Set(t.contexts.map((c) => c.id))
+      for (const c of t.cards) if (!ids.has(c.ctx)) fail(`${projectId}/${t.id}: карточка ${c.id} ссылается на неизвестный контекст ${c.ctx}`)
+      for (const c of t.contexts) if (!t.cards.some((x) => x.ctx === c.id)) fail(`${projectId}/${t.id}: у контекста ${c.id} нет карточек`)
+      const ref = referenceState(t)
+      if (!partitionSolved(t, ref)) fail(`${projectId}/${t.id}: эталон не решает задачу`)
+      if (reviewPartition(t, ref, 0).stars !== 3) fail(`${projectId}/${t.id}: эталон получает меньше трёх звёзд`)
+      const one = { groups: [{ id: 'all', name: 'all' }], place: Object.fromEntries(t.cards.map((c) => [c.id, 'all'])) }
+      if (partitionSolved(t, one)) fail(`${projectId}/${t.id}: всё в одном контексте считается решением`)
+      const each = { groups: t.cards.map((c) => ({ id: c.id, name: c.id })), place: Object.fromEntries(t.cards.map((c) => [c.id, c.id])) }
+      if (partitionSolved(t, each)) fail(`${projectId}/${t.id}: по контексту на карточку считается решением`)
+      if (project && t.contexts.length !== project.modules.length) fail(`${projectId}/${t.id}: контекстов не столько же, сколько модулей`)
+      console.log(`- ${project?.title}: ${t.cards.length} карточек, ${t.contexts.length} контекстов`)
+    } else {
+      const ids = new Set(t.contexts.map((c) => c.id))
+      for (const r of t.relations) if (!ids.has(r.upstream) || !ids.has(r.downstream)) fail(`${projectId}/${t.id}: связь ${r.id} ссылается на неизвестный контекст`)
+      const answers = Object.fromEntries(t.relations.map((r) => [r.id, r.answer]))
+      const sc = scoreMap(t, answers)
+      if (sc.correct !== sc.total) fail(`${projectId}/${t.id}: эталон карты не сходится`)
+      const used = new Set(t.relations.map((r) => r.answer))
+      if (used.size !== Object.keys(MAP_PATTERNS).length) fail(`${projectId}/${t.id}: использованы не все паттерны (${used.size})`)
+      console.log(`- ${project?.title}: карта контекстов, ${t.relations.length} связей`)
+    }
+  }
 }
 
 // живой трафик должен показывать то же, что предсказывает модель: доля ошибок в эмуляции ≈ модельной

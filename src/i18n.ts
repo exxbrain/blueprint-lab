@@ -13,9 +13,10 @@ function detect(): Lang {
     if (q === 'ru' || q === 'en') return q
     const saved = localStorage.getItem(KEY)
     if (saved === 'ru' || saved === 'en') return saved
-    return navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en'
+    // основной язык — английский; русский включается явным выбором (?lang=ru или переключатель)
+    return 'en'
   } catch {
-    return 'ru'
+    return 'en'
   }
 }
 

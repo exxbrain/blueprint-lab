@@ -6,6 +6,7 @@ import { tr } from './i18n'
 import { modules } from './content/modules'
 import { builderChallenges } from './sim/builder/challenges'
 import { PROJECTS } from './sim/monolith/projects'
+import { DDD_STAGES } from './sim/ddd/tasks'
 import { C4_EXERCISES } from './sim/c4/exercises'
 import { CAP_TASKS } from './sim/cap/model'
 import { ES_TASKS } from './sim/es/model'
@@ -72,6 +73,16 @@ export const TASKS: Task[] = [
     level: BUILDER_LEVEL[c.id] ?? 2,
     href: href('builder', c.id),
   })),
+  ...PROJECTS.flatMap((p) =>
+    (DDD_STAGES[p.id] ?? []).map((t, i) => ({
+      key: `monolith/${p.id}/${t.id}`,
+      title: `${p.title}: ${t.title}`,
+      area: tr('Распил монолита', 'Monolith'),
+      // поиск границ — на ступень проще миссий проекта, карта контекстов — на уровне проекта
+      level: clamp((PROJECT_LEVEL[p.id] ?? 3) - (i === 0 ? 1 : 0)),
+      href: href('monolith'),
+    })),
+  ),
   ...PROJECTS.flatMap((p) =>
     p.missions.map((m, i) => ({
       key: `monolith/${p.id}/${m.id}`,

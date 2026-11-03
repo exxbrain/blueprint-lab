@@ -1,60 +1,61 @@
 # Blueprint Lab
 
-[English version](README.en.md) · https://exxbrain.github.io/blueprint-lab/
+Hands-on software architecture: short lessons, live simulations and incident-style exercises.
+Live: https://exxbrain.github.io/blueprint-lab/ — switch RU / EN in the top bar.
 
-Интерактивное обучение архитектуре: короткие уроки, живые симуляции и задачи-инциденты.
+[Русская версия](README.ru.md)
 
-## Запуск
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Что внутри
+## What's inside
 
-- **Apache Kafka** (`#/kafka`): 6 уроков со встроенными симуляциями, квиз, 5 задач-инцидентов и песочница.
-  Движок `src/sim/kafka/engine.ts` моделирует партиции и ключи, репликацию, ISR, high watermark, acks,
-  min.insync.replicas, unclean election, consumer groups, ребалансировку, коммиты offset, дубликаты и порядок событий.
-- **Путь архитектора** (`#/`, `#/profile`): главная — карта уровней как в игре. 52 задачи из всех разделов разложены по
-  четырём мирам (Junior → Middle → Senior → Архитектор, `src/levels.ts`); мир открывается, когда пройдены все задачи
-  предыдущего. За задачи начисляется опыт (звёзды оценки добавляют бонус), у игрока растёт уровень — от Стажёра до
-  Архитектора.
-- **Конструктор архитектуры** (`#/builder`): граф из клиентов, балансировщиков, CDN, сервисов, очередей, кэша и хранилищ
-  (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Трафик несёт профиль нагрузки, и каждое хранилище
-  обрабатывает его со своей эффективностью (`src/sim/builder/model.ts`). Свободный режим, классические задачи и задачи
-  System Design с прикидкой нагрузки по DAU, а также упражнения на конкретные инструменты — Redis, CDN, Kafka,
-  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`). Это центр приложения: главная страница
-  открывается живой схемой и каталогом задач, у каждой задачи своя ссылка `#/builder/<id>`. По схеме идёт живой
-  трафик (`src/sim/builder/emulate.ts`): настоящие запросы (`GET /api/products/1042`, `POST /ingest`), операции блоков
-  (`GET product:1042` в Redis, SQL в PostgreSQL, CQL в Cassandra, `_search` в Elasticsearch, produce в Kafka) и
-  реальные ошибки там, где их предсказывает модель: 503 и таймауты при перегрузке, `too many clients`, 502 из тупика,
-  неподходящее хранилище, Seq Scan, отставание консьюмеров. Журнал запросов, водопад трассы и лог каждого блока.
-- **Распил монолита** (`#/monolith`): три уровня — интернет-магазин, доставка еды и интернет-банк, 16 миссий с бюджетом, оценкой решения и порядка распила. Strangler Fig по шагам — вынос модулей, отдельные БД, саги, реплики на событиях,
-  outbox, circuit breakers. 27 паттернов микросервисов как инструменты, 16 стресс-тестов и проверка на лишние паттерны
+- **Apache Kafka** (`#/kafka`): 6 lessons with embedded simulations, a quiz, 5 incident exercises and a sandbox.
+  The engine (`src/sim/kafka/engine.ts`) models partitions and keys, replication, ISR, high watermark, acks,
+  min.insync.replicas, unclean leader election, consumer groups, rebalancing, offset commits, duplicates and ordering.
+- **The architect's path** (`#/`, `#/profile`): the home page is a game-style level map. 52 challenges from every
+  section are spread across four worlds (Junior → Middle → Senior → Architect, `src/levels.ts`); a world opens once
+  every challenge of the previous one is solved. Challenges award XP (assessment stars add a bonus), and the player
+  levels up from Intern to Architect.
+- **Architecture Builder** (`#/builder`): a graph of clients, load balancers, CDN, services, queues, cache and storages
+  (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Traffic carries a workload profile and every storage
+  handles it with its own efficiency (`src/sim/builder/model.ts`). Sandbox mode, classic tasks, tool drills and
+  system design tasks that start with a back-of-the-envelope estimate (`src/sim/builder/challenges.ts`). This is the
+  heart of the app: the home page opens with a live diagram and the challenge catalog, and every challenge has its own
+  link `#/builder/<id>`. Live traffic flows through the diagram (`src/sim/builder/emulate.ts`): real requests
+  (`GET /api/products/1042`, `POST /ingest`), block operations (`GET product:1042` in Redis, SQL in PostgreSQL, CQL in
+  Cassandra, `_search` in Elasticsearch, produce to Kafka) and real errors exactly where the model predicts them: 503s and
+  timeouts under overload, `too many clients`, 502 from a dead end, an unsuitable storage, Seq Scan, consumer lag. A
+  request log, a trace waterfall and a per-block log.
+- **Breaking up the monolith** (`#/monolith`): three levels — online store, food delivery and an online bank,
+  16 missions with a budget, a review of the final architecture and of the decomposition order. Strangler Fig step by
+  step: extracting modules, separate databases, sagas, event-carried replicas, outbox, circuit breakers,
+  27 microservice patterns, 16 stress tests and detection of unnecessary patterns
   (`src/sim/monolith/model.ts`, `src/sim/monolith/patterns.ts`).
+- **C4 model** (`#/c4`): lessons, a quiz and a diagram editor with exercises — context, containers, components
+  and "find the mistakes" in someone else's diagram (`src/sim/c4`).
+- **Distributed data** (`#/data`): CAP and quorums (N/W/R, network partitions, sloppy quorum, last write wins vs merge)
+  and Event Sourcing (reversals, rebuilding projections, snapshots, event versioning, concurrency) — `src/sim/cap`, `src/sim/es`.
 
-- **C4 Model** (`#/c4`): уроки, квиз и редактор диаграмм с упражнениями — контекст, контейнеры, компоненты
-  и «найди ошибки» в чужой диаграмме (`src/sim/c4`).
-- **Распределённые данные** (`#/data`): CAP и кворумы (N/W/R, разрывы сети, sloppy quorum, LWW против слияния)
-  и Event Sourcing (сторно, перестроение проекций, снапшоты, версии событий, конкурентность) — `src/sim/cap`, `src/sim/es`.
-
-## Как добавить модуль
-
-1. Создать контент в `src/content/<модуль>/` (уроки — TSX-компоненты, квиз и сценарии — данные).
-2. Зарегистрировать модуль в `src/content/modules.ts`.
-
-## Проверка решаемости
+## Solvability check
 
 ```bash
 npm run check
 ```
 
-У каждой миссии распила и задачи конструктора есть эталонное решение. Скрипт `scripts/check.ts` прогоняет их через модели
-и падает, если эталон не выполняет цели, не укладывается в бюджет или задача решена уже в исходном состоянии.
+Every mission and exercise has a reference solution. `scripts/check.ts` runs them through the models in both
+languages and fails if a reference misses a goal, exceeds the budget, a known trap solves a task, or a task is
+already solved in its initial state.
 
-Прогресс хранится в `localStorage` (`blueprint-lab-progress`).
+## Translations
 
-## Лицензия
+UI and content are bilingual via `tr('русский', 'English')` from `src/i18n.ts`. The language is chosen once per page load
+(saved choice, `?lang=en`, or the browser language).
 
-Проприетарная, все права защищены. Использование, копирование и распространение — только с письменного разрешения автора. Подробнее — в [LICENSE](LICENSE).
+## License
+
+Proprietary, all rights reserved. Use, copying and distribution require the author's written permission. See [LICENSE](LICENSE).

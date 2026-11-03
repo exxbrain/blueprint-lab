@@ -2995,3 +2995,21 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .mono-grid { grid-template-columns: minmax(0, 1fr); }
 .module-popover { width: 330px; padding-top: 10px; }
 .popover-x { position: absolute; top: 8px; right: 8px; }
+/* палитра свёрнута в кнопку «Добавить компонент» */
+.builder-grid { grid-template-columns: minmax(0, 1fr); }
+.add-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.add-btn { font-weight: 700; }
+.add-menu {
+  position: absolute;
+  z-index: 20;
+  top: 48px;
+  left: 10px;
+  width: 260px;
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  border-color: var(--accent);
+}
+@media (max-width: 640px) {
+  .add-menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 60vh; }
+}

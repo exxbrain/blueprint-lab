@@ -192,13 +192,17 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && !(e.target instanceof HTMLInputElement)) remove()
-      if (e.key === 'Escape') setSelected(null)
+      if (e.key === 'Escape') {
+        setSelected(null)
+        setAddOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
 
   const wrapRef = useRef<HTMLDivElement>(null)
+  const [addOpen, setAddOpen] = useState(false)
   /** Где на холсте выбранный элемент (в координатах схемы 1000×540) */
   const anchorOf = (n?: BNode, e?: BEdge) => {
     if (n) return { x: n.x, y: n.y, w: NODE_W, h: NODE_H }
@@ -291,8 +295,16 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
       {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="builder-grid">
-        <aside className="panel palette">
-          <h4>{tr('Компоненты', 'Components')}</h4>
+
+        <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
+          <div className="add-bar">
+            <button className={'add-btn' + (addOpen ? ' primary' : '')} onClick={() => setAddOpen(!addOpen)} aria-expanded={addOpen}>
+              ＋ {tr('Добавить компонент', 'Add a component')}
+            </button>
+            <span className="small muted">{tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…')}</span>
+          </div>
+          {addOpen && (
+            <div className="panel palette add-menu" role="menu">
           {(['Трафик', 'Вычисления', 'Хранилища'] as const).map((group) => (
             <div key={group}>
               <div className="pattern-group-title">{KIND_GROUP_LABEL[group]}</div>
@@ -302,7 +314,10 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                   <div key={k} className="palette-row">
                   <button
                     className="palette-item"
-                    onClick={() => add(k)}
+                    onClick={() => {
+                      add(k)
+                      setAddOpen(false)
+                    }}
                     title={KINDS[k].desc}
                     draggable
                     onDragStart={(e) => {
@@ -326,13 +341,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           ))}
           <p className="small muted">
             {tr(
-              'Перетащите компонент на холст или кликните — он появится внизу холста. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
-              'Drag a component onto the canvas or click it, and it appears at the bottom of the canvas. To connect, drag from the circle on the right of a block. Del deletes the selection.',
+              'Кликните — компонент появится внизу холста, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
+              'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
             )}
           </p>
-        </aside>
-
-        <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
+            </div>
+          )}
           <div className="builder-stats">
             <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
             <Stat
@@ -385,11 +399,17 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             edges={edges}
             result={result}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={(id) => {
+              setSelected(id)
+              setAddOpen(false)
+            }}
             onMove={(id, x, y) => patch(id, { x, y })}
             onConnect={connect}
             hideLoad={!estimated}
-            onDropKind={(kind, x, y) => kind in KINDS && add(kind as NodeKind, { x, y })}
+            onDropKind={(kind, x, y) => {
+              if (kind in KINDS) add(kind as NodeKind, { x, y })
+              setAddOpen(false)
+            }}
             traces={traffic.inFlight}
           />
           {(selNode || selEdge) && (

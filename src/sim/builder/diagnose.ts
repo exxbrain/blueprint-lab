@@ -44,8 +44,8 @@ export function diagnose(input: {
 
   if (goals?.length && goals.every((g) => g.ok)) return [{ tone: 'ok', rank: 9, text: tr('Все цели выполнены.', 'All goals are met.', '所有目标都已达成。') }]
 
-  // хранение важно, если о нём есть невыполненная цель, а в свободном режиме — если на поле есть хранилище
-  const storageMatters = goals ? goals.some((g) => !g.ok && /сохран|хранилищ|persist|stor|存储|保存|存放|持久/i.test(g.text)) : nodes.some((n) => isStorage(n.kind) && n.kind !== 'cache')
+  // хранение важно, если о нём есть невыполненная цель (по-русски «хран…» — и «сохраняются», и «хранятся»; Storefront — не про хранение), а в свободном режиме — если на поле есть хранилище
+  const storageMatters = goals ? goals.some((g) => !g.ok && /хран|persist|\bstor(e|es|ed|ing|age)\b|存储|保存|存放|持久/i.test(g.text)) : nodes.some((n) => isStorage(n.kind) && n.kind !== 'cache')
   /** Узел только за очередью: перегрузка там — норма, о ней скажет рост очереди */
   const behindQueue = (id: string) => {
     const ins = edges.filter((e) => e.to === id)

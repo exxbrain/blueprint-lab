@@ -77,7 +77,7 @@ export const kafkaQuiz: QuizQuestion[] = [
       tr('Партиция выбирается как hash(key) % N. Если поменять N, ключ «переезжает», а старые события остаются в прежней партиции и могут быть обработаны позже новых.', 'The partition is chosen as hash(key) % N. If N changes, the key "moves", while old events stay in the previous partition and may be processed after newer ones.', '分区按 hash(key) % N 选择。如果 N 变了，key 就会“搬家”，而旧事件仍留在原来的分区，可能比新事件更晚被处理。'),
   },
   {
-    q: tr('Почему растущий лаг при стабильном трафике может быть связан с ребалансировкой?', 'Why can growing lag under steady traffic be caused by rebalancing?', '为什么流量稳定时 lag 不断增长，可能与再均衡（rebalance）有关？'),
+    q: tr('Почему растущий лаг при стабильном трафике может быть связан с ребалансировкой?', 'Why can growing lag under steady traffic be caused by rebalancing?', '为什么流量稳定时积压不断增长，可能与再均衡（rebalance）有关？'),
     options: [
       tr('Во время ребалансировки (eager) вся группа перестаёт читать', 'During an (eager) rebalance the whole group stops reading', '在（eager）再均衡期间，整个组都会停止读取'),
       tr('Ребалансировка удаляет сообщения', 'A rebalance deletes messages', '再均衡会删除消息'),

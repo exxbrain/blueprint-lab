@@ -440,7 +440,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         span.status = async ? 'async' : 'queued'
         span.op += tr(' (подтверждено, обработка позже)', ' (acked, processed later)', '（已确认，稍后处理）')
         const lag = st?.backlogGrowth ?? 0
-        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`, `consumer lag 每秒增加 ${Math.round(lag)} 条消息`)
+        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`, `消费积压（consumer lag）每秒增加 ${Math.round(lag)} 条消息`)
         for (const e of out) go(e, t + 5, true, 'consume')
         break
       }

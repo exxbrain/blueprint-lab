@@ -20,6 +20,8 @@ export function LangPicker() {
     return () => document.removeEventListener('pointerdown', close, true)
   }, [open])
   const onMenuKey = (e: RKeyboardEvent) => {
+    // клавиши меню — только меню: стрелки не должны двигать выбранный блок на схеме
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape'].includes(e.key)) e.stopPropagation()
     const list = items.current.filter(Boolean) as HTMLButtonElement[]
     const i = list.indexOf(document.activeElement as HTMLButtonElement)
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

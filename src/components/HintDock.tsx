@@ -58,7 +58,7 @@ export function HintDock({
                   {live.slice(0, 3).map((d, i) => (
                     <li key={i + d.text} className={'live-hint ' + d.tone}>
                       {d.nodeId && onPick ? (
-                        <button className="live-hint-link" onClick={() => onPick(d.nodeId!)} title={tr('Показать блок', 'Show the block', '显示该模块')}>
+                        <button className="live-hint-link" onClick={() => onPick(d.nodeId!)} title={tr('Показать блок', 'Show the block', '显示该组件')}>
                           {d.text}
                         </button>
                       ) : (

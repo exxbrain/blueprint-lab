@@ -1,7 +1,7 @@
 # Blueprint Lab
 
 Hands-on software architecture: short lessons, live simulations and incident-style exercises.
-The interface is bilingual: switch RU / EN in the top bar.
+The interface is available in English, Russian and Chinese: pick the language in the top bar.
 
 [Русская версия](README.ru.md) · Deploying privately: [Cloudflare Workers + password](docs/deploy-cloudflare.md)
 
@@ -55,14 +55,16 @@ npm run dev
 npm run check
 ```
 
-Every mission and exercise has a reference solution. `scripts/check.ts` runs them through the models in both
+Every mission and exercise has a reference solution. `scripts/check.ts` runs them through the models in all three
 languages and fails if a reference misses a goal, exceeds the budget, a known trap solves a task, or a task is
-already solved in its initial state.
+already solved in its initial state. The last pass also checks that the builder's on-canvas hints come out the same in
+every language.
 
 ## Translations
 
-UI and content are bilingual via `tr('русский', 'English')` from `src/i18n.ts`. The language is chosen once per page load
-(saved choice, `?lang=en`, or the browser language).
+UI and content come in three languages via `tr('русский', 'English', '中文')` from `src/i18n.ts`; a missing Chinese
+variant falls back to English. Long lessons have separate `…En` / `…Zh` components. The language is chosen once per
+page load (saved choice, `?lang=en|ru|zh`, or the browser language).
 
 ## License
 

@@ -215,7 +215,7 @@ const shopMissions: Mission[] = [
       '先搭 Strangler 门面，再拆出商品目录、订单、支付、库存和通知，各自配备独立的数据库。',
       '订单 → 支付、订单 → 库存：Saga；通知：事件；订单 → 用户、支付 → 用户：API。',
       '所有非关键读取（报表、前台库存）以及购物车价格：副本（CQRS）。',
-      'Kafka + Outbox + 幂等消费者 + Saga 编排器；韧性、可观测性、部署和契约方面按压力测试的提示补充。',
+      'Kafka + Outbox + Idempotent consumer + Saga 编排器；韧性、可观测性、部署和契约方面按压力测试的提示补充。',
     ]),
   },
   {
@@ -353,7 +353,7 @@ const shopMissions: Mission[] = [
       'In the monolith, prepare replicas for all three Reports reads.',
       'Extract Reports and give them their own DB.',
     ], [
-      'Strangler 门面、Kafka、CDC（或 Outbox）以及幂等消费者。',
+      'Strangler 门面、Kafka、CDC（或 Outbox）以及Idempotent consumer。',
       '在单体中为报表的三项读取都准备好副本。',
       '拆出报表，并为其配备独立的数据库。',
     ]),
@@ -448,7 +448,7 @@ const shopMissions: Mission[] = [
       'Extract Payments with its own DB.',
       'mTLS, Access token (JWT) and Audit logging.',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer。',
       '准备：订单 → 支付改为 Saga；支付 → 用户和报表 → 支付改走 API。',
       '拆出支付，并为其配备独立的数据库。',
       'mTLS、Access token（JWT）和 Audit logging。',
@@ -709,7 +709,7 @@ const bankMissions: Mission[] = [
       '先搭 Strangler 门面，再拆出转账、生活缴费、反欺诈、优惠和审计，各自配备独立的数据库。核心、单据、限额、交易确认和 CBS 网关保持不动。',
       '转账 → 单据、转账 → 限额、生活缴费 → 单据：Saga。转账 → 账户：API。转账 → 审计：事件。',
       '反欺诈、优惠和审计通过副本读取核心数据（CQRS）。',
-      'Kafka + Outbox + 幂等消费者 + Saga 编排器；其余按压力测试的提示补充。',
+      'Kafka + Outbox + Idempotent consumer + Saga 编排器；其余按压力测试的提示补充。',
     ]),
   },
   {
@@ -853,7 +853,7 @@ const bankMissions: Mission[] = [
       'Extract Audit, Offers and Anti-fraud with their own DBs.',
       'All their reads of the core and documents: replicas (CQRS).',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者、Audit logging 以及链路追踪（tracing），因为已经有三个服务了。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer、Audit logging 以及 Distributed tracing，因为已经有三个服务了。',
       '拆出审计、优惠和反欺诈，各自配备独立的数据库。',
       '它们对核心和单据的所有读取：副本（CQRS）。',
     ]),
@@ -866,12 +866,12 @@ const bankMissions: Mission[] = [
     ], [
       'The Bill payments team onboards two new billers a week and cannot wait for the shared release. Meanwhile the network to the CBS occasionally flickers: customers see errors, and on retry a payment may go through twice.',
     ], [
-      '生活缴费团队每周要接入两家新的收费单位，等不起统一发布。与此同时，通往 CBS 的网络偶尔抖动：客户会看到报错，重试时还可能重复缴费。',
+      '生活缴费团队每周要接入两家新的收费单位，等不起统一发布。与此同时，通往 CBS 的网络偶尔出故障：客户会看到报错，重试时还可能重复缴费。',
     ]),
     budget: 25,
     goals: [
       { text: tr('Оплата услуг релизится независимо', 'Bill payments are released independently', '生活缴费独立发布'), check: (m) => m.independent.includes('billpay') },
-      { text: tr('Кратковременные сбои сети не видны клиенту', 'Brief network glitches are invisible to the customer', '短暂的网络抖动对客户不可见'), check: stressOk('flaky') },
+      { text: tr('Кратковременные сбои сети не видны клиенту', 'Brief network glitches are invisible to the customer', '短暂的网络故障对客户不可见'), check: stressOk('flaky') },
       { text: tr('Повтор запроса не списывает деньги дважды', 'A retried request does not charge twice', '重试的请求不会重复扣款'), check: stressOk('double') },
       { text: tr('Нет сломанных функций и рисков потери денег', 'No broken features and no risk of losing money', '没有失效的功能，也没有资金损失风险'), check: noProblems },
       { text: tr('Нет лишних паттернов', 'No unnecessary patterns', '没有多余的模式'), check: noExcess },
@@ -903,10 +903,10 @@ const bankMissions: Mission[] = [
       'Extract Bill payments with its own DB.',
       'Retry with backoff and Idempotency key for CBS postings.',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer。',
       '准备生活缴费 → 单据的 Saga。',
       '拆出生活缴费，并为其配备独立的数据库。',
-      '为 CBS 记账配置 Retry with backoff 和 Idempotency key。',
+      '为 CBS 记账配置“带 backoff 和 jitter 的重试”和 Idempotency key。',
     ]),
   },
   {
@@ -998,7 +998,7 @@ const bankMissions: Mission[] = [
       'Prepare the Offers → Accounts and Offers → Documents replicas.',
       'Extract Offers with its own DB.',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer。',
       '准备优惠 → 账户和优惠 → 单据的副本。',
       '拆出优惠，并为其配备独立的数据库。',
     ]),
@@ -1230,7 +1230,7 @@ const foodMissions: Mission[] = [
       'Prepare: menu via API; payment as a saga; courier and push as events; Reviews → Orders and Promo → Orders via API.',
       'Extract Orders with its own DB.',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者、circuit breaker。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer、circuit breaker。',
       '准备：菜单走 API；支付用 Saga；骑手和推送用事件；评价 → 订单和优惠码 → 订单走 API。',
       '拆出订单，并为其配备独立的数据库。',
     ]),
@@ -1277,7 +1277,7 @@ const foodMissions: Mission[] = [
       'Prepare: Restaurants → Reviews as a replica; Reviews → Orders via API.',
       'Extract Reviews with its own DB.',
     ], [
-      'Strangler 门面、Kafka、Outbox、幂等消费者。',
+      'Strangler 门面、Kafka、Outbox、Idempotent consumer。',
       '准备：餐厅 → 评价改为副本；评价 → 订单走 API。',
       '拆出评价，并为其配备独立的数据库。',
     ]),

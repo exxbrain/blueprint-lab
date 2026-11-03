@@ -1558,6 +1558,11 @@ table.cmp th {
 .fit-table td {
   padding: 3px 6px;
 }
+.fit-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 0 6px 4px;
+}
 .fit-bar {
   width: 70px;
   height: 6px;

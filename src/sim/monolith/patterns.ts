@@ -317,7 +317,7 @@ export const STRESS_TESTS: StressTest[] = [
     applies: (c) => c.syncCrossing,
     ok: (c) => c.has('retry'),
     fix: ['retry'],
-    need: tr('Сам повторять запрос, если он упал из-за кратковременного сбоя сети, — с паузой, чтобы не добить сервис', 'Retry a request that failed due to a brief network glitch on its own — with a pause, so as not to finish off the service', '请求因短暂的网络抖动失败时，自己重新发送——并留出间隔，免得把服务彻底压垮'),
+    need: tr('Сам повторять запрос, если он упал из-за кратковременного сбоя сети, — с паузой, чтобы не добить сервис', 'Retry a request that failed due to a brief network glitch on its own — with a pause, so as not to finish off the service', '请求因短暂的网络故障失败时，自己重新发送——并留出间隔，免得把服务彻底压垮'),
     fail: tr('Каждая сотая операция завершается ошибкой у клиента', 'One in a hundred operations fails for the customer', '每一百次操作就有一次在客户那里失败'),
   },
   {
@@ -336,7 +336,7 @@ export const STRESS_TESTS: StressTest[] = [
     ok: (c) => c.has('idempotentConsumer'),
     fix: ['idempotentConsumer'],
     need: tr('Получать одно и то же сообщение дважды без удвоения результата', 'Receive the same message twice without doubling the result', '同一条消息收到两次，结果也不会翻倍'),
-    fail: tr('После ребалансировки событие обработано повторно', 'After a rebalance, the event was processed again', '重平衡之后，事件又被处理了一遍'),
+    fail: tr('После ребалансировки событие обработано повторно', 'After a rebalance, the event was processed again', '再均衡之后，事件又被处理了一遍'),
   },
   {
     id: 'bad-deploy',

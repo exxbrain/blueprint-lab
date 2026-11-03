@@ -30,7 +30,7 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { isTyping, usePhone } from '../components/popover'
+import { inMenu, isTyping, usePhone } from '../components/popover'
 import { Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
@@ -213,6 +213,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // клавиши из открытого меню (язык, масштаб) — не для схемы: стрелки не двигают блок, Delete не удаляет
+      if (e.defaultPrevented || inMenu(e.target)) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping(e.target)) remove()
       // стрелки, как в Figma: сдвиг выбранного блока на шаг сетки, с Shift — на пять
       const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]
@@ -844,6 +846,8 @@ function NodeProps({
       )}
       {tab === 'load' && KINDS[node.kind].fit && (
         <table className="cmp small fit-table">
+          {/* подсказки заданий ссылаются на эту таблицу по названию */}
+          <caption>{tr('Подходит для', 'Good for', '适合的负载')}</caption>
           <tbody>
             {(Object.keys(WORKLOADS) as Workload[]).map((w) => {
               const f = KINDS[node.kind].fit?.[w] ?? 0

@@ -25,6 +25,8 @@ import { MAP_PATTERNS, misplacedCards, partitionSolved, referenceState, reviewPa
 import worker, { guard } from '../worker/index.js'
 
 let failed = 0
+/** Подпись разбора, не зависящая от языка: сравнивается между проходами ru, en и zh */
+const signature: string[] = []
 const fail = (msg: string) => {
   failed++
   console.log('  ✗ ' + msg)
@@ -185,7 +187,7 @@ console.log('\nПодсказки без названий инструменто
 {
   // и по-китайски: 缓存 (кэш), 队列 (очередь), 负载均衡 (балансировщик), 搜索引擎/全文检索 (поиск), 列式 (колоночная), 对象存储 (объектное хранилище)
   const tools = /redis|kafka|\bcdn\b|elasticsearch|clickhouse|cassandra|mongo|\bs3\b|кэш|кеш|\bcache|очеред|\bqueue|поисков\w* движ|search engine|колоночн|columnar|объектн\w* хранилищ|object storage|балансировщик|load balancer|缓存|队列|负载均衡|搜索引擎|全文检索|列式|对象存储/i
-  const patterns = /熔断|幂等|金丝雀|蓝绿|链路追踪|服务网格|限流|防腐层|事件溯源|扇出|cqrs|event-driven|fan-out|\bsaga|\bсаг[аиуеой]|outbox|\bcdc\b|circuit|bulkhead|backoff|jitter|idempoten|идемпотент|canary|blue-green|tracing|трассировк|\bmtls\b|\bjwt\b|access token|\bbff\b|backend for frontend|service mesh|discovery|rate limit|anti-corruption|contract|контракт|event sourcing|cache-aside|read-through/i
+  const patterns = /熔断|断路器|退避|抖动|服务发现|契约|访问令牌|事件驱动|追踪|变更数据捕获|幂等|金丝雀|蓝绿|服务网格|限流|防腐层|事件溯源|扇出|cqrs|event-driven|fan-out|\bsaga|\bсаг[аиуеой]|outbox|\bcdc\b|circuit|bulkhead|backoff|jitter|idempoten|идемпотент|canary|blue-green|tracing|трассировк|\bmtls\b|\bjwt\b|access token|\bbff\b|backend for frontend|service mesh|discovery|rate limit|anti-corruption|contract|контракт|event sourcing|cache-aside|read-through/i
   let n = 0
   for (const c of builderChallenges)
     for (const h of c.hints) {
@@ -201,17 +203,27 @@ console.log('\nПодсказки без названий инструменто
     }
   // динамические подсказки на поле: тоже без названий инструментов (названия блоков в «ёлочках» — их ставил игрок)
   let nd = 0
-  for (const c of builderChallenges)
-    for (const g of [c, c.solution]) {
+  for (const c of builderChallenges) {
+    // старт, эталон и эталон без каждой связи: так проход доходит до большинства сообщений разбора
+    const states = [
+      { name: 'старт', nodes: c.nodes, edges: c.edges },
+      { name: 'эталон', nodes: c.solution.nodes, edges: c.solution.edges },
+      ...c.solution.edges.map((e) => ({ name: `эталон без ${e.id}`, nodes: c.solution.nodes, edges: c.solution.edges.filter((x) => x !== e) })),
+    ]
+    for (const g of states) {
       const r = simulate(g.nodes, g.edges)
       const goals = [...c.paths.map((p) => ({ text: p.text, ok: reaches(g.edges, p.from, p.to) })), ...c.goals.map((x) => ({ text: x.text, ok: x.check(r) }))]
-      for (const d of diagnose({ nodes: g.nodes, edges: g.edges, result: r, goals, budget: c.budget })) {
+      const ds = diagnose({ nodes: g.nodes, edges: g.edges, result: r, goals, budget: c.budget })
+      // подпись не зависит от языка: на всех трёх языках разбор должен быть одним и тем же
+      signature.push(`${c.id} / ${g.name}: ${ds.map((d) => `${d.tone}:${d.rank}:${d.nodeId ?? '-'}`).join(' ')}`)
+      for (const d of ds) {
         nd++
         const plain = d.text.replace(/«[^»]*»|“[^”]*”/g, '')
         const m = plain.match(tools) ?? plain.match(patterns)
         if (m) fail(`подсказка на поле в «${c.title}» называет «${m[0]}»: ${d.text}`)
       }
     }
+  }
   console.log(`- подсказок на поле проверено: ${nd}`)
   for (const c of builderChallenges.filter((x) => x.tool)) {
     const m = c.title.match(tools)
@@ -398,10 +410,12 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
         st.groups = st.groups.filter((g) => g.id !== `g-${b.id}`)
         const wrong = new Set(misplacedCards(t, st).map((c) => c.ctx))
         if (wrong.has(a.id) || !wrong.has(b.id)) fail(`${projectId}/${t.id}: в группе «${a.name}» не на месте названы не те стикеры`)
-        for (const i of reviewPartition(t, st, 0).items) {
-          const m = i.text.match(/в группе «([^»]+)».*относится к «([^»]+)»/)
-          if (m && m[1] === m[2]) fail(`${projectId}/${t.id}: несуразица в проверке: ${i.text.slice(0, 90)}`)
+        // несуразица «лежит в группе X, а относится к X»: стикер назван чужим в группе с именем своего контекста
+        for (const c of misplacedCards(t, st)) {
+          const g = st.groups.find((x) => x.id === st.place[c.id])
+          if (g?.name === t.contexts.find((x) => x.id === c.ctx)?.name) fail(`${projectId}/${t.id}: «${c.name}» назван чужим в группе своего контекста «${g?.name}»`)
         }
+        reviewPartition(t, st, 0)
         break
       }
       // ложное узнавание: название упоминает контекст, но его стикеров в группе — меньшинство
@@ -549,6 +563,26 @@ console.log('\nВход по логину и паролю')
   if (cfg.preview_urls !== false) fail('wrangler.jsonc: адреса версий не выключены (preview_urls: false)')
   if (cfg.main !== 'worker/index.js' || cfg.assets?.directory !== './dist' || cfg.assets?.binding !== 'ASSETS') fail('wrangler.jsonc: Worker, папка сборки или привязка ASSETS не те')
   console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
+}
+
+// разбор подсказок на поле (в том числе по тексту целей: хранение, задержка) должен давать одно и то же на всех языках:
+// каждый проход пишет подпись, последний сравнивает её с остальными
+{
+  const { readFileSync, writeFileSync, existsSync } = await import('node:fs')
+  const lang = process.env.BLUEPRINT_LANG ?? 'ru'
+  const file = (l: string) => new URL(`../.check-sig-${l}.txt`, import.meta.url)
+  writeFileSync(file(lang), signature.join('\n') + '\n')
+  if (lang === 'zh') {
+    console.log('\nРазбор одинаков на всех языках')
+    for (const other of ['ru', 'en']) {
+      if (!existsSync(file(other))) continue
+      const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n')
+      const diff = signature.filter((x, i) => x !== theirs[i])
+      for (const x of diff.slice(0, 5)) fail(`разбор на zh и ${other} различается: ${x} ↔ ${theirs[signature.indexOf(x)]}`)
+      if (theirs.length !== signature.length) fail(`разбор на zh и ${other}: разное число состояний`)
+      if (!diff.length && theirs.length === signature.length) console.log(`- zh = ${other}: ${signature.length} состояний`)
+    }
+  }
 }
 
 if (failed) {

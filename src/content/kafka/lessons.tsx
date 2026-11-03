@@ -783,15 +783,15 @@ function IntroZh() {
       <Callout>
         与传统队列（RabbitMQ、SQS）的关键区别在于：读过的消息<b>不会被删除</b>。它会一直保存到保留期（retention）结束（例如 7 天）。因此新服务可以从最开始读取历史，崩溃过的服务也能从中断的地方继续读。
       </Callout>
-      <h2>Lag（消费滞后）</h2>
+      <h2>积压（consumer lag）</h2>
       <p>
-        如果生产者写入的速度超过消费者处理的速度，差额就会越积越多。这就是 <b>consumer lag</b>：已写入但尚未处理的消息数。Lag 是任何基于 Kafka 的系统最关键的健康指标。
+        如果生产者写入的速度超过消费者处理的速度，差额就会越积越多。这就是<b>积压</b>（consumer lag）：已写入但尚未处理的消息数。积压是任何基于 Kafka 的系统最关键的健康指标。
       </p>
       <Try
         title="动手试试"
         task={
           <>
-            现在消费者每秒处理 8 条消息，生产者每秒写入 5 条。把生产者的速率调到 15，观察 lag 如何增长（▲billing 标记离日志末尾越来越远）。然后加快消费者的速度。
+            现在消费者每秒处理 8 条消息，生产者每秒写入 5 条。把生产者的速率调到 15，观察积压如何增长（▲billing 标记离日志末尾越来越远）。然后加快消费者的速度。
           </>
         }
       >
@@ -867,12 +867,12 @@ function GroupsZh() {
           消费者多于分区 → 多出来的消费者<b>处于空闲</b>。分区数就是消费者组并行度的上限。
         </li>
         <li>
-          不同的消费者组<b>相互独立</b>地读取同一个 Topic：计费和数据分析各有自己的 offset 和自己的 lag。
+          不同的消费者组<b>相互独立</b>地读取同一个 Topic：计费和数据分析各有自己的 offset 和自己的积压。
         </li>
       </ul>
-      <h2>重平衡（rebalancing）</h2>
+      <h2>再均衡（rebalancing）</h2>
       <p>
-        当有消费者加入、离开或崩溃时，消费者组会重新分配分区。在经典的（eager）协议中，这段时间里<b>所有消费者都停止读取</b>。频繁的重平衡（例如因为处理太慢而错过心跳）是 lag 增长的常见原因。cooperative-sticky 分配策略和静态成员（static membership）可以缓解这个问题。
+        当有消费者加入、离开或崩溃时，消费者组会重新分配分区。在经典的（eager）协议中，这段时间里<b>所有消费者都停止读取</b>。频繁的再均衡（例如因为处理太慢而错过心跳）是 lag 增长的常见原因。cooperative-sticky 分配策略和静态成员（static membership）可以缓解这个问题。
       </p>
       <h2>提交 offset 与重复消息</h2>
       <p>
@@ -885,7 +885,7 @@ function GroupsZh() {
         title="消费者组、空闲消费者与重复消息"
         task={
           <>
-            1）给 billing 组添加消费者，直到超过 4 个，找出空闲的那些。2）用 💥 按钮让一个消费者崩溃，观察重复消息的计数。3）正常停止一个消费者（✕）：不会出现重复消息。4）再添加一个消费者组：它有自己的 lag。
+            1）给 billing 组添加消费者，直到超过 4 个，找出空闲的那些。2）用 💥 按钮让一个消费者崩溃，观察重复消息的计数。3）正常停止一个消费者（✕）：不会出现重复消息。4）再添加一个消费者组：它有自己的积压。
           </>
         }
       >
@@ -908,11 +908,11 @@ function ReplicationZh() {
   return (
     <div className="lesson">
       <p>
-        Broker 会出故障。为了不丢数据，每个分区都保存多个副本，副本的个数就是<b>副本因子</b>（replication factor，通常为 3）。其中一个副本是<b>领导者</b>（leader，★），负责处理写入和读取；其余的是<b>跟随者</b>（follower），它们从领导者那里复制数据。
+        Broker 会出故障。为了不丢数据，每个分区都保存多个副本，副本的个数就是<b>副本因子</b>（replication factor，通常为 3）。其中一个副本是<b>领导者</b>（leader，★），负责处理写入和读取；其余的是<b>追随者</b>（follower），它们从领导者那里复制数据。
       </p>
       <h2>ISR 与 high watermark</h2>
       <p>
-        <b>ISR</b>（in-sync replicas，同步副本）是跟得上领导者的那些副本。如果某个跟随者落后的时间超过 <code>replica.lag.time.max.ms</code>，它就会被移出 ISR。<b>high watermark</b>（高水位，HW）是这样一个 offset：在它之前的消息已经存在于所有 ISR 副本上。消费者只能看到 HW 之前的消息。在模拟器中，HW 之后的内容都用虚线表示。
+        <b>ISR</b>（in-sync replicas，同步副本）是跟得上领导者的那些副本。如果某个追随者落后的时间超过 <code>replica.lag.time.max.ms</code>，它就会被移出 ISR。<b>high watermark</b>（高水位，HW）是这样一个 offset：在它之前的消息已经存在于所有 ISR 副本上。消费者只能看到 HW 之前的消息。在模拟器中，HW 之后的内容都用虚线表示。
       </p>
       <h2>acks：生产者何时认为写入成功</h2>
       <table className="cmp">
@@ -1072,7 +1072,7 @@ export const kafkaLessons: Lesson[] = [
   {
     id: 'intro',
     title: tr('Kafka как журнал событий', 'Kafka as an event log', 'Kafka 作为事件日志'),
-    summary: tr('Топик, продюсер, консьюмер, offset и лаг', 'Topic, producer, consumer, offset and lag', 'Topic、生产者、消费者、offset 和 lag'),
+    summary: tr('Топик, продюсер, консьюмер, offset и лаг', 'Topic, producer, consumer, offset and lag', 'Topic、生产者、消费者、offset 和积压'),
     minutes: 6,
     Body: tr(Intro, IntroEn, IntroZh),
   },
@@ -1086,7 +1086,7 @@ export const kafkaLessons: Lesson[] = [
   {
     id: 'groups',
     title: tr('Consumer groups и offsets', 'Consumer groups and offsets', '消费者组与 offset'),
-    summary: tr('Распределение партиций, ребалансировка, дубликаты', 'Partition assignment, rebalancing, duplicates', '分区分配、重平衡、重复消息'),
+    summary: tr('Распределение партиций, ребалансировка, дубликаты', 'Partition assignment, rebalancing, duplicates', '分区分配、再均衡、重复消息'),
     minutes: 8,
     Body: tr(Groups, GroupsEn, GroupsZh),
   },

@@ -279,12 +279,12 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Для поиска нужно хранилище, которое заранее строит индекс «слово → документы» и понимает морфологию и опечатки. Найдите в палитре то, у кого в таблице «подходит для» родной профиль — поиск. Подключите его к каталогу: сервис сам отправит туда поисковые запросы.',
         'Search needs a store that builds a "word → documents" index in advance and understands word forms and typos. Find the palette item whose "good for" table lists search as native. Connect it to the catalog: the service will route search queries there by itself.',
-        '搜索需要这样一种存储：它会预先建立“词 → 文档”的索引，并且能理解词形变化和拼写错误。在组件面板里找一找，哪个组件的“适用场景”表把搜索列为“原生”。把它连接到目录服务：服务会自动把搜索请求发过去。',
+        '搜索需要这样一种存储：它会预先建立“词 → 文档”的索引，并且能理解词形变化和拼写错误。在组件面板里找一找，哪个组件的“适合的负载”表把搜索列为“原生”。把它连接到目录服务：服务会自动把搜索请求发过去。',
       ),
       tr(
         'Бюджета на реплики не хватит. Популярные товары и запросы повторяются — поставьте рядом с сервисом то, что отвечает из памяти на повторы. И сделайте сервис лёгким.',
         'The budget won\'t cover replicas. Popular products and queries repeat — put something next to the service that answers repeats from memory. And make the service a light one.',
-        '预算不够加副本。热门商品和查询会反复出现：在服务旁边放一个能从内存直接回答重复请求的东西。另外，把服务换成轻量规格。',
+        '预算不够加副本。热门商品和查询会反复出现：在服务旁边放一个能从内存直接回答重复请求的东西。另外，把服务类型换成“轻量无状态”。',
       ),
     ],
     debrief: [
@@ -450,7 +450,7 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Сервис тоже должен выдерживать 6 000 rps без перегрева — посмотрите на его профили.',
         'The service must also sustain 6,000 rps without overheating — look at its profiles.',
-        '服务本身也得扛住 6,000 rps 而不过载：看看它有哪些规格可选。',
+        '服务本身也得扛住 6,000 rps 而不过载：看看它有哪些服务类型可选。',
       ),
     ],
     debrief: [
@@ -1191,7 +1191,7 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Начните с того, кто принимает трафик: сколько экземпляров сервиса нужно на ~2 500 rps с запасом, и какой профиль сервиса здесь уместен?',
         'Start with what takes the traffic: how many service instances do you need for ~2,500 rps with headroom, and which service profile fits here?',
-        '先从承接流量的部分入手：要扛住约 2,500 rps 并留出余量，需要多少个服务实例？哪种服务规格适合这里？',
+        '先从承接流量的部分入手：要扛住约 2,500 rps 并留出余量，需要多少个服务实例？哪种服务类型适合这里？',
       ),
       tr(
         'Данные — пары «короткий код → длинный адрес»: только чтение и запись по ключу, без транзакций и JOIN, а объём растёт каждый день. Какое хранилище в палитре называет такую нагрузку родной?',
@@ -1284,7 +1284,7 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Для 11 тысяч rps на чтение нужны лёгкие сервисы и то, что отвечает на повторяющиеся запросы лент из памяти, перед хранилищем лент.',
         'For 11,000 read rps you need light services and something that answers repeated feed requests from memory, in front of the feed store.',
-        '要支撑每秒 11,000 次读取，你需要轻量规格的服务，还需要在信息流存储前面放一个能从内存直接回答重复请求的东西。',
+        '要支撑每秒 11,000 次读取，你需要“轻量无状态”类型的服务，还需要在信息流存储前面放一个能从内存直接回答重复请求的东西。',
       ),
     ],
     debrief: [
@@ -1361,7 +1361,7 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Провайдер держит 100 запросов в секунду на соединение, и упираетесь вы в соединения, а не в процессор: у воркеров отправки профиль «внешний API». Сколько соединений нужно, чтобы не отставать от пика?',
         'The provider handles 100 requests per second per connection, and you are limited by connections, not CPU: delivery workers use the "external API" profile. How many connections do you need to keep up with the peak?',
-        '服务商每个连接每秒能处理 100 个请求，瓶颈在连接数而不是 CPU：发送工作进程使用“外部 API”规格。要跟上峰值，需要多少个连接？',
+        '服务商每个连接每秒能处理 100 个请求，瓶颈在连接数而不是 CPU：发送工作进程的服务类型是“外部 API”。要跟上峰值，需要多少个连接？',
       ),
       tr(
         'Журнал отправок — огромный непрерывный поток записей по ключу, которые почти никогда не меняются. Выберите хранилище, для которого это родной профиль, и подумайте, кто знает, что уведомление действительно ушло.',
@@ -1433,7 +1433,7 @@ export const builderChallenges: BuilderChallenge[] = [
       tr(
         'Видео — это файлы по мегабайту и больше. Посмотрите в таблицах «подходит для», какое хранилище считает файлы родными.',
         'Videos are files of a megabyte and more. Check the "good for" tables to see which storage treats files as native.',
-        '视频是一兆字节甚至更大的文件。查看各组件的“适用场景”表，找出哪种存储把文件当作原生类型。',
+        '视频是一兆字节甚至更大的文件。查看各组件的“适合的负载”表，找出哪种存储把文件当作原生类型。',
       ),
       tr(
         '31 тысяча сегментов в секунду из одного места — медленно и дорого, а цель — 30 мс. Популярное видео смотрят миллионы раз — его копии стоит держать рядом со зрителями.',

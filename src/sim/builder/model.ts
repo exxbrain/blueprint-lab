@@ -317,6 +317,8 @@ export interface Result {
   persisted: Record<string, boolean>
   /** Посты разложены по лентам подписчиков (fan-out дошёл до хранилища лент) */
   fanoutDelivered: boolean
+  /** Если не разложены — где теряется больше всего постов: на перегруженном блоке или там, где путь поста кончается */
+  fanoutLossAt?: { nodeId: string; overload: boolean }
 }
 
 /** Ёмкость одной машины с учётом её размера */
@@ -490,6 +492,11 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
   const FAN = Math.max(0, ...nodes.filter((n) => n.kind === 'client').map((n) => n.fanout ?? 0))
   /** Сколько записей в ленты сделал каждый сервис — синхронный fan-out задерживает ответ */
   const fanWrites: Record<string, number> = {}
+  /** Посты, отброшенные перегруженным блоком, и посты, чей путь кончился, не дойдя до хранилища лент */
+  const fanDrop: Record<string, number> = {}
+  const fanLost: Record<string, number> = {}
+  // пост несут дальше сервисы, очереди, балансировщики и шлюзы; кэш и CDN только отдают прочитанное
+  const carries = (k: NodeKind) => !isStorage(k) && k !== 'cache' && k !== 'cdn'
   nodes.forEach((n) => {
     inflowF[n.id] = n.kind === 'client' && n.fanout ? (n.rps ?? 0) : 0
     inflow[n.id] = n.kind === 'client' ? { ...ZERO, [n.workload ?? 'oltp']: n.rps ?? 0 } : { ...ZERO }
@@ -511,7 +518,8 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
     const kids = children(id)
     // хранилище, куда этот сервис раскладывает посты по лентам: лучшее для «ключ-значение» среди его хранилищ
     // раскладывает тот сервис, на котором путь поста кончается: у него нет дальше очереди или другого сервиса
-    const passesOn = kids.some((k) => !isStorage(byId[k.to].kind))
+    const carryKids = kids.filter((k) => carries(byId[k.to].kind))
+    const passesOn = carryKids.length > 0
     const feedStore =
       n.kind === 'service' && admittedF > 0 && !passesOn
         ? kids
@@ -520,12 +528,14 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
             .sort((x, y) => fitOf(y.kind, 'kv') - fitOf(x.kind, 'kv'))[0]
         : undefined
     if (feedStore) fanWrites[id] = admittedF * FAN
+    fanDrop[id] = inflowF[id] - admittedF
+    if (admittedF > 0 && !feedStore && !passesOn) fanLost[id] = admittedF
     for (const e of kids) {
       const child = byId[e.to]
       let out: Vec = { ...ZERO }
       let outW: Vec = { ...ZERO }
       // пост, ещё не разложенный по лентам, идёт дальше по синхронным и асинхронным связям, пока не встретит хранилище лент
-      const outF = isStorage(child.kind) ? 0 : n.kind === 'client' || n.kind === 'lb' || n.kind === 'gateway' ? admittedF / kids.length : feedStore ? 0 : admittedF
+      const outF = !carries(child.kind) ? 0 : n.kind === 'client' || n.kind === 'lb' || n.kind === 'gateway' ? admittedF / carryKids.length : feedStore ? 0 : admittedF
       switch (n.kind) {
         case 'client':
         case 'lb':
@@ -700,6 +710,13 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
   // fan-out дошёл до лент: записей в ленты сделано почти столько, сколько постов × подписчиков
   const fanNeed = nodes.filter((n) => n.kind === 'client' && n.fanout).reduce((s0, n) => s0 + (n.rps ?? 0) * (n.fanout ?? 0), 0)
   if (fanNeed > 0) res.fanoutDelivered = Object.values(fanWrites).reduce((a0, b0) => a0 + b0, 0) >= fanNeed * 0.99
+  if (!res.fanoutDelivered) {
+    const worst = (m: Record<string, number>) => Object.entries(m).sort((x, y) => y[1] - x[1])[0]
+    const drop = worst(fanDrop)
+    const lost = worst(fanLost)
+    if (drop && drop[1] > 0 && drop[1] > (lost?.[1] ?? 0)) res.fanoutLossAt = { nodeId: drop[0], overload: true }
+    else if (lost) res.fanoutLossAt = { nodeId: lost[0], overload: false }
+  }
 
   // Итог для клиентов — взвешенно по нагрузке
   const clients = nodes.filter((n) => n.kind === 'client')

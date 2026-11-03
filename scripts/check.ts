@@ -294,6 +294,25 @@ console.log('\nМодель конструктора: тупиковые бло�
     `- запись: 1500 rps на primary + 4 реплики → ${Math.round(replicas.util * 100)}%, машина ×2 → ${Math.round(bigger.util * 100)}%, 3 шарда → ${Math.round(sharded.util * 100)}%; чтение 4000 на 5 узлах → ${Math.round(readsOnReplicas.util * 100)}%`,
   )
   console.log(`- шлюз ${gw.clientSuccess}, балансировщик ${lb.clientSuccess}, кэш ${cache.clientSuccess}, рост очереди ${q.backlogGrowth}/с`)
+
+  // раскладка постов: лишняя связь в кэш её не ломает; причина потери — перегрузка или конец пути
+  const feed = builderChallenges.find((c) => c.id === 'feed')!
+  const met = (nodes: typeof feed.solution.nodes, edges: typeof feed.solution.edges) => {
+    const r = simulate(nodes, edges)
+    return { r, ok: feed.goals.every((g) => g.check(r)) }
+  }
+  const withCache = met(feed.solution.nodes, [...feed.solution.edges, { id: 'zk', from: 's3', to: 'k1' }])
+  if (!withCache.ok) fail('лента: связь воркера раскладки с кэшем ломает раскладку постов')
+  const heavyNodes = feed.solution.nodes.map((x) => (x.id === 's3' ? { ...x, capacity: 100, latency: 120 } : x))
+  const heavy = met(heavyNodes, feed.solution.edges)
+  if (heavy.r.fanoutDelivered || heavy.r.fanoutLossAt?.nodeId !== 's3' || !heavy.r.fanoutLossAt.overload)
+    fail(`лента: перегруженный воркер раскладки не назван причиной: ${JSON.stringify(heavy.r.fanoutLossAt)}`)
+  const heavyHint = diagnose({ nodes: heavyNodes, edges: feed.solution.edges, result: heavy.r }).find((d) => d.nodeId === 's3' && /не справляется|cannot keep up/.test(d.text))
+  if (!heavyHint) fail('лента: подсказка на поле не говорит, что воркер раскладки не справляется')
+  const viaCache = feed.solution.edges.filter((x) => !(x.from === 's3' && x.to === 'd1')).concat({ id: 'zk', from: 's3', to: 'k1' })
+  const lost = simulate(feed.solution.nodes, viaCache)
+  if (lost.fanoutDelivered || lost.fanoutLossAt?.nodeId !== 's3' || lost.fanoutLossAt.overload) fail(`лента: путь поста через кэш без хранилища не назван: ${JSON.stringify(lost.fanoutLossAt)}`)
+  console.log('- раскладка постов: лишняя связь в кэш не мешает; перегрузка и конец пути различаются')
 }
 
 console.log('\nУпражнения C4')

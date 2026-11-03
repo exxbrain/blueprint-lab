@@ -56,6 +56,7 @@ export function ResultModal({
   const level = taskLevel(progressKey)
   const xp = level ? Math.round(TASK_XP[level] * (1 + 0.25 * (stars - 1))) : 0
   const next = nextTask(progress)
+  const best = progress.stars?.[progressKey] ?? 0
   return (
     <div className="ref-overlay result-overlay" onClick={onClose}>
       <div className="ref-modal panel result-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={tr('Результат', 'Result')}>
@@ -68,6 +69,11 @@ export function ResultModal({
             ))}
           </div>
           <h2>{title ?? tr('Уровень пройден!', 'Level complete!')}</h2>
+          {best > stars && (
+            <div className="small muted">
+              {tr(`За задачу засчитан ваш лучший результат: ${'★'.repeat(best)}`, `Your best result for this task counts: ${'★'.repeat(best)}`)}
+            </div>
+          )}
           {xp > 0 && (
             <div className="result-xp">
               +{xp} {XP}

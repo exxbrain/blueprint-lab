@@ -29,7 +29,7 @@ import { recommendedOrder, replay, reviewOrder, type SprintMark } from '../sim/m
 import { ReviewPanel } from '../components/ReviewPanel'
 import { RefModal } from '../components/RefCard'
 import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/patterns'
-import { markScenario, recordStars, useProgress, cappedStars, useHints } from '../progress'
+import { markScenario, recordStars, useProgress, cappedStars, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
@@ -307,7 +307,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
           </button>
         )}
-        {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
+        {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
       </div>
       <ResultModal
         open={result$.open}

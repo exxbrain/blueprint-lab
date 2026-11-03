@@ -34,7 +34,7 @@ import { ResultButton, ResultModal, useResultModal } from '../components/ResultM
 import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
-import { markScenario, recordStars, cappedStars, useHints } from '../progress'
+import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
 import { tr } from '../i18n'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
@@ -106,9 +106,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   // динамические подсказки: что сейчас мешает на поле
   const live = useMemo(
     () => diagnose({ nodes, edges, result, goals: challenge ? goals : undefined, budget: challenge?.budget }),
-    // goals пересчитываются из тех же nodes/edges/result
+    // goals пересчитываются из тех же nodes/edges/result и отметки о прикидке
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodes, edges, result, challenge],
+    [nodes, edges, result, challenge, estimated],
   )
   useEffect(() => {
     if (solved && challenge && !viewingRef) markScenario(`builder/${challenge.id}`)
@@ -306,7 +306,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
             </button>
           )}
-          {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
+          {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
         </div>
       )}
       {review && showReview && !(solved && !viewingRef) && (

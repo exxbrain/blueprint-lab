@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
@@ -109,6 +109,7 @@ function CapLab({ task }: { task: CapTask }) {
               </button>
             ) : (
               <button
+                title={referenceNote()}
                 onClick={() => {
                   setMine(cfg)
                   hintState.reveal()

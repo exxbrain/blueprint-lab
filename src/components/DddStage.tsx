@@ -3,7 +3,7 @@ import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
-import { markScenario, recordStars, cappedStars, useHints } from '../progress'
+import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
 import {
   CARD_KIND,
   MAP_PATTERNS,
@@ -190,7 +190,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
             ✔ {tr('Проверить', 'Check')}
           </button>
         )}
-        {!viewingRef && <button onClick={toggleRef}>👁 {tr('Показать эталон', 'Show reference')}</button>}
+        {!viewingRef && <button onClick={toggleRef} title={referenceNote()}>👁 {tr('Показать эталон', 'Show reference')}</button>}
         {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back')}</span>}
       </div>
 
@@ -366,6 +366,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           </button>
         )}
         <button
+          title={showRef ? undefined : referenceNote()}
           onClick={() => {
             if (!showRef) hintState.reveal()
             setShowRef(!showRef)

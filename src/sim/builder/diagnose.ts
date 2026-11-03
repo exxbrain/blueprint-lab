@@ -66,15 +66,39 @@ export function diagnose(input: {
         ),
       })
   }
-  if (!r.fanoutDelivered)
-    add({
-      tone: 'bad',
-      rank: 3,
-      text: tr(
-        'Посты не разложены по лентам подписчиков: путь поста кончается там, где нет хранилища для записей «ключ-значение».',
-        'Posts are not fanned out to followers’ feeds: the post’s path ends where there is no key-value store.',
-      ),
-    })
+  if (!r.fanoutDelivered) {
+    const at = r.fanoutLossAt && byId[r.fanoutLossAt.nodeId]
+    add(
+      at && r.fanoutLossAt?.overload
+        ? {
+            tone: 'bad',
+            rank: 3,
+            nodeId: at.id,
+            text: tr(
+              `Не все посты разложены по лентам подписчиков: ${name(at)} не справляется с потоком и теряет часть постов.`,
+              `Not every post reaches followers’ feeds: ${name(at)} cannot keep up and loses some posts.`,
+            ),
+          }
+        : at
+          ? {
+              tone: 'bad',
+              rank: 3,
+              nodeId: at.id,
+              text: tr(
+                `Посты не разложены по лентам подписчиков: их путь кончается на ${name(at)}, а он сам не пишет ни в одно хранилище для записей «ключ-значение».`,
+                `Posts are not fanned out to followers’ feeds: their path ends at ${name(at)}, which itself writes to no key-value store.`,
+              ),
+            }
+          : {
+              tone: 'bad',
+              rank: 3,
+              text: tr(
+                'Посты не разложены по лентам подписчиков: путь поста кончается там, где нет хранилища для записей «ключ-значение».',
+                'Posts are not fanned out to followers’ feeds: the post’s path ends where there is no key-value store.',
+              ),
+            },
+    )
+  }
 
   // ---- тупики и неподходящие хранилища
   for (const n of nodes) {

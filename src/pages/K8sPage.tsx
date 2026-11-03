@@ -3,7 +3,7 @@ import { tr } from '../i18n'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { TaskGate, TaskLevelTag } from '../components/Level'
-import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress, useHints, referenceNote } from '../progress'
 import { href } from '../router'
 import { K8S_TASKS, runTask, type K8sConfig, type K8sTask } from '../sim/k8s/tasks'
 import type { Frame, KEvent, Phase, PodView } from '../sim/k8s/engine'
@@ -111,6 +111,7 @@ function Lab({ task }: { task: K8sTask }) {
               </button>
             ) : (
               <button
+                title={referenceNote()}
                 onClick={() => {
                   setMine(cfg)
                   hintState.reveal()

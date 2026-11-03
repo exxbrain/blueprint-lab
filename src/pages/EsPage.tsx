@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
@@ -82,6 +82,7 @@ function EsLab({ task }: { task: EsTask }) {
               </button>
             ) : (
               <button
+                title={referenceNote()}
                 onClick={() => {
                   setMine(cfg)
                   hintState.reveal()

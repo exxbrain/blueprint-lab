@@ -33,30 +33,35 @@
 
 ## 2. Закрыть сайт через Cloudflare Access
 
+Домен `pages.dev` не принадлежит вашему аккаунту, поэтому Access-приложение для него не создают вручную
+(домен не выбирается в списке). Его создаёт сам проект Pages, а потом политику расширяют на основной адрес.
+Названия меню — по документации Cloudflare на ноябрь 2026, панель время от времени переименовывает разделы.
+
 1. Откройте **Zero Trust** (one.dash.cloudflare.com). При первом входе придумайте имя команды
    и выберите тариф **Free**. Cloudflare может попросить привязать карту даже для бесплатного тарифа.
-2. **Settings → Authentication → Login methods**: способ **One-time PIN** включён по умолчанию.
-   При желании добавьте вход через GitHub или Google.
-3. **Access → Applications → Add an application → Self-hosted**:
-   - **Application name**: `Blueprint Lab`;
-   - **Application domain** — добавьте два адреса:
-     - `blueprint-lab.pages.dev` — основной сайт;
-     - `*.blueprint-lab.pages.dev` — превью каждой сборки. Без этой строки адреса вида
-       `abc123.blueprint-lab.pages.dev` останутся открытыми;
-   - **Session duration**: например, `1 month`.
-4. Политика доступа:
-   - **Policy name**: `Свои`;
-   - **Action**: `Allow`;
-   - **Include → Emails**: ваш email и email тех, кому показываете.
-5. Сохраните. Проверьте в приватном окне браузера: вместо сайта должна открыться страница входа
+2. Включите вход по коду на почту — сам он больше не включается:
+   **Integrations → Identity providers → Add new identity provider → One-time PIN**.
+   При желании там же добавьте вход через GitHub или Google.
+3. Проект Pages: **Workers & Pages** → проект → **Settings** → **Enable access policy**.
+   Это закрывает превью-адреса вида `abc123.blueprint-lab.pages.dev`.
+4. У созданной политики нажмите **Manage**. Откроется приложение в **Zero Trust → Access controls → Applications** →
+   **Configure**. В разделе **Public hostname** в поле **Subdomain** удалите звёздочку `*` и сохраните —
+   теперь это приложение закрывает основной адрес `blueprint-lab.pages.dev`.
+5. Вернитесь в проект Pages → **Settings → General** и снова нажмите **Enable access policy**.
+   Должно получиться два Access-приложения: для основного адреса и для превью.
+6. В обоих приложениях откройте **Policies** и проверьте правило: **Action** `Allow`,
+   **Include → Emails** — ваш email и email тех, кому показываете. Срок сессии (**Session duration**),
+   например, `1 month`.
+7. Проверьте в приватном окне браузера: вместо сайта должна открыться страница входа
    Cloudflare. Введите email из списка — придёт код.
 
-Есть и встроенная защита превью: проект Pages → **Settings → General → Access policy → Enable**.
-Она закрывает только превью-адреса, поэтому основной адрес всё равно нужно добавить в шаге 3.
+Источники: [One-time PIN](https://developers.cloudflare.com/cloudflare-one/identity/one-time-pin/),
+[Pages: Known issues — Access на `*.pages.dev`](https://developers.cloudflare.com/pages/platform/known-issues/),
+[Preview deployments](https://developers.cloudflare.com/pages/configuration/preview-deployments/).
 
 ## 3. Дальше
 
 - Каждый пуш в `main` пересобирает сайт; если `npm run check` упадёт, сборка не опубликуется.
-- Дать доступ ещё кому-то — дописать email в политику (Access → Applications → Blueprint Lab → Policies).
-- Забрать доступ — убрать email и в **Zero Trust → My Team → Users** отозвать его сессию.
-- Свой домен: проект Pages → **Custom domains**; затем добавьте этот домен в Access-приложение.
+- Дать доступ ещё кому-то — дописать email в политики обоих приложений (Zero Trust → Access controls → Applications → Policies).
+- Забрать доступ — убрать email из политик и отозвать его сессию в списке пользователей Zero Trust (**Team & Resources → Users**).
+- Свой домен: проект Pages → **Custom domains**; затем **Zero Trust → Access controls → Applications → Create new application → Self-hosted and private** → **Add public hostname** с этим доменом и та же политика. Без политики страница входа появится, но не пустит.

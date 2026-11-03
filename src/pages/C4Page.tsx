@@ -17,7 +17,7 @@ import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { HintDock } from '../components/HintDock'
 import { ReviewPanel } from '../components/ReviewPanel'
-import { markScenario, recordStars, useProgress, cappedStars, useHints } from '../progress'
+import { markScenario, recordStars, useProgress, cappedStars, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
@@ -140,7 +140,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
                 {tr('✔ Проверить диаграмму', '✔ Check diagram')}
               </button>
             )}
-            {!viewingRef && <button onClick={toggleReference}>{tr('👁 Показать эталон', '👁 Show reference')}</button>}
+            {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>{tr('👁 Показать эталон', '👁 Show reference')}</button>}
             <button
               onClick={() => {
                 setD(structuredClone(initial))

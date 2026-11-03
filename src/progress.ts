@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { tr } from './i18n'
 
 export interface Progress {
   lessons: Record<string, boolean>
@@ -15,6 +16,10 @@ const empty: Progress = { lessons: {}, scenarios: {}, quizzes: {}, stars: {}, hi
 
 /** Просмотр эталона — как если бы открыли все подсказки */
 export const REFERENCE_VIEWED = 99
+
+/** Предупреждение на кнопке эталона: после него потолок звёзд за задачу — одна (уже полученные звёзды остаются) */
+export const referenceNote = () =>
+  tr('После эталона за эту задачу можно получить не больше ★. Уже заработанные звёзды останутся.', 'After viewing the reference this task gives at most ★. Stars you already earned stay.')
 
 /**
  * Задачи переименованы: старые идентификаторы подсказывали ответ (tool-redis, readiness, reversal…).
@@ -47,6 +52,11 @@ const RENAMED: Record<string, string> = {
   'data/es/versioning': 'data/es/event-version',
   'data/es/concurrency': 'data/es/two-withdrawals',
   'data/cap/quorum5': 'data/cap/five-nodes',
+}
+
+/** Старый адрес задачи (до переименования) — новый, если задачу переименовали */
+export function renamedPath(path: string): string | undefined {
+  return RENAMED[path]
 }
 
 function migrate(p: Progress): Progress {

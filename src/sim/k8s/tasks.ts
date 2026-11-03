@@ -304,7 +304,7 @@ const hpa: K8sTask = {
   debrief: [
     tr(
       'HPA раз в 15 секунд сравнивает загрузку CPU с целью и меняет число реплик. Цель 70%, а не 100%: новым подам нужно время на старт, запас покрывает рост, пока они поднимаются. Вниз HPA масштабирует осторожно — после пяти минут низкой нагрузки (окно стабилизации).',
-      'Every 15 seconds the HPA compares CPU utilisation with the target and changes the replica count. The target is 70%, not 100%: new pods need time to start, and the headroom covers growth while they come up. The HPA scales down cautiously, after several minutes of low load.',
+      'Every 15 seconds the HPA compares CPU utilisation with the target and changes the replica count. The target is 70%, not 100%: new pods need time to start, and the headroom covers growth while they come up. The HPA scales down cautiously, after five minutes of low load (the stabilization window).',
     ),
   ],
 }

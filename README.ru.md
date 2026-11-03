@@ -1,6 +1,6 @@
 # Blueprint Lab
 
-[English version](README.md) · https://exxbrain.github.io/blueprint-lab/
+[English version](README.md)
 
 Интерактивное обучение архитектуре: короткие уроки, живые симуляции и задачи-инциденты.
 

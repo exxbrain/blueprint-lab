@@ -1,7 +1,7 @@
 # Blueprint Lab
 
 Hands-on software architecture: short lessons, live simulations and incident-style exercises.
-Live: https://exxbrain.github.io/blueprint-lab/ — switch RU / EN in the top bar.
+The interface is bilingual: switch RU / EN in the top bar.
 
 [Русская версия](README.ru.md)
 

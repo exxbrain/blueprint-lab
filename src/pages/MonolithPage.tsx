@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODE_LABEL,
@@ -32,6 +33,7 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints } from '.
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
+import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
 import { tr } from '../i18n'
@@ -443,7 +445,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             metrics={metrics}
             selected={selected}
             onSelect={(id) => {
-              setSelected(id)
+              // повторный щелчок по выбранному модулю закрывает окно
+              setSelected((cur) => (cur === id ? null : id))
               setPopover(null)
             }}
             activeDep={popover?.id ?? null}
@@ -1464,26 +1467,21 @@ function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId:
   )
 }
 
-/** Окно модуля рядом с ним на холсте: справа, а если не помещается — слева */
+/** Окно модуля — колонка сбоку от него на всю видимую высоту: справа, а если не помещается — слева */
 function ModulePopover({ wrap, id, onClose, children }: { wrap: HTMLDivElement | null; id: ModuleId; onClose: () => void; children: React.ReactNode }) {
-  const W = 330
-  let style: React.CSSProperties = { left: 8, top: 8 }
+  usePopoverReflow()
+  const ref = useRef<HTMLDivElement>(null)
+  useCloseOnOutside(ref, onClose, '.mmod, .mdep, .dep-chip, .dep-popover, .access-row, .wf-name')
   const el = wrap?.querySelector(`.mmod[data-id="${id}"]`)
-  if (wrap && el) {
-    const wr = wrap.getBoundingClientRect()
-    const r = el.getBoundingClientRect()
-    const left = r.left - wr.left + wrap.scrollLeft
-    const right = r.right - wr.left + wrap.scrollLeft
-    const top = r.top - wr.top + wrap.scrollTop
-    const x = right + 12 + W <= wrap.scrollWidth ? right + 12 : Math.max(8, left - 12 - W)
-    style = { left: x, top: Math.max(8, top - 8) }
-  }
-  return (
-    <div className="node-popover module-popover" style={style} onClick={(e) => e.stopPropagation()} role="dialog">
+  const r = el?.getBoundingClientRect()
+  const style: React.CSSProperties = r ? sideColumn(r.left, r.right, 330) : { left: 8, top: 72, bottom: 8 }
+  return createPortal(
+    <div ref={ref} className="node-popover module-popover" style={style} onClick={(e) => e.stopPropagation()} role="dialog">
       <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
         ✕
       </button>
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }

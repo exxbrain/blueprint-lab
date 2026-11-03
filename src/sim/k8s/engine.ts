@@ -166,8 +166,12 @@ interface Pod {
 }
 
 const HASH: Record<Version, string> = { v1: '7d9f8c', v2: '5c6b4f' }
-const NODE_GRACE = 30 // через сколько секунд поды с упавшей ноды выселяются
-const ENDPOINT_LAG = 8 // через сколько секунд поды упавшей ноды пропадают из endpoints
+/** Поды упавшей ноды выселяются по default toleration not-ready/unreachable: tolerationSeconds = 300 */
+const NODE_GRACE = 300
+/** Нода получает NotReady через node-monitor-grace-period (40 с) — до этого её поды остаются в endpoints */
+const ENDPOINT_LAG = 40
+/** Пауза перезапуска CrashLoopBackOff растёт 10, 20, 40… до 300 с */
+const BACKOFF_CAP = 300
 const BASE_LATENCY = 40
 
 function seeded(n: number) {
@@ -312,7 +316,6 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
         for (const n of down) {
           n.up = false
           n.downAt = t
-          ev(t, 'Warning', 'NodeNotReady', `node/${n.id}`, `Node ${n.id} status is now: NodeNotReady`)
           for (const p of pods.filter((x) => x.node === n.id && alive(x))) {
             p.phase = 'Unknown'
             p.lostAt = t
@@ -335,6 +338,9 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
         }
       }
     }
+
+    // ---- нода перестала присылать статус: через grace period она NotReady, её поды уходят из endpoints
+    for (const n of nodes) if (!n.up && t - n.downAt === ENDPOINT_LAG) ev(t, 'Warning', 'NodeNotReady', `node/${n.id}`, `Node ${n.id} status is now: NodeNotReady`)
 
     // ---- выселение подов с упавших нод
     for (const p of pods.filter((x) => x.phase === 'Unknown' && t - x.lostAt >= NODE_GRACE)) {
@@ -380,7 +386,7 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
           p.reason = 'Error'
           p.restarts++
           restartsTotal++
-          p.nextRestart = t + Math.min(10 * 2 ** (p.restarts - 1), 40)
+          p.nextRestart = t + Math.min(10 * 2 ** (p.restarts - 1), BACKOFF_CAP)
           ev(t, 'Warning', 'BackOff', `pod/${p.name}`, `Back-off restarting failed container api in pod ${p.name}_default`)
           continue
         }
@@ -390,7 +396,7 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
           p.restarts++
           restartsTotal++
           oomKills++
-          p.nextRestart = t + Math.min(10 * 2 ** (p.restarts - 1), 40)
+          p.nextRestart = t + Math.min(10 * 2 ** (p.restarts - 1), BACKOFF_CAP)
           ev(t, 'Warning', 'OOMKilling', `node/${p.node}`, `Memory cgroup out of memory: Killed process (java) total-vm:${vs.mem}MiB, limit ${app.memLimit}Mi`)
           continue
         }
@@ -422,7 +428,8 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
     const rps = sc.rps(t)
     if (app.hpa && t % 15 === 0 && t > 0) {
       const readyCount = Math.max(1, pods.filter((p) => healthy(p)).length)
-      const util = rps / (readyCount * sc.podRps)
+      // как настоящий HPA: загрузка CPU в процентах от request, а не от «полной мощности» пода
+      const util = ((rps / (readyCount * sc.podRps)) * sc.podCpu) / app.cpuReq
       const want = Math.min(app.hpa.max, Math.max(app.hpa.min, Math.ceil((readyCount * util) / app.hpa.target)))
       if (want > desired) {
         ev(t, 'Normal', 'SuccessfulRescale', 'horizontalpodautoscaler/api', `New size: ${want}; reason: cpu resource utilization (percentage of request) above target`)
@@ -430,7 +437,8 @@ export function simulate(app: AppSpec, sc: Scenario): K8sRun {
         lowSince = -1
       } else if (want < desired) {
         if (lowSince < 0) lowSince = t
-        if (t - lowSince >= 60) {
+        // окно стабилизации при уменьшении — 300 с, как по умолчанию
+        if (t - lowSince >= 300) {
           ev(t, 'Normal', 'SuccessfulRescale', 'horizontalpodautoscaler/api', `New size: ${want}; reason: All metrics below target`)
           desired = want
           lowSince = -1

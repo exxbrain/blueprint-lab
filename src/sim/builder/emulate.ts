@@ -4,7 +4,7 @@
  * неподходящее хранилище, медленный запрос, отставание консьюмеров).
  */
 import { tr } from '../../i18n'
-import { KINDS, baseLatency, fitOf, isStorage, type BEdge, type BNode, type Result, type Workload } from './model'
+import { KINDS, baseLatency, fitOf, isStorage, shardsOf, writeShareOf, type BEdge, type BNode, type Result, type Workload } from './model'
 
 export type SpanStatus = 'ok' | 'hit' | 'miss' | 'slow' | 'error' | 'queued' | 'async'
 
@@ -63,6 +63,8 @@ interface Ctx {
   request: string
   /** Запрос клиента пишет данные (PUT/POST), а не читает */
   write: boolean
+  /** Запрос прошёл через fan-out: в хранилище уходит столько записей */
+  fanout?: number
 }
 
 const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
@@ -71,7 +73,8 @@ const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
 function domainOf(client: BNode, w: Workload): Domain {
   const l = client.label
   if (w === 'oltp') {
-    if (has(l, /заказ|order|брон|book|покупат|shopper/)) return rnd() < 0.3 || !has(l, /покупат|shopper/) ? 'order' : 'product'
+    if (has(l, /заказ|order|брон|book/)) return 'order'
+    if (has(l, /покупат|shopper/)) return 'product'
     if (has(l, /профил|profile/)) return 'profile'
     if (has(l, /публик|post/)) return 'post'
     if (has(l, /регистр|sign/)) return 'signup'
@@ -94,8 +97,15 @@ function domainOf(client: BNode, w: Workload): Domain {
   return 'image'
 }
 
+/** Запись того же сюжета: смотрят товар → оформляют заказ, переходят по ссылке → создают ссылку */
+const WRITE_OF: Partial<Record<Domain, Domain>> = { product: 'order', link: 'newlink', image: 'upload', video: 'upload', doc: 'upload' }
+const READ_OF: Partial<Record<Domain, Domain>> = { signup: 'profile', newlink: 'link', upload: 'doc' }
+
 function makeCtx(client: BNode, w: Workload): Ctx {
-  const domain = domainOf(client, w)
+  // доля записей — та же, что в модели: иначе живой трафик и цифры разойдутся
+  const write = rnd() < writeShareOf(client)
+  const base = domainOf(client, w)
+  const domain = write ? (WRITE_OF[base] ?? base) : (READ_OF[base] ?? base)
   return {
     id: int(1000, 99999),
     word: pick(WORDS),
@@ -103,12 +113,25 @@ function makeCtx(client: BNode, w: Workload): Ctx {
     user: int(10000, 999999),
     domain,
     request: '',
-    write: ['order', 'post', 'signup', 'newlink', 'sensor', 'notify', 'upload'].includes(domain),
+    write,
   }
 }
 
 /** Запрос клиента — так, как он выглядел бы в access-логе */
 function requestFor(c: Ctx): string {
+  // чтения тех доменов, что обычно пишут, и записи тех, что обычно читают
+  if (!c.write) {
+    if (c.domain === 'order') return `GET /api/orders/${c.id}`
+    if (c.domain === 'post') return `GET /api/posts/${c.id}`
+    if (c.domain === 'sensor') return `GET /api/sensors/s-${c.id}/latest`
+    if (c.domain === 'notify') return `GET /api/notifications/${c.id}`
+  } else {
+    if (c.domain === 'profile') return `PATCH /api/users/${c.user}/profile  {"city":"…"}`
+    if (c.domain === 'card') return `PUT /api/cards/${c.id}  {"price":${int(500, 9000)}}`
+    if (c.domain === 'kv') return `PUT /kv/${c.code}`
+    if (c.domain === 'search') return `POST /items/_doc  {"title":"${c.word}"}`
+    if (c.domain === 'analytics' || c.domain === 'trends') return `POST /events  {"type":"order_paid"}`
+  }
   switch (c.domain) {
     case 'product': return `GET /api/products/${c.id}`
     case 'order': return `POST /api/orders  {"items":[{"sku":"SKU-${c.id % 7000}","qty":${int(1, 3)}}],"user":${c.user}}`
@@ -145,6 +168,17 @@ const cacheKey = (c: Ctx) =>
 
 function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
   const t = TABLE[c.domain]
+  if (!c.write) {
+    if (c.domain === 'order') return `SELECT status, total FROM orders WHERE id = ${c.id}`
+    if (c.domain === 'post') return `SELECT * FROM posts WHERE id = ${c.id}`
+    if (c.domain === 'sensor') return `SELECT value, ts FROM readings WHERE sensor_id = 's-${c.id}' ORDER BY ts DESC LIMIT 1`
+    if (c.domain === 'notify') return `SELECT status FROM notifications WHERE id = ${c.id}`
+  } else {
+    if (c.domain === 'profile') return `UPDATE users SET city = '…' WHERE id = ${c.user}`
+    if (c.domain === 'card') return `UPDATE cards SET price = ${int(500, 9000)} WHERE id = ${c.id}`
+    if (c.domain === 'kv') return dialect === 'pg' ? `INSERT INTO kv VALUES ('${c.code}', …) ON CONFLICT DO UPDATE …` : `INSERT INTO kv (k, v) VALUES ('${c.code}', …)`
+    if (c.domain === 'analytics' || c.domain === 'trends') return `INSERT INTO events (type, ts) VALUES ('order_paid', now())`
+  }
   switch (c.domain) {
     case 'order':
       return dialect === 'pg'
@@ -183,6 +217,14 @@ function topicFor(c: Ctx): string {
 
 type Phase = 'set' | 'del' | 'consume'
 
+/** Куда попал запрос в базе с репликами и шардами: запись — только в primary, чтение — на любую реплику */
+function whereRuns(n: BNode, c: Ctx): string {
+  const shards = shardsOf(n)
+  const shard = shards > 1 ? ` [shard ${(c.id % shards) + 1}/${shards}]` : ''
+  if (c.write) return `${shard} (primary)`
+  return n.instances > 1 ? `${shard} (replica #${int(1, n.instances - 1)})` : `${shard} (primary)`
+}
+
 /** Операция, которую выполняет блок над этим запросом */
 function opFor(n: BNode, c: Ctx, phase?: Phase): string {
   switch (n.kind) {
@@ -204,11 +246,12 @@ function opFor(n: BNode, c: Ctx, phase?: Phase): string {
     case 'queue':
       return `produce ${topicFor(c)} key=${c.domain === 'order' ? 'ORD-' + (100000 + c.id) : c.id}`
     case 'postgres':
-      return sqlFor(c, 'pg')
+      return sqlFor(c, 'pg') + whereRuns(n, c)
     case 'cassandra':
+      if (c.fanout) return tr(`BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout} — пост в ленту каждого подписчика`, `BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout}: the post into every follower’s feed`)
       return sqlFor(c, 'cql')
     case 'mongo':
-      return c.write ? `db.${TABLE[c.domain]}.insertOne({ … })` : `db.${TABLE[c.domain]}.find({ _id: ${c.id} })`
+      return (c.write ? `db.${TABLE[c.domain]}.insertOne({ … })` : `db.${TABLE[c.domain]}.find({ _id: ${c.id} })`) + whereRuns(n, c)
     case 'elastic':
       if (c.domain === 'analytics' || c.domain === 'trends') return `POST /${TABLE[c.domain]}/_search {"size":0,"aggs":{"by":{"terms":{"field":"region"}}}}`
       if (c.domain === 'suggest') return `POST /items/_search {"suggest":{"s":{"prefix":"${c.word.slice(0, 3)}","completion":{"field":"title.suggest"}}}}`
@@ -399,6 +442,8 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         break
       }
       case 'service': {
+        // пост раскладывается по лентам тем сервисом, у которого есть хранилище «ключ-значение»
+        if (client.fanout && out.some((e) => isStorage(byId[e.to].kind) && fitOf(byId[e.to].kind, 'kv') > 0)) c.fanout = client.fanout
         if (st?.deadEnd) {
           span.status = 'error'
           span.detail = c.write

@@ -42,6 +42,14 @@ export interface BNode {
   instances: number
   rps?: number // для client
   workload?: Workload // для client
+  /** Для client: доля запросов-записей (0..1). Кэш их не закрывает, а реплики PostgreSQL не масштабируют */
+  writeShare?: number
+  /** Для client: каждый запрос (пост) надо разложить по стольким лентам подписчиков — fan-out on write */
+  fanout?: number
+  /** Вертикальное масштабирование: размер машины ×1, ×2, ×4 (потолок — самая большая машина) */
+  size?: number
+  /** Шардирование PostgreSQL/MongoDB: данные и запись делятся между шардами, у каждого свой primary и реплики */
+  shards?: number
   hitRatio?: number // для cache и cdn
   capacity?: number // для service — rps на экземпляр
   latency?: number // для service — мс
@@ -64,10 +72,28 @@ export interface KindSpec {
   group: 'Трафик' | 'Вычисления' | 'Хранилища'
   /** Для хранилищ: насколько эффективно обрабатывается профиль (1 — родной, 0 — не умеет) */
   fit?: Partial<Record<Workload, number>>
+  /** Запись масштабируется экземплярами (шарды). Иначе вся запись идёт в один primary, а экземпляры — реплики для чтения */
+  writeScales?: boolean
+  /** Можно взять машину крупнее (вертикальное масштабирование) */
+  vertical?: boolean
+  /** Можно шардировать вручную (PostgreSQL через Citus или ключ шардирования, MongoDB — нативно): максимум шардов */
+  maxShards?: number
+  /** Что значит «экземпляр» для этого блока: подписи в интерфейсе */
+  unit: 'instances' | 'replicas' | 'nodes' | 'brokers' | 'partitions'
+}
+
+/** Размеры машины при вертикальном масштабировании: дальше ×4 растить некуда */
+export const SIZES = [1, 2, 4] as const
+
+/** Доля записей по умолчанию, если у клиента она не задана */
+export const DEFAULT_WRITE: Record<Workload, number> = { oltp: 0.2, kv: 0.3, search: 0, analytics: 0, blob: 0.05 }
+export function writeShareOf(n: BNode): number {
+  return n.writeShare ?? DEFAULT_WRITE[n.workload ?? 'oltp']
 }
 
 export const KINDS: Record<NodeKind, KindSpec> = {
   client: {
+    unit: 'instances',
     title: tr('Клиенты', 'Clients'),
     icon: '👥',
     capacity: Infinity,
@@ -78,6 +104,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Трафик',
   },
   cdn: {
+    unit: 'instances',
     title: 'CDN',
     icon: '🌍',
     capacity: 1_000_000,
@@ -88,6 +115,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Трафик',
   },
   lb: {
+    unit: 'instances',
     title: 'Load Balancer',
     icon: '⚖️',
     capacity: 20000,
@@ -98,6 +126,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Трафик',
   },
   gateway: {
+    unit: 'instances',
     title: 'API Gateway',
     icon: '🚪',
     capacity: 2500,
@@ -108,6 +137,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Трафик',
   },
   service: {
+    unit: 'instances',
     title: tr('Сервис', 'Service'),
     icon: '⚙️',
     capacity: 300,
@@ -118,6 +148,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Вычисления',
   },
   queue: {
+    unit: 'brokers',
     title: tr('Очередь (Kafka)', 'Queue (Kafka)'),
     icon: '📜',
     capacity: 50000,
@@ -128,6 +159,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Вычисления',
   },
   cache: {
+    unit: 'nodes',
     title: tr('Кэш (Redis)', 'Cache (Redis)'),
     icon: '⚡',
     capacity: 40000,
@@ -138,17 +170,21 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     group: 'Хранилища',
   },
   postgres: {
+    unit: 'replicas',
     title: 'PostgreSQL',
     icon: '🐘',
     capacity: 1000,
     latency: 8,
     cost: 200,
-    desc: tr('Реляционная БД: транзакции, JOIN, строгая согласованность. Масштабируется репликами на чтение', 'Relational DB: transactions, JOINs, strong consistency. Scales with read replicas'),
+    desc: tr('Реляционная БД: транзакции, JOIN, строгая согласованность. Экземпляры сверх первого — реплики для чтения: запись идёт только в primary', 'Relational DB: transactions, JOINs, strong consistency. Instances beyond the first are read replicas: writes go only to the primary'),
     maxInstances: 5,
     group: 'Хранилища',
     fit: { oltp: 1, kv: 0.8, search: 0.1, analytics: 0.05, blob: 0.02 },
+    vertical: true,
+    maxShards: 8,
   },
   cassandra: {
+    unit: 'nodes',
     title: 'Cassandra',
     icon: '👁️',
     capacity: 4000,
@@ -158,19 +194,24 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     maxInstances: 8,
     group: 'Хранилища',
     fit: { kv: 1, analytics: 0.05 },
+    writeScales: true,
   },
   mongo: {
+    unit: 'replicas',
     title: 'MongoDB',
     icon: '🍃',
     capacity: 1500,
     latency: 6,
     cost: 220,
-    desc: tr('Документная БД: гибкая схема, шардирование. Транзакции есть, но дороже, чем в PostgreSQL', 'Document DB: flexible schema, sharding. Supports transactions, but they cost more than in PostgreSQL'),
+    desc: tr('Документная БД: гибкая схема. Экземпляры — реплики (запись в primary); транзакции есть, но дороже, чем в PostgreSQL', 'Document DB: flexible schema. Instances are replicas (writes go to the primary); transactions exist but cost more than in PostgreSQL'),
     maxInstances: 6,
     group: 'Хранилища',
     fit: { oltp: 0.6, kv: 0.8, search: 0.2, analytics: 0.02 },
+    vertical: true,
+    maxShards: 8,
   },
   elastic: {
+    unit: 'nodes',
     title: 'Elasticsearch',
     icon: '🔎',
     capacity: 2000,
@@ -180,8 +221,10 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     maxInstances: 6,
     group: 'Хранилища',
     fit: { search: 1, analytics: 0.1, kv: 0.3 },
+    writeScales: true,
   },
   clickhouse: {
+    unit: 'nodes',
     title: 'ClickHouse',
     icon: '📊',
     capacity: 300,
@@ -191,8 +234,11 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     maxInstances: 6,
     group: 'Хранилища',
     fit: { analytics: 1, kv: 0.05 },
+    writeScales: true,
+    vertical: true,
   },
   s3: {
+    unit: 'partitions',
     title: tr('Объектное хранилище (S3)', 'Object storage (S3)'),
     icon: '🪣',
     capacity: 20000,
@@ -202,6 +248,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     maxInstances: 5,
     group: 'Хранилища',
     fit: { blob: 1 },
+    writeScales: true,
   },
 }
 
@@ -246,6 +293,10 @@ export interface NodeStats {
   unsupported: number // доля запросов, которые хранилище не умеет обрабатывать
   /** Блоку некуда передать запросы: шлюз без сервисов, кэш без источника, очередь без потребителей */
   deadEnd: boolean
+  /** Из входящего потока — записи, rps */
+  writes: number
+  /** Шардов у хранилища (1 — без шардирования) */
+  shards: number
 }
 
 export interface EdgeStats {
@@ -264,11 +315,51 @@ export interface Result {
   cycle: boolean
   /** Доходят ли запросы клиента до хранилища, которое умеет их профиль */
   persisted: Record<string, boolean>
+  /** Посты разложены по лентам подписчиков (fan-out дошёл до хранилища лент) */
+  fanoutDelivered: boolean
 }
 
-export function baseCapacity(n: BNode): number {
+/** Ёмкость одной машины с учётом её размера */
+function perMachine(n: BNode): number {
   const spec = KINDS[n.kind]
-  return (n.kind === 'service' ? (n.capacity ?? spec.capacity) : spec.capacity) * n.instances
+  return (n.kind === 'service' ? (n.capacity ?? spec.capacity) : spec.capacity) * (spec.vertical ? (n.size ?? 1) : 1)
+}
+
+/** Ёмкость на чтение: все машины всех шардов */
+export function baseCapacity(n: BNode): number {
+  return perMachine(n) * n.instances * shardsOf(n)
+}
+
+/** Ёмкость на запись: шардированные по природе хранилища — все узлы, остальные — только primary каждого шарда */
+export function writeCapacity(n: BNode): number {
+  return KINDS[n.kind].writeScales ? baseCapacity(n) : perMachine(n) * shardsOf(n)
+}
+
+export function shardsOf(n: BNode): number {
+  return KINDS[n.kind].maxShards ? Math.max(1, n.shards ?? 1) : 1
+}
+
+/** Цена блока: размер машины × машины × шарды */
+export function nodeCost(n: BNode): number {
+  const spec = KINDS[n.kind]
+  return spec.cost * (spec.vertical ? (n.size ?? 1) : 1) * n.instances * shardsOf(n)
+}
+
+/** Коротко о масштабе блока: ×3 · размер ×2 · 4 шард. */
+export function scaleText(n: BNode): string {
+  const parts = [`×${n.instances}`]
+  if ((n.size ?? 1) > 1) parts.push(tr(`размер ×${n.size}`, `size ×${n.size}`))
+  if (shardsOf(n) > 1) parts.push(tr(`${shardsOf(n)} шард.`, `${shardsOf(n)} shards`))
+  return parts.join(' · ')
+}
+
+/** Эффективность хранилища для профиля с учётом шардирования: транзакции и агрегаты через шарды дороже */
+export function fitOfNode(n: BNode, w: Workload): number {
+  const f = fitOf(n.kind, w)
+  if (shardsOf(n) <= 1) return f
+  if (w === 'oltp') return f * 0.8
+  if (w === 'analytics') return f * 0.5
+  return f
 }
 
 export function baseLatency(n: BNode): number {
@@ -282,27 +373,33 @@ export function isExternalApi(n: BNode): boolean {
 }
 
 export function costOf(nodes: BNode[]): number {
-  return nodes.reduce((s, n) => s + KINDS[n.kind].cost * n.instances, 0)
+  return nodes.reduce((s, n) => s + nodeCost(n), 0)
 }
 
 /** Загрузка узла и множитель латентности под конкретный профиль потока */
-function load(n: BNode, v: Vec): { util: number; cap: number; latMul: number; unsupported: number } {
+function load(n: BNode, v: Vec, wv: Vec = ZERO): { util: number; cap: number; latMul: number; unsupported: number } {
   const t = total(v)
   const cap = baseCapacity(n)
   if (!isStorage(n.kind)) return { util: t / cap, cap, latMul: 1, unsupported: 0 }
-  let util = 0
+  // запись: шардированные по природе хранилища масштабируют её узлами, остальные — только primary каждого шарда
+  const capW = writeCapacity(n)
+  // узкое место — либо все узлы на весь поток, либо primary на запись (реплики запись не принимают)
+  let utilAll = 0
+  let utilW = 0
   let latMul = 0
   let unsupported = 0
   for (const w of WL) {
     if (!v[w]) continue
-    const f = fitOf(n.kind, w)
+    const f = fitOfNode(n, w)
     if (f === 0) {
       unsupported += v[w]
       continue
     }
-    util += v[w] / (cap * f)
+    utilAll += v[w] / (cap * f)
+    utilW += Math.min(wv[w], v[w]) / (capW * f)
     latMul += (v[w] / t) / Math.sqrt(f)
   }
+  const util = Math.max(utilAll, utilW)
   const supported = t - unsupported
   return {
     util,
@@ -381,30 +478,60 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
     backlogGrowth: 0,
     cycle: order === null,
     persisted: {},
+    fanoutDelivered: true,
   }
   if (!order) return res
 
   const inflow: Record<string, Vec> = {}
-  nodes.forEach((n) => (inflow[n.id] = n.kind === 'client' ? { ...ZERO, [n.workload ?? 'oltp']: n.rps ?? 0 } : { ...ZERO }))
+  /** Та часть потока, что является записью: кэш её не закрывает, реплики не масштабируют */
+  const inflowW: Record<string, Vec> = {}
+  /** Посты, которые ещё предстоит разложить по лентам, и множитель fan-out */
+  const inflowF: Record<string, number> = {}
+  const FAN = Math.max(0, ...nodes.filter((n) => n.kind === 'client').map((n) => n.fanout ?? 0))
+  /** Сколько записей в ленты сделал каждый сервис — синхронный fan-out задерживает ответ */
+  const fanWrites: Record<string, number> = {}
+  nodes.forEach((n) => {
+    inflowF[n.id] = n.kind === 'client' && n.fanout ? (n.rps ?? 0) : 0
+    inflow[n.id] = n.kind === 'client' ? { ...ZERO, [n.workload ?? 'oltp']: n.rps ?? 0 } : { ...ZERO }
+    inflowW[n.id] = n.kind === 'client' ? { ...ZERO, [n.workload ?? 'oltp']: (n.rps ?? 0) * writeShareOf(n) } : { ...ZERO }
+  })
   const admitShare: Record<string, number> = {}
 
   // 1. Прямой проход: потоки
   for (const id of order) {
     const n = byId[id]
     const v = inflow[id]
-    const l = n.kind === 'client' ? { util: 0 } : load(n, v)
+    const l = n.kind === 'client' ? { util: 0 } : load(n, v, inflowW[id])
     const a = l.util > 1 ? 1 / l.util : 1
     admitShare[id] = a
     const admitted = scale(v, a)
+    const admittedW = scale(inflowW[id], a)
+    const reads = (w: Workload) => Math.max(0, admitted[w] - admittedW[w])
+    const admittedF = inflowF[id] * a
     const kids = children(id)
+    // хранилище, куда этот сервис раскладывает посты по лентам: лучшее для «ключ-значение» среди его хранилищ
+    // раскладывает тот сервис, на котором путь поста кончается: у него нет дальше очереди или другого сервиса
+    const passesOn = kids.some((k) => !isStorage(byId[k.to].kind))
+    const feedStore =
+      n.kind === 'service' && admittedF > 0 && !passesOn
+        ? kids
+            .map((k) => byId[k.to])
+            .filter((c) => isStorage(c.kind) && fitOf(c.kind, 'kv') > 0)
+            .sort((x, y) => fitOf(y.kind, 'kv') - fitOf(x.kind, 'kv'))[0]
+        : undefined
+    if (feedStore) fanWrites[id] = admittedF * FAN
     for (const e of kids) {
       const child = byId[e.to]
       let out: Vec = { ...ZERO }
+      let outW: Vec = { ...ZERO }
+      // пост, ещё не разложенный по лентам, идёт дальше по синхронным и асинхронным связям, пока не встретит хранилище лент
+      const outF = isStorage(child.kind) ? 0 : n.kind === 'client' || n.kind === 'lb' || n.kind === 'gateway' ? admittedF / kids.length : feedStore ? 0 : admittedF
       switch (n.kind) {
         case 'client':
         case 'lb':
         case 'gateway':
           out = scale(admitted, 1 / kids.length)
+          outW = scale(admittedW, 1 / kids.length)
           break
         case 'service': {
           // cache-aside: если сервис сам ходит в кэш, в хранилища идут только промахи
@@ -412,32 +539,45 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           // запрос уходит в самое подходящее из хранилищ сервиса: поиск — в поисковый движок, а не в PostgreSQL
           const stores = kids.map((k) => byId[k.to]).filter((c) => isStorage(c.kind))
           const best = (w: Workload) => Math.max(0, ...stores.map((c) => fitOf(c.kind, w)))
-          out = isStorage(child.kind)
-            ? (Object.fromEntries(
-                WL.map((w) => {
-                  const f = fitOf(child.kind, w)
-                  return [w, f > 0 && f === best(w) ? admitted[w] * (CACHEABLE.includes(w) ? 1 - asideHit : 1) : 0]
-                }),
-              ) as Vec)
-            : admitted
+          if (isStorage(child.kind)) {
+            const goes = (w: Workload) => {
+              const f = fitOf(child.kind, w)
+              return f > 0 && f === best(w)
+            }
+            // в хранилище идут промахи чтения и все записи
+            out = Object.fromEntries(WL.map((w) => [w, goes(w) ? reads(w) * (CACHEABLE.includes(w) ? 1 - asideHit : 1) + admittedW[w] : 0])) as Vec
+            outW = Object.fromEntries(WL.map((w) => [w, goes(w) ? admittedW[w] : 0])) as Vec
+          } else {
+            out = admitted
+            outW = admittedW
+          }
+          // fan-out on write: каждый пост — запись в ленту каждого подписчика
+          if (child === feedStore) {
+            out = { ...out, kv: out.kv + fanWrites[id] }
+            outW = { ...outW, kv: outW.kv + fanWrites[id] }
+          }
           break
         }
         case 'queue':
           out = admitted
+          outW = admittedW
           break
         case 'cache':
-          out = Object.fromEntries(
-            WL.map((w) => [w, CACHEABLE.includes(w) ? admitted[w] * (1 - (n.hitRatio ?? 0.8)) : admitted[w]]),
-          ) as Vec
+          // попадания закрывают только чтения; записи идут дальше в хранилище
+          out = Object.fromEntries(WL.map((w) => [w, CACHEABLE.includes(w) ? reads(w) * (1 - (n.hitRatio ?? 0.8)) + admittedW[w] : admitted[w]])) as Vec
+          outW = admittedW
           break
         case 'cdn':
-          out = { ...admitted, blob: admitted.blob * (1 - (n.hitRatio ?? 0.9)) }
+          out = { ...admitted, blob: reads('blob') * (1 - (n.hitRatio ?? 0.9)) + admittedW.blob }
+          outW = admittedW
           break
         default:
           out = { ...ZERO } // хранилища никого не вызывают
       }
       res.edges[e.id] = { rps: total(out), async: n.kind === 'queue' }
       inflow[e.to] = add(inflow[e.to], out)
+      inflowW[e.to] = add(inflowW[e.to], outW)
+      inflowF[e.to] += outF
     }
   }
 
@@ -446,8 +586,9 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
     const n = byId[id]
     const v = inflow[id]
     const inp = total(v)
-    const l = n.kind === 'client' ? { util: 0, cap: Infinity, latMul: 1, unsupported: 0 } : load(n, v)
-    const own = (baseLatency(n) * l.latMul) / (1 - Math.min(l.util, 0.95))
+    const l = n.kind === 'client' ? { util: 0, cap: Infinity, latMul: 1, unsupported: 0 } : load(n, v, inflowW[id])
+    // раскладка поста по лентам подписчиков: ~0,5 мс на ленту — синхронно это заметно
+    const own = (baseLatency(n) * l.latMul) / (1 - Math.min(l.util, 0.95)) + (fanWrites[id] ? FAN * 0.5 : 0)
     const kidEdges = children(id)
     const kids = kidEdges.map((e) => res.nodes[e.to])
     let success = admitShare[id] * (1 - l.unsupported)
@@ -550,9 +691,15 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
       backlogGrowth: backlog,
       unsupported: l.unsupported,
       deadEnd,
+      writes: total(inflowW[id]),
+      shards: shardsOf(n),
     }
     res.backlogGrowth += backlog
   }
+
+  // fan-out дошёл до лент: записей в ленты сделано почти столько, сколько постов × подписчиков
+  const fanNeed = nodes.filter((n) => n.kind === 'client' && n.fanout).reduce((s0, n) => s0 + (n.rps ?? 0) * (n.fanout ?? 0), 0)
+  if (fanNeed > 0) res.fanoutDelivered = Object.values(fanWrites).reduce((a0, b0) => a0 + b0, 0) >= fanNeed * 0.99
 
   // Итог для клиентов — взвешенно по нагрузке
   const clients = nodes.filter((n) => n.kind === 'client')

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
-import { KINDS, WORKLOADS, isStorage, type BEdge, type BNode, type Result } from './model'
+import { KINDS, WORKLOADS, isStorage, scaleText, type BEdge, type BNode, type Result } from './model'
 import type { SpanStatus, Trace } from './emulate'
 
 export const NODE_W = 150
@@ -20,6 +20,8 @@ interface Props {
   onDropKind?: (kind: string, x: number, y: number) => void
   /** Живые запросы: точки бегут по связям */
   traces?: LiveTrace[]
+  /** Началось или закончилось перетаскивание блока или связи — окно параметров на это время прячется */
+  onDragging?: (active: boolean) => void
   /** Обрезать холст по блокам (для витрины на главной) */
   fit?: boolean
   width?: number
@@ -79,13 +81,15 @@ export function BuilderCanvas({
   hideLoad,
   onDropKind,
   traces,
+  onDragging,
   fit,
   width = 1000,
   height = 540,
 }: Props) {
   const rpsText = (v: number) => (hideLoad ? '?' : fmt(v))
   const svgRef = useRef<SVGSVGElement>(null)
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null)
+  /** Нажатие на блок: щелчок открывает окно, а сдвиг больше 4 px — это перетаскивание, окно не открываем */
+  const drag = useRef<{ id: string; dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
 
   const toSvg = (e: { clientX: number; clientY: number }) => {
@@ -103,6 +107,12 @@ export function BuilderCanvas({
   const onPointerMove = (e: RPointerEvent) => {
     const p = toSvg(e)
     if (drag.current) {
+      if (!drag.current.moved) {
+        if (Math.hypot(e.clientX - drag.current.sx, e.clientY - drag.current.sy) < 4) return
+        drag.current.moved = true
+        onSelect(null)
+        onDragging?.(true)
+      }
       const x = Math.max(0, Math.min(width - NODE_W, p.x - drag.current.dx))
       const y = Math.max(0, Math.min(height - NODE_H, p.y - drag.current.dy))
       onMove(drag.current.id, Math.round(x / 10) * 10, Math.round(y / 10) * 10)
@@ -111,7 +121,20 @@ export function BuilderCanvas({
     }
   }
 
+  const capture = (id: number) => {
+    try {
+      svgRef.current?.setPointerCapture(id)
+    } catch {
+      // указатель уже отпущен — захватывать нечего
+    }
+  }
+
   const onPointerUp = (e: RPointerEvent) => {
+    if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
+    if (drag.current?.moved || link) onDragging?.(false)
+    // щелчок без движения — открыть параметры блока
+    // повторный щелчок по выбранному блоку закрывает окно
+    if (drag.current && !drag.current.moved) onSelect(selected === drag.current.id ? null : drag.current.id)
     if (link) {
       const p = toSvg(e)
       const target = nodeAt(p.x, p.y)
@@ -230,8 +253,9 @@ export function BuilderCanvas({
             onPointerDown={(e) => {
               e.stopPropagation()
               const p = toSvg(e)
-              drag.current = { id: n.id, dx: p.x - n.x, dy: p.y - n.y }
-              onSelect(n.id)
+              drag.current = { id: n.id, dx: p.x - n.x, dy: p.y - n.y, sx: e.clientX, sy: e.clientY, moved: false }
+              // захватываем указатель: блок тащится, даже когда курсор проходит над окном параметров
+              capture(e.pointerId)
             }}
           >
             <rect width={NODE_W} height={NODE_H} rx={10} className="bnode-box" style={{ stroke: color }} />
@@ -258,7 +282,7 @@ export function BuilderCanvas({
               </text>
             ) : (
               <text x={12} y={46} className="bnode-sub">
-                ×{n.instances} · {rpsText(st?.in ?? 0)} rps · {Math.round(Math.min(util, 9.99) * 100)}%
+                {scaleText(n)} · {rpsText(st?.in ?? 0)} rps · {Math.round(Math.min(util, 9.99) * 100)}%
               </text>
             )}
             {n.kind === 'client' ? (
@@ -301,6 +325,8 @@ export function BuilderCanvas({
                   e.stopPropagation()
                   const p = toSvg(e)
                   setLink({ from: n.id, x: p.x, y: p.y })
+                  onDragging?.(true)
+                  capture(e.pointerId)
                 }}
               >
                 <title>{tr('Потяните, чтобы связать', 'Drag to connect')}</title>

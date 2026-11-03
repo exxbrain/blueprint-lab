@@ -2953,7 +2953,7 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .bnode-mood { font-size: 16px; }
 .log-window { overflow: hidden; }
 .access-log { overflow-x: hidden; }
-.log-slide { will-change: transform; }
+
 .access-log > .log-slide { display: flex; flex-direction: column; gap: 2px; }
 /* постоянная высота живого трафика: содержимое меняется, а страница под ним не прыгает */
 .access-log { height: 330px; max-height: none; }
@@ -3012,4 +3012,10 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 }
 @media (max-width: 640px) {
   .add-menu { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 60vh; }
+}
+/* окно параметров — колонка сбоку от элемента на всю видимую высоту */
+.node-popover { position: fixed; max-height: none; overflow: auto; }
+.popover-x { position: sticky; float: right; top: 0; z-index: 1; }
+@media (max-width: 640px) {
+  .node-popover { max-height: 60vh; }
 }

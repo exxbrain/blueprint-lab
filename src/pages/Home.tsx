@@ -3,7 +3,7 @@ import { tr } from '../i18n'
 import { builderChallenges } from '../sim/builder/challenges'
 import { BuilderCanvas } from '../sim/builder/BuilderCanvas'
 import { simulate } from '../sim/builder/model'
-import { ms, useLiveTraffic } from '../sim/builder/TrafficPanel'
+import { ms, useCalm, useLiveTraffic } from '../sim/builder/TrafficPanel'
 import { modules } from '../content/modules'
 import type { Module } from '../content/types'
 import { useProgress, type Progress } from '../progress'
@@ -111,6 +111,7 @@ function LiveDemo() {
   const { nodes, edges } = fixed ? ch.solution : ch
   const result = useMemo(() => simulate(nodes, edges), [nodes, edges])
   const traffic = useLiveTraffic(nodes, edges, result, true)
+  const calmLog = useCalm(traffic.log)
   const noop = () => {}
   return (
     <div className="panel hub-demo">
@@ -137,7 +138,7 @@ function LiveDemo() {
         fit
       />
       <div className="access-log hub-log">
-        {traffic.log.slice(0, 5).map((t) => (
+        {calmLog.slice(0, 5).map((t) => (
           <div key={t.id} className={'access-row' + (t.status === 'error' ? ' err' : '')}>
             <span className={'code ' + (t.status === 'error' ? 'bad' : 'ok')}>{t.httpStatus || 'ERR'}</span>
             <span className="req">

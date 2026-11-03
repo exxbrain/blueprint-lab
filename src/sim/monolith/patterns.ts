@@ -342,8 +342,9 @@ export const STRESS_TESTS: StressTest[] = [
     id: 'bad-deploy',
     title: () => tr('Релиз с ошибкой', 'A buggy release'),
     applies: () => true,
-    ok: (c) => c.has('canary') && c.has('health'),
-    fix: ['canary', 'health'],
+    // откатывать автоматически можно только по метрикам: доля ошибок и задержки новой версии против старой
+    ok: (c) => c.has('canary') && c.has('health') && c.has('metrics'),
+    fix: ['canary', 'health', 'metrics'],
     need: tr('Выкатывать новую версию сначала на малую долю пользователей, сравнивать ошибки и откатывать автоматически; понимать, какой экземпляр жив и готов к трафику', 'Roll out a new version to a small share of users first, compare errors and roll back automatically; know which instance is alive and ready for traffic'),
     fail: tr('Ошибку увидели все клиенты сразу, откат вручную ночью', 'All customers saw the bug at once; manual rollback at night'),
   },
@@ -459,7 +460,13 @@ export function excessPatterns(p: Patterns, c: StressContext): { id: PatternId; 
     flag('cdc', tr('нечего публиковать: событий нет', 'nothing to publish: there are no events'))
     flag('idempotentConsumer', tr('нет получателей событий', 'no event consumers'))
   } else if (p.outbox) {
-    flag('cdc', tr('dual write уже решён через Outbox — две схемы публикации одной задачи', 'dual write is already solved by Outbox — two publishing mechanisms for one job'))
+    flag(
+      'cdc',
+      tr(
+        'dual write уже решён через Outbox. CDC имеет смысл как способ доставки outbox-таблицы в брокер (Debezium Outbox Router), но в этой схеме он не нужен: события уже публикуются',
+        'dual write is already solved by Outbox. CDC makes sense as a way to ship the outbox table to the broker (Debezium Outbox Router), but here it is not needed: events are already published',
+      ),
+    )
   }
   if (!c.sagas) flag('sagaOrchestrator', tr('нет ни одной саги', 'no sagas at all'))
   if (p.auditLog) flag('eventSourcing', tr('история для регулятора уже есть в Audit logging, а event sourcing втрое дороже', 'Audit logging already provides history for the regulator, and event sourcing costs three times as much'))
@@ -477,17 +484,18 @@ export function excessPatterns(p: Patterns, c: StressContext): { id: PatternId; 
   if (c.services < 2) {
     flag('bff', tr('пока один бэкенд — собирать ответ не из чего', 'only one backend so far — nothing to aggregate'))
     flag('discovery', tr('меньше двух сервисов — искать некого', 'fewer than two services — nothing to discover'))
-    flag('metrics', tr('для монолита хватает базового мониторинга', 'basic monitoring is enough for a monolith'))
+    // метрики лишними не бывают: без них не видно ни нагрузки, ни деградации
     if (!(c.sagas && !p.sagaOrchestrator)) {
       flag('tracing', tr('трассировать нечего: запрос не покидает процесс', 'nothing to trace: requests never leave the process'))
-      flag('logs', tr('все логи и так в одном месте', 'all logs are already in one place'))
+      // много экземпляров в контейнерах — логи уже разбросаны по машинам, сборщик нужен
+      if (!p.containers) flag('logs', tr('все логи и так в одном месте', 'all logs are already in one place'))
     }
   }
   if (p.mesh) {
     dup('circuitBreakers', 'mesh')
     dup('retry', 'mesh')
     dup('mtls', 'mesh')
-    dup('discovery', 'mesh')
+    flag('discovery', tr('service mesh опирается на реестр сервисов платформы — отдельный discovery не нужен', 'the service mesh relies on the platform’s service registry, so a separate discovery is not needed'))
   } else if (p.containers) {
     dup('discovery', 'containers')
   }

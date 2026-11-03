@@ -46,7 +46,7 @@ export const SERVICE_PROFILES = [
   { id: 'fast', title: tr('Обычный: 300 rps, 20 мс', 'Standard: 300 rps, 20 ms'), capacity: 300, latency: 20 },
   { id: 'light', title: tr('Лёгкий stateless: 1000 rps, 5 мс', 'Light stateless: 1000 rps, 5 ms'), capacity: 1000, latency: 5 },
   { id: 'heavy', title: tr('Тяжёлый: 100 rps, 120 мс', 'Heavy: 100 rps, 120 ms'), capacity: 100, latency: 120 },
-  { id: 'external', title: tr('Внешний API: 100 rps, 300 мс', 'External API: 100 rps, 300 ms'), ...EXTERNAL_API },
+  { id: 'external', title: tr('Внешний API: 100 rps на соединение, 300 мс', 'External API: 100 rps per connection, 300 ms'), ...EXTERNAL_API },
 ]
 
 /** Допуск прикидки: ±25% */
@@ -99,7 +99,7 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     ],
     nodes: [
-      n('c1', 'client', tr('Покупатели', 'Shoppers'), 40, 220, { rps: 3000, workload: 'oltp' }),
+      n('c1', 'client', tr('Покупатели', 'Shoppers'), 40, 220, { rps: 3000, workload: 'oltp', writeShare: 0.05 }),
       n('s1', 'service', tr('Каталог', 'Catalog'), 380, 220, svc('fast')),
       n('d1', 'postgres', 'PostgreSQL', 760, 220),
     ],
@@ -141,7 +141,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.8 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Покупатели', 'Shoppers'), 40, 220, { rps: 3000, workload: 'oltp' }),
+        n('c1', 'client', tr('Покупатели', 'Shoppers'), 40, 220, { rps: 3000, workload: 'oltp', writeShare: 0.05 }),
         n('s1', 'service', tr('Каталог', 'Catalog'), 380, 220, { ...svc('fast'), instances: 15 }),
         n('k1', 'cache', 'Redis', 580, 120, { hitRatio: 0.8 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 220),
@@ -160,7 +160,7 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     ],
     nodes: [
-      n('c1', 'client', tr('Покупатели', 'Shoppers'), 30, 220, { rps: 800, workload: 'oltp' }),
+      n('c1', 'client', tr('Покупатели', 'Shoppers'), 30, 220, { rps: 800, workload: 'oltp', writeShare: 1 }),
       n('g1', 'gateway', 'Gateway', 220, 220),
       n('s1', 'service', tr('Заказы', 'Orders'), 420, 220, { ...svc('fast'), instances: 3 }),
       n('s2', 'service', tr('Платежи', 'Payments'), 820, 220, { ...svc('external'), instances: 8 }),
@@ -201,11 +201,15 @@ export const builderChallenges: BuilderChallenge[] = [
         'Очередь не добавляет мощности. Если потребители медленнее потока, бэклог растёт бесконечно. Асинхронность сглаживает пики, но не отменяет capacity planning.',
         'A queue adds no capacity. If consumers are slower than the incoming stream, the backlog grows forever. Asynchrony smooths out peaks but does not replace capacity planning.',
       ),
+      tr(
+        'В реальных магазинах так асинхронно делают не всю оплату. Авторизацию карты (3-D Secure, «недостаточно средств») проводят синхронно, пока покупатель на странице, — иначе отказ придёт после «заказ принят». В фон уходят списание (capture), чек, фискализация и выгрузка в учётную систему.',
+        'Real stores do not make the whole payment asynchronous. Card authorization (3-D Secure, “insufficient funds”) runs synchronously while the buyer is on the page, otherwise the decline arrives after “order accepted”. Capture, receipts, fiscal reporting and ERP export go to the background.',
+      ),
     ],
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Покупатели', 'Shoppers'), 30, 220, { rps: 800, workload: 'oltp' }),
+        n('c1', 'client', tr('Покупатели', 'Shoppers'), 30, 220, { rps: 800, workload: 'oltp', writeShare: 1 }),
         n('g1', 'gateway', 'Gateway', 220, 220),
         n('s1', 'service', tr('Заказы', 'Orders'), 420, 220, { ...svc('fast'), instances: 4 }),
         n('q1', 'queue', 'Kafka', 620, 120),
@@ -230,8 +234,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Страницы товаров', 'Product pages'), 40, 120, { rps: 3000, workload: 'oltp' }),
-      n('c2', 'client', tr('Поиск', 'Search'), 40, 360, { rps: 1500, workload: 'search' }),
+      n('c1', 'client', tr('Страницы товаров', 'Product pages'), 40, 120, { rps: 3000, workload: 'oltp', writeShare: 0.02 }),
+      n('c2', 'client', tr('Поиск', 'Search'), 40, 360, { rps: 1500, workload: 'search', writeShare: 0 }),
       n('s1', 'service', tr('Каталог', 'Catalog'), 380, 240, { ...svc('fast'), instances: 4 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240),
     ],
@@ -276,8 +280,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.8 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Страницы товаров', 'Product pages'), 40, 120, { rps: 3000, workload: 'oltp' }),
-        n('c2', 'client', tr('Поиск', 'Search'), 40, 360, { rps: 1500, workload: 'search' }),
+        n('c1', 'client', tr('Страницы товаров', 'Product pages'), 40, 120, { rps: 3000, workload: 'oltp', writeShare: 0.02 }),
+        n('c2', 'client', tr('Поиск', 'Search'), 40, 360, { rps: 1500, workload: 'search', writeShare: 0 }),
         n('s1', 'service', tr('Каталог', 'Catalog'), 380, 240, { ...svc('light'), instances: 6 }),
         n('k1', 'cache', 'Redis', 600, 60, { hitRatio: 0.8 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240),
@@ -307,8 +311,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Заказы', 'Orders'), 40, 120, { rps: 1500, workload: 'oltp' }),
-      n('c2', 'client', tr('BI-дашборды', 'BI dashboards'), 40, 380, { rps: 40, workload: 'analytics' }),
+      n('c1', 'client', tr('Заказы', 'Orders'), 40, 120, { rps: 1500, workload: 'oltp', writeShare: 0.5 }),
+      n('c2', 'client', tr('BI-дашборды', 'BI dashboards'), 40, 380, { rps: 40, workload: 'analytics', writeShare: 0 }),
       n('s1', 'service', 'Order Service', 380, 240, { ...svc('fast'), instances: 8 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 2 }),
     ],
@@ -353,8 +357,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Заказы', 'Orders'), 40, 120, { rps: 1500, workload: 'oltp' }),
-        n('c2', 'client', tr('BI-дашборды', 'BI dashboards'), 40, 380, { rps: 40, workload: 'analytics' }),
+        n('c1', 'client', tr('Заказы', 'Orders'), 40, 120, { rps: 1500, workload: 'oltp', writeShare: 0.5 }),
+        n('c2', 'client', tr('BI-дашборды', 'BI dashboards'), 40, 380, { rps: 40, workload: 'analytics', writeShare: 0 }),
         n('s1', 'service', 'Order Service', 380, 240, { ...svc('fast'), instances: 8 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 2 }),
         n('ch', 'clickhouse', 'ClickHouse', 700, 420),
@@ -373,16 +377,16 @@ export const builderChallenges: BuilderChallenge[] = [
     group: 'Классика',
     brief: tr(
       [
-        'Сервис профилей отдаёт **6 000 rps**. Данные персональные, поэтому кэш попадает только в **половине** случаев. PostgreSQL держит 1 000 rps на реплику, максимум — 5 реплик.',
+        'Сервис профилей отдаёт **6 000 rps**. Профилей десятки миллионов, и каждый читают редко — длинный хвост, — поэтому в кэш помещается малая часть, и он попадает только в **половине** случаев. PostgreSQL держит 1 000 rps на реплику, максимум — 5 реплик.',
         'Профиль должен открываться быстрее **50 мс**. Бюджет — **$1400**.',
       ],
       [
-        'The profile service serves **6,000 rps**. The data is personal, so the cache hits only **half** the time. PostgreSQL handles 1,000 rps per replica, with a maximum of 5 replicas.',
+        'The profile service serves **6,000 rps**. There are tens of millions of profiles, each read rarely (a long tail), so only a small share fits in the cache, and it hits only **half** the time. PostgreSQL handles 1,000 rps per replica, with a maximum of 5 replicas.',
         'A profile must load in under **50 ms**. Budget: **$1400**.',
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Профили', 'Profiles'), 40, 240, { rps: 6000, workload: 'oltp' }),
+      n('c1', 'client', tr('Профили', 'Profiles'), 40, 240, { rps: 6000, workload: 'oltp', writeShare: 0.02 }),
       n('s1', 'service', 'Profile API', 380, 240, svc('fast')),
       n('d1', 'postgres', 'PostgreSQL', 760, 240),
     ],
@@ -424,7 +428,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.5 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Профили', 'Profiles'), 40, 240, { rps: 6000, workload: 'oltp' }),
+        n('c1', 'client', tr('Профили', 'Profiles'), 40, 240, { rps: 6000, workload: 'oltp', writeShare: 0.02 }),
         n('s1', 'service', 'Profile API', 380, 240, { ...svc('light'), instances: 8 }),
         n('k1', 'cache', 'Redis', 600, 80, { hitRatio: 0.5 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 4 }),
@@ -442,16 +446,16 @@ export const builderChallenges: BuilderChallenge[] = [
     group: 'Классика',
     brief: tr(
       [
-        'Старт продаж на концерт: в первые минуты приходит **8 000** бронирований в секунду. Бронирование — транзакция (нельзя продать одно место дважды), а PostgreSQL даже на пяти репликах держит не больше 5 000 rps.',
-        'Пик длится около пяти минут. Покупатель должен быстрее **100 мс** получить ответ «заявка принята», ни одна заявка не теряется, а необработанных заявок копится не больше **4 000** заявок в секунду (за пик — около миллиона, потом разберётся). Бюджет — **$2900**.',
+        'Старт продаж на концерт: в первые минуты приходит **8 000** бронирований в секунду. Бронирование — транзакция: заказ берёт сразу несколько мест, и нельзя продать одно место дважды. Запись идёт только в primary PostgreSQL: обычная машина принимает около **1 000** бронирований в секунду, самая большая (×4) — около **4 000**. Реплики запись не ускоряют, а шардировать нельзя — места зала списываются в одной транзакции и живут в одной базе.',
+        'Пик длится около пяти минут. Покупатель должен быстрее **100 мс** получить ответ «заявка принята», ни одна заявка не теряется, а необработанных заявок копится не больше **5 000** в секунду (за пик — около полутора миллионов, после пика разберутся). Бюджет — **$2900**.',
       ],
       [
-        'Concert tickets go on sale: in the first minutes **8,000** bookings arrive per second. A booking is a transaction (the same seat can\'t be sold twice), and PostgreSQL handles at most 5,000 rps even with five replicas.',
-        'The peak lasts about five minutes. A buyer must get a "request accepted" response in under **100 ms**, no request may be lost, and unprocessed requests must pile up no faster than **4,000** requests per second (about a million over the peak, drained afterwards). Budget: **$2900**.',
+        'Concert tickets go on sale: in the first minutes **8,000** bookings arrive per second. A booking is a transaction: an order takes several seats at once, and the same seat can\'t be sold twice. Writes go only to the PostgreSQL primary: a standard machine accepts about **1,000** bookings per second, the largest (×4) about **4,000**. Replicas do not speed up writes, and sharding is off the table: the hall\'s seats are taken in one transaction and live in one database.',
+        'The peak lasts about five minutes. A buyer must get a "request accepted" response in under **100 ms**, no request may be lost, and unprocessed requests must pile up no faster than **5,000** per second (about one and a half million over the peak, drained afterwards). Budget: **$2900**.',
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Бронирование', 'Bookings'), 30, 240, { rps: 8000, workload: 'oltp' }),
+      n('c1', 'client', tr('Бронирование', 'Bookings'), 30, 240, { rps: 8000, workload: 'oltp', writeShare: 1 }),
       n('g1', 'gateway', 'Gateway', 220, 240),
       n('s1', 'service', 'Booking API', 420, 240, { ...svc('fast'), instances: 4 }),
       n('d1', 'postgres', 'PostgreSQL', 820, 240),
@@ -466,7 +470,7 @@ export const builderChallenges: BuilderChallenge[] = [
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Ответ «заявка принята» ≤ 100 мс', '"Request accepted" response ≤ 100 ms'), check: lat('c1', 100) },
-      { text: tr('Необработанные заявки копятся не быстрее 4 000 в секунду', 'Unprocessed requests pile up no faster than 4,000 requests/s'), check: (r) => r.backlogGrowth <= 4000 },
+      { text: tr('Необработанные заявки копятся не быстрее 5 000 в секунду', 'Unprocessed requests pile up no faster than 5,000 per second'), check: (r) => r.backlogGrowth <= 5000 },
       {
         text: tr(
           'PostgreSQL загружен не больше чем на 90% — воркеры не пишут быстрее, чем база принимает',
@@ -475,20 +479,24 @@ export const builderChallenges: BuilderChallenge[] = [
         check: (r) => (r.nodes['d1']?.util ?? Infinity) <= 0.9,
       },
       { text: tr('Бронирования сохраняются в БД', 'Bookings are persisted in the DB'), check: persisted('c1') },
+      {
+        text: tr('PostgreSQL без шардов: места зала списываются в одной транзакции', 'PostgreSQL without shards: the hall\'s seats are taken in one transaction'),
+        check: (r) => (r.nodes['d1']?.shards ?? 1) === 1,
+      },
     ],
     paths: [{ from: 's1', to: 'd1', text: tr('Бронирования доходят до PostgreSQL', 'Bookings reach PostgreSQL') }],
     hints: [
       tr(
-        '8 000 транзакций в секунду синхронно база не примет ни при каком числе реплик. Значит, покупатель не должен ждать базу.',
-        'The database cannot accept 8,000 synchronous transactions per second with any number of replicas. So the buyer must not wait for the database.',
+        'Запись идёт только в primary: реплики её не ускоряют, а самая большая машина принимает 4 000 в секунду — вдвое меньше пика. Значит, покупатель не должен ждать базу.',
+        'Writes go only to the primary: replicas don\'t speed them up, and the largest machine accepts 4,000 per second, half the peak. So the buyer must not wait for the database.',
       ),
       tr(
         'Нужно место, куда API мгновенно кладёт заявку и сразу отвечает «заявка принята», а отдельные обработчики забирают заявки с той скоростью, которую выдерживает база.',
         'You need a place where the API drops a request instantly and immediately replies "request accepted", while separate workers pick requests up at the rate the database can sustain.',
       ),
       tr(
-        'Обработчиков должно быть ровно столько, чтобы база не перегревалась (до 85% загрузки). Тогда заявки копятся на разницу между пиком и этой скоростью — проверьте, что это укладывается в цель.',
-        'Run just enough workers to keep the database below 85% utilization. Requests then accumulate by the difference between the peak and that rate — check that it fits the goal.',
+        'Обработчиков должно быть ровно столько, чтобы primary не перегревался (до 90% загрузки). Заявки копятся на разницу между пиком и этой скоростью — чем быстрее принимает primary, тем меньше копится. Какой машины для этого хватит?',
+        'Run just enough workers to keep the primary below 90% utilization. Requests accumulate by the difference between the peak and that rate; the faster the primary accepts, the less piles up. Which machine is enough for that?',
       ),
     ],
     debrief: [
@@ -497,19 +505,19 @@ export const builderChallenges: BuilderChallenge[] = [
         'Queue-based load leveling: the queue absorbs the peak immediately, while processing runs at a steady rate the narrowest bottleneck can sustain. The client gets "request accepted" and the result arrives as a notification.',
       ),
       tr(
-        'Важно не дать воркерам перегрузить базу: их число ограничивают её пропускной способностью. На интервью добавляют виртуальную очередь ожидания на входе (waiting room) и резервирование мест с таймаутом.',
-        'It\'s important not to let workers overload the database: their count is capped by its throughput. In interviews, people add a virtual waiting room at the entrance and seat reservations with a timeout.',
+        'Важно не дать воркерам перегрузить базу: их число ограничивают пропускной способностью primary. Реплики тут бесполезны — они масштабируют чтение, а не запись; вертикальный рост упирается в самую большую машину. На интервью добавляют виртуальную очередь ожидания на входе (waiting room) и резервирование мест с таймаутом.',
+        'It\'s important not to let workers overload the database: their count is capped by the primary\'s throughput. Replicas are useless here: they scale reads, not writes, and vertical growth stops at the largest machine. In interviews, people add a virtual waiting room at the entrance and seat reservations with a timeout.',
       ),
     ],
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Бронирование', 'Bookings'), 30, 240, { rps: 8000, workload: 'oltp' }),
+        n('c1', 'client', tr('Бронирование', 'Bookings'), 30, 240, { rps: 8000, workload: 'oltp', writeShare: 1 }),
         n('g1', 'gateway', 'Gateway', 220, 240, { instances: 4 }),
         n('s1', 'service', 'Booking API', 420, 240, { ...svc('light'), instances: 10 }),
         n('q1', 'queue', 'Kafka', 420, 420),
-        n('w1', 'service', tr('Воркеры брони', 'Booking workers'), 620, 420, { ...svc('fast'), instances: 14 }),
-        n('d1', 'postgres', 'PostgreSQL', 820, 240, { instances: 5 }),
+        n('w1', 'service', tr('Воркеры брони', 'Booking workers'), 620, 420, { ...svc('fast'), instances: 11 }),
+        n('d1', 'postgres', 'PostgreSQL', 820, 240, { size: 4 }),
       ],
       edges: [
         { id: 'e1', from: 'c1', to: 'g1' },
@@ -539,7 +547,7 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Главная страница', 'Home page'), 40, 240, { rps: 5000, workload: 'oltp' }),
+      n('c1', 'client', tr('Главная страница', 'Home page'), 40, 240, { rps: 5000, workload: 'oltp', writeShare: 0 }),
       n('s1', 'service', tr('Витрина', 'Storefront'), 380, 240, { ...svc('light'), instances: 6 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240),
     ],
@@ -581,7 +589,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.9 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Главная страница', 'Home page'), 40, 240, { rps: 5000, workload: 'oltp' }),
+        n('c1', 'client', tr('Главная страница', 'Home page'), 40, 240, { rps: 5000, workload: 'oltp', writeShare: 0 }),
         n('s1', 'service', tr('Витрина', 'Storefront'), 380, 240, { ...svc('light'), instances: 6 }),
         n('k1', 'cache', 'Redis', 600, 80, { hitRatio: 0.9 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240),
@@ -609,7 +617,7 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Картинки', 'Images'), 40, 240, { rps: 20000, workload: 'blob' }),
+      n('c1', 'client', tr('Картинки', 'Images'), 40, 240, { rps: 20000, workload: 'blob', writeShare: 0 }),
       n('s3', 's3', 'S3', 760, 240),
     ],
     edges: [{ id: 'e1', from: 'c1', to: 's3' }],
@@ -647,7 +655,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cdn: 0.95 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Картинки', 'Images'), 40, 240, { rps: 20000, workload: 'blob' }),
+        n('c1', 'client', tr('Картинки', 'Images'), 40, 240, { rps: 20000, workload: 'blob', writeShare: 0 }),
         n('cdn', 'cdn', 'CDN', 400, 240, { hitRatio: 0.95 }),
         n('s3', 's3', 'S3', 760, 240),
       ],
@@ -670,7 +678,7 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Регистрация', 'Sign-up'), 40, 240, { rps: 300, workload: 'oltp' }),
+      n('c1', 'client', tr('Регистрация', 'Sign-up'), 40, 240, { rps: 300, workload: 'oltp', writeShare: 1 }),
       n('s1', 'service', 'Users API', 340, 240, { ...svc('fast'), instances: 2 }),
       n('d1', 'postgres', 'PostgreSQL', 640, 420),
       n('s2', 'service', tr('Отправка писем', 'Email sender'), 780, 160, { ...svc('external'), instances: 4 }),
@@ -718,7 +726,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Регистрация', 'Sign-up'), 40, 240, { rps: 300, workload: 'oltp' }),
+        n('c1', 'client', tr('Регистрация', 'Sign-up'), 40, 240, { rps: 300, workload: 'oltp', writeShare: 1 }),
         n('s1', 'service', 'Users API', 340, 240, { ...svc('fast'), instances: 2 }),
         n('d1', 'postgres', 'PostgreSQL', 640, 420),
         n('q1', 'queue', 'Kafka', 560, 80),
@@ -734,16 +742,16 @@ export const builderChallenges: BuilderChallenge[] = [
     tool: 'cassandra',
     brief: tr(
       [
-        'Сто тысяч датчиков на заводах присылают показания: **15 000 записей в секунду** по ключу «датчик + время». Транзакции и JOIN не нужны, зато поток растёт каждый месяц.',
+        'Сто тысяч датчиков на заводах присылают показания: **15 000 записей в секунду** по ключу «датчик + время». Транзакции и JOIN не нужны, зато поток растёт каждый месяц. Пульт диспетчера читает последнее значение конкретного датчика по ключу — быстро, точечно.',
         'Запись должна подтверждаться быстрее **50 мс**. Бюджет — **$2400**. PostgreSQL можно заменить.',
       ],
       [
-        'A hundred thousand factory sensors send readings: **15,000 writes per second** keyed by "sensor + time". No transactions or JOINs are needed, but the stream grows every month.',
+        'A hundred thousand factory sensors send readings: **15,000 writes per second** keyed by "sensor + time". No transactions or JOINs are needed, but the stream grows every month. The dispatcher console reads the latest value of a specific sensor by key: fast point lookups.',
         'A write must be acknowledged in under **50 ms**. Budget: **$2400**. PostgreSQL may be replaced.',
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Датчики', 'Sensors'), 40, 240, { rps: 15000, workload: 'kv' }),
+      n('c1', 'client', tr('Датчики', 'Sensors'), 40, 240, { rps: 15000, workload: 'kv', writeShare: 1 }),
       n('s1', 'service', 'Ingest API', 380, 240, { ...svc('light'), instances: 20 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 5 }),
     ],
@@ -786,7 +794,7 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Датчики', 'Sensors'), 40, 240, { rps: 15000, workload: 'kv' }),
+        n('c1', 'client', tr('Датчики', 'Sensors'), 40, 240, { rps: 15000, workload: 'kv', writeShare: 1 }),
         n('s1', 'service', 'Ingest API', 380, 240, { ...svc('light'), instances: 20 }),
         n('cs', 'cassandra', 'Cassandra', 760, 240, { instances: 5 }),
       ],
@@ -809,8 +817,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Поиск', 'Search'), 40, 120, { rps: 2000, workload: 'search' }),
-      n('c2', 'client', tr('Карточки', 'Listing cards'), 40, 360, { rps: 1000, workload: 'oltp' }),
+      n('c1', 'client', tr('Поиск', 'Search'), 40, 120, { rps: 2000, workload: 'search', writeShare: 0 }),
+      n('c2', 'client', tr('Карточки', 'Listing cards'), 40, 360, { rps: 1000, workload: 'oltp', writeShare: 0.05 }),
       n('s1', 'service', tr('Объявления', 'Listings'), 380, 240, { ...svc('light'), instances: 4 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 2 }),
     ],
@@ -855,8 +863,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Поиск', 'Search'), 40, 120, { rps: 2000, workload: 'search' }),
-        n('c2', 'client', tr('Карточки', 'Listing cards'), 40, 360, { rps: 1000, workload: 'oltp' }),
+        n('c1', 'client', tr('Поиск', 'Search'), 40, 120, { rps: 2000, workload: 'search', writeShare: 0 }),
+        n('c2', 'client', tr('Карточки', 'Listing cards'), 40, 360, { rps: 1000, workload: 'oltp', writeShare: 0.05 }),
         n('s1', 'service', tr('Объявления', 'Listings'), 380, 240, { ...svc('light'), instances: 4 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240, { instances: 2 }),
         n('es', 'elastic', 'Elasticsearch', 600, 420, { instances: 2 }),
@@ -885,8 +893,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Дашборд', 'Dashboard'), 40, 120, { rps: 100, workload: 'analytics' }),
-      n('c2', 'client', tr('Заказы', 'Orders'), 40, 380, { rps: 800, workload: 'oltp' }),
+      n('c1', 'client', tr('Дашборд', 'Dashboard'), 40, 120, { rps: 100, workload: 'analytics', writeShare: 0 }),
+      n('c2', 'client', tr('Заказы', 'Orders'), 40, 380, { rps: 800, workload: 'oltp', writeShare: 0.5 }),
       n('s2', 'service', 'Analytics API', 380, 120, svc('fast')),
       n('s1', 'service', 'Orders API', 380, 380, { ...svc('fast'), instances: 5 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240),
@@ -933,8 +941,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Дашборд', 'Dashboard'), 40, 120, { rps: 100, workload: 'analytics' }),
-        n('c2', 'client', tr('Заказы', 'Orders'), 40, 380, { rps: 800, workload: 'oltp' }),
+        n('c1', 'client', tr('Дашборд', 'Dashboard'), 40, 120, { rps: 100, workload: 'analytics', writeShare: 0 }),
+        n('c2', 'client', tr('Заказы', 'Orders'), 40, 380, { rps: 800, workload: 'oltp', writeShare: 0.5 }),
         n('s2', 'service', 'Analytics API', 380, 120, svc('fast')),
         n('s1', 'service', 'Orders API', 380, 380, { ...svc('fast'), instances: 5 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240),
@@ -964,8 +972,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ],
     ),
     nodes: [
-      n('c1', 'client', tr('Файлы', 'Files'), 40, 120, { rps: 300, workload: 'blob' }),
-      n('c2', 'client', tr('Карточки', 'Document cards'), 40, 360, { rps: 200, workload: 'oltp' }),
+      n('c1', 'client', tr('Файлы', 'Files'), 40, 120, { rps: 300, workload: 'blob', writeShare: 0.3 }),
+      n('c2', 'client', tr('Карточки', 'Document cards'), 40, 360, { rps: 200, workload: 'oltp', writeShare: 0.05 }),
       n('s1', 'service', 'Documents API', 380, 240, { ...svc('fast'), instances: 3 }),
       n('d1', 'postgres', 'PostgreSQL', 760, 240),
     ],
@@ -1009,8 +1017,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Файлы', 'Files'), 40, 120, { rps: 300, workload: 'blob' }),
-        n('c2', 'client', tr('Карточки', 'Document cards'), 40, 360, { rps: 200, workload: 'oltp' }),
+        n('c1', 'client', tr('Файлы', 'Files'), 40, 120, { rps: 300, workload: 'blob', writeShare: 0.3 }),
+        n('c2', 'client', tr('Карточки', 'Document cards'), 40, 360, { rps: 200, workload: 'oltp', writeShare: 0.05 }),
         n('s1', 'service', 'Documents API', 380, 240, { ...svc('fast'), instances: 3 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 240),
         n('s3', 's3', 'S3', 600, 420),
@@ -1049,8 +1057,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     },
     nodes: [
-      n('c1', 'client', tr('Переходы', 'Redirects'), 40, 140, { rps: 2315, workload: 'kv' }),
-      n('c2', 'client', tr('Создание ссылок', 'Link creation'), 40, 340, { rps: 232, workload: 'kv' }),
+      n('c1', 'client', tr('Переходы', 'Redirects'), 40, 140, { rps: 2315, workload: 'kv', writeShare: 0 }),
+      n('c2', 'client', tr('Создание ссылок', 'Link creation'), 40, 340, { rps: 232, workload: 'kv', writeShare: 1 }),
     ],
     edges: [],
     budget: 800,
@@ -1088,8 +1096,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.9 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Переходы', 'Redirects'), 40, 140, { rps: 2315, workload: 'kv' }),
-        n('c2', 'client', tr('Создание ссылок', 'Link creation'), 40, 340, { rps: 232, workload: 'kv' }),
+        n('c1', 'client', tr('Переходы', 'Redirects'), 40, 140, { rps: 2315, workload: 'kv', writeShare: 0 }),
+        n('c2', 'client', tr('Создание ссылок', 'Link creation'), 40, 340, { rps: 232, workload: 'kv', writeShare: 1 }),
         n('l1', 'lb', 'LB', 220, 240),
         n('s1', 'service', 'Shortener', 420, 240, { ...svc('light'), instances: 5 }),
         n('k1', 'cache', 'Redis', 620, 140, { hitRatio: 0.9 }),
@@ -1108,8 +1116,8 @@ export const builderChallenges: BuilderChallenge[] = [
     group: 'System Design',
     brief: [
       tr(
-        'Соцсеть: **50 млн** активных пользователей в день, каждый открывает ленту **10 раз**. В пике нагрузка вдвое выше средней. Публикуют посты гораздо реже — около **120 в секунду** в пике, но каждый пост нужно разложить по лентам подписчиков. Лента должна открываться быстрее **50 мс**. Бюджет — **$2400**.',
-        'A social network: **50M** daily active users, each opening the feed **10 times**. Peak load is twice the average. Posts are published far less often — about **120 per second** at peak — but each post must be fanned out to followers\' feeds. The feed must load in under **50 ms**. Budget: **$2400**.',
+        'Соцсеть: **50 млн** активных пользователей в день, каждый открывает ленту **10 раз**. В пике нагрузка вдвое выше средней. Публикуют посты гораздо реже — около **120 в секунду** в пике, но каждый пост нужно разложить по лентам подписчиков, а их у автора в среднем **200**. Лента должна открываться быстрее **50 мс**. Бюджет — **$3400**.',
+        'A social network: **50M** daily active users, each opening the feed **10 times**. Peak load is twice the average. Posts are published far less often — about **120 per second** at peak — but each post must be fanned out to followers\' feeds, and an author has **200** followers on average. The feed must load in under **50 ms**. Budget: **$3400**.',
       ),
     ],
     estimate: {
@@ -1122,24 +1130,25 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     },
     nodes: [
-      n('c1', 'client', tr('Чтение ленты', 'Feed reads'), 40, 140, { rps: 11574, workload: 'kv' }),
-      n('c2', 'client', tr('Публикация постов', 'Post publishing'), 40, 380, { rps: 120, workload: 'oltp' }),
+      n('c1', 'client', tr('Чтение ленты', 'Feed reads'), 40, 140, { rps: 11574, workload: 'kv', writeShare: 0 }),
+      n('c2', 'client', tr('Публикация постов', 'Post publishing'), 40, 380, { rps: 120, workload: 'oltp', writeShare: 1, fanout: 200 }),
     ],
     edges: [],
-    budget: 2400,
+    budget: 3400,
     locked: ['c1', 'c2'],
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Лента ≤ 50 мс', 'Feed ≤ 50 ms'), check: lat('c1', 50) },
       { text: tr('Публикация не ждёт рассылки по лентам (≤ 100 мс)', 'Publishing doesn\'t wait for posts to reach followers\' feeds (≤ 100 ms)'), check: lat('c2', 100) },
+      { text: tr('Каждый пост разложен по лентам подписчиков', 'Every post is fanned out to followers’ feeds'), check: (r) => r.fanoutDelivered },
       { text: tr('Раскладка постов по лентам не отстаёт', 'Distributing posts to feeds keeps up'), check: (r) => r.backlogGrowth < 1 },
       { text: tr('Посты и ленты сохраняются', 'Posts and feeds are persisted'), check: persisted('c1', 'c2') },
     ],
     paths: [],
     hints: [
       tr(
-        'Чтение и запись здесь — разные задачи. Ленту читают по ключу (id пользователя) 11 тысяч раз в секунду, а посты — это транзакционные данные. Хранить их в одном месте не обязательно.',
-        'Reads and writes are different jobs here. Feeds are read by key (user id) 11,000 times per second, while posts are transactional data. They don\'t have to live in the same place.',
+        'Чтение и запись здесь — разные задачи. Ленту читают по ключу (id пользователя) 11 тысяч раз в секунду, а посты — это транзакционные данные. Хранить их в одном месте не обязательно. Посчитайте и запись в ленты: 120 постов × 200 подписчиков.',
+        'Reads and writes are different jobs here. Feeds are read by key (user id) 11,000 times per second, while posts are transactional data. They don\'t have to live in the same place. Count the feed writes too: 120 posts × 200 followers.',
       ),
       tr(
         'Публикация не должна ждать, пока пост разложат по лентам всех подписчиков. Ей нужно отдать работу кому-то, кто сделает это позже, но гарантированно.',
@@ -1152,8 +1161,8 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     debrief: [
       tr(
-        'Это CQRS в чистом виде: путь записи (пост в PostgreSQL, событие в очередь, воркеры раскладывают по лентам) и путь чтения (готовая лента из кэша и Cassandra) масштабируются независимо.',
-        'This is CQRS in its purest form: the write path (post to PostgreSQL, event to a queue, workers fan out to feeds) and the read path (precomputed feed from the cache and Cassandra) scale independently.',
+        'Это CQRS в чистом виде: путь записи (пост в PostgreSQL, событие в очередь, воркеры раскладывают по лентам) и путь чтения (готовая лента из кэша и Cassandra) масштабируются независимо. Цена готовых лент — усиление записи: 120 постов превращаются в 24 000 записей в секунду, поэтому хранилище лент должно масштабировать запись узлами, а не репликами.',
+        'This is CQRS in its purest form: the write path (post to PostgreSQL, event to a queue, workers fan out to feeds) and the read path (precomputed feed from the cache and Cassandra) scale independently. The price of precomputed feeds is write amplification: 120 posts become 24,000 writes per second, so the feed store must scale writes with nodes, not replicas.',
       ),
       tr(
         'На интервью обязательно всплывают знаменитости с миллионами подписчиков: для них fan-out on write слишком дорог, их посты подмешивают в ленту при чтении (гибридная модель).',
@@ -1163,12 +1172,12 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.9 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Чтение ленты', 'Feed reads'), 40, 140, { rps: 11574, workload: 'kv' }),
-        n('c2', 'client', tr('Публикация постов', 'Post publishing'), 40, 380, { rps: 120, workload: 'oltp' }),
+        n('c1', 'client', tr('Чтение ленты', 'Feed reads'), 40, 140, { rps: 11574, workload: 'kv', writeShare: 0 }),
+        n('c2', 'client', tr('Публикация постов', 'Post publishing'), 40, 380, { rps: 120, workload: 'oltp', writeShare: 1, fanout: 200 }),
         n('l1', 'lb', 'LB', 220, 140),
-        n('s1', 'service', 'Feed API', 400, 140, { ...svc('light'), instances: 20 }),
+        n('s1', 'service', 'Feed API', 400, 140, { ...svc('light'), instances: 14 }),
         n('k1', 'cache', 'Redis', 600, 60, { hitRatio: 0.9 }),
-        n('d1', 'cassandra', tr('Ленты', 'Feeds'), 820, 160),
+        n('d1', 'cassandra', tr('Ленты', 'Feeds'), 820, 160, { instances: 8 }),
         n('s2', 'service', 'Post API', 220, 380, svc('fast')),
         n('d2', 'postgres', tr('Посты', 'Posts'), 420, 460),
         n('q1', 'queue', 'Kafka', 420, 300),
@@ -1200,7 +1209,7 @@ export const builderChallenges: BuilderChallenge[] = [
         '10M ÷ 86,400 ≈ 116 per second on average; × 25 at campaign peak ≈ 2,900',
       ),
     },
-    nodes: [n('c1', 'client', tr('Сервисы-отправители', 'Sender services'), 40, 240, { rps: 2894, workload: 'kv' })],
+    nodes: [n('c1', 'client', tr('Сервисы-отправители', 'Sender services'), 40, 240, { rps: 2894, workload: 'kv', writeShare: 1 })],
     edges: [],
     budget: 2800,
     locked: ['c1'],
@@ -1217,18 +1226,18 @@ export const builderChallenges: BuilderChallenge[] = [
         'The sender does not need to wait 300 ms for the provider — it only needs "accepted". What breaks the synchronous chain and guarantees the notification is not lost?',
       ),
       tr(
-        'Воркеры отправки — это «внешний API»: 100 rps на экземпляр. Сколько их нужно, чтобы не отставать от пика?',
-        'Delivery workers are an "external API": 100 rps per instance. How many do you need to keep up with the peak?',
+        'Провайдер держит 100 запросов в секунду на соединение, и упираетесь вы в соединения, а не в процессор: у воркеров отправки профиль «внешний API». Сколько соединений нужно, чтобы не отставать от пика?',
+        'The provider handles 100 requests per second per connection, and you are limited by connections, not CPU: delivery workers use the "external API" profile. How many connections do you need to keep up with the peak?',
       ),
       tr(
-        'Журнал отправок — огромный непрерывный поток записей по ключу, которые почти никогда не меняются. Выберите хранилище, для которого это родной профиль.',
-        'The delivery log is a huge continuous stream of keyed writes that almost never change. Pick the storage for which this is the native workload.',
+        'Журнал отправок — огромный непрерывный поток записей по ключу, которые почти никогда не меняются. Выберите хранилище, для которого это родной профиль, и подумайте, кто знает, что уведомление действительно ушло.',
+        'The delivery log is a huge continuous stream of keyed writes that almost never change. Pick the storage for which this is the native workload, and think about who knows the notification actually went out.',
       ),
     ],
     debrief: [
       tr(
-        'Очередь здесь и буфер для пиков, и гарантия доставки: уведомление записано в Kafka — значит, оно уже не потеряется. Воркеры масштабируются под пропускную способность провайдеров.',
-        'Here the queue is both a peak buffer and a delivery guarantee: once a notification is written to Kafka, it won\'t be lost. Workers scale to match provider throughput.',
+        'Очередь здесь и буфер для пиков, и гарантия доставки: уведомление записано в Kafka — значит, оно уже не потеряется. Это единственная запись при приёме: если API писал бы ещё и в базу, получилась бы двойная запись без outbox — одна из двух может не случиться. Журнал пишут воркеры после ответа провайдера, тогда в нём правда, а не намерение.',
+        'Here the queue is both a peak buffer and a delivery guarantee: once a notification is written to Kafka, it won\'t be lost. That is the only write on intake: if the API also wrote to the database, you would have a dual write without an outbox, and one of the two might not happen. Workers write the log after the provider responds, so it records facts, not intentions.',
       ),
       tr(
         'На интервью добавляют ретраи с backoff, дедупликацию (одно уведомление дважды раздражает), лимиты частоты на пользователя и приоритеты: код подтверждения важнее рассылки.',
@@ -1238,13 +1247,13 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: {},
     solution: {
       nodes: [
-        n('c1', 'client', tr('Сервисы-отправители', 'Sender services'), 40, 240, { rps: 2894, workload: 'kv' }),
+        n('c1', 'client', tr('Сервисы-отправители', 'Sender services'), 40, 240, { rps: 2894, workload: 'kv', writeShare: 1 }),
         n('s1', 'service', 'Notification API', 240, 240, { ...svc('light'), instances: 5 }),
         n('d1', 'cassandra', tr('Журнал', 'Log'), 440, 400),
         n('q1', 'queue', 'Kafka', 440, 140),
         n('s2', 'service', tr('Воркеры отправки', 'Delivery workers'), 700, 140, { ...svc('external'), instances: 30 }),
       ],
-      edges: [...chain('c1', 's1', 'd1'), ...chain('s1', 'q1', 's2')],
+      edges: [...chain('c1', 's1', 'q1', 's2', 'd1')],
     },
   },
   {
@@ -1253,8 +1262,8 @@ export const builderChallenges: BuilderChallenge[] = [
     group: 'System Design',
     brief: [
       tr(
-        '**5 млн** зрителей в день смотрят в среднем по **30 минут**. Видео отдаётся сегментами по **10 секунд**, вечерний пик втрое выше среднего. Загружают немного — около 5 видео в секунду, но каждое нужно перекодировать в несколько качеств. Каталог (названия, описания, лайки) — ещё **1500 rps**. Сегмент должен начинать отдаваться быстрее **30 мс**. Бюджет — **$1600**.',
-        '**5M** viewers per day watch **30 minutes** on average. Video is served in **10-second** segments, and the evening peak is three times the average. Uploads are few — about 5 videos per second — but each must be transcoded into several qualities. The catalog (titles, descriptions, likes) adds another **1,500 rps**. A segment must start streaming in under **30 ms**. Budget: **$1600**.',
+        '**5 млн** зрителей в день смотрят в среднем по **30 минут**. Видео отдаётся сегментами по **10 секунд**, вечерний пик втрое выше среднего. Загружают немного — около 5 видео в секунду, но каждое нужно перекодировать в несколько качеств: это минуты процессора на видео, своя ферма обошлась бы дороже всего бюджета. Перекодирование отдают облачному транскодеру — это внешний API: он принимает задание за 300 мс, а готовые файлы сам кладёт в хранилище. Каталог (названия, описания, лайки) — ещё **1500 rps**. Сегмент должен начинать отдаваться быстрее **30 мс**. Бюджет — **$1600**.',
+        '**5M** viewers per day watch **30 minutes** on average. Video is served in **10-second** segments, and the evening peak is three times the average. Uploads are few — about 5 videos per second — but each must be transcoded into several qualities: minutes of CPU per video, and an in-house farm would cost more than the whole budget. Transcoding is handed to a cloud transcoder, an external API: it accepts a job in 300 ms and puts the finished files into storage itself. The catalog (titles, descriptions, likes) adds another **1,500 rps**. A segment must start streaming in under **30 ms**. Budget: **$1600**.',
       ),
     ],
     estimate: {
@@ -1267,9 +1276,9 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     },
     nodes: [
-      n('c1', 'client', tr('Просмотр', 'Viewing'), 40, 100, { rps: 31250, workload: 'blob' }),
-      n('c2', 'client', tr('Загрузка', 'Uploads'), 40, 260, { rps: 5, workload: 'blob' }),
-      n('c3', 'client', tr('Каталог', 'Catalog'), 40, 420, { rps: 1500, workload: 'oltp' }),
+      n('c1', 'client', tr('Просмотр', 'Viewing'), 40, 100, { rps: 31250, workload: 'blob', writeShare: 0 }),
+      n('c2', 'client', tr('Загрузка', 'Uploads'), 40, 260, { rps: 5, workload: 'blob', writeShare: 1 }),
+      n('c3', 'client', tr('Каталог', 'Catalog'), 40, 420, { rps: 1500, workload: 'oltp', writeShare: 0.02 }),
     ],
     edges: [],
     budget: 1600,
@@ -1291,8 +1300,8 @@ export const builderChallenges: BuilderChallenge[] = [
         '31,000 segments per second from a single place is slow and expensive, and the goal is 30 ms. Popular videos are watched millions of times — keep copies close to the viewers.',
       ),
       tr(
-        'Перекодирование занимает минуты. Загрузка должна передать эту работу дальше и сразу ответить, а тяжёлые обработчики — разбирать задания в своём темпе.',
-        'Transcoding takes minutes. The upload must pass that work on and reply immediately, while heavy workers process the jobs at their own pace.',
+        'Перекодирование занимает минуты. Загрузка должна передать эту работу дальше и сразу ответить, а обработчик — отдавать задания транскодеру в своём темпе.',
+        'Transcoding takes minutes. The upload must pass that work on and reply immediately, while a worker hands jobs to the transcoder at its own pace.',
       ),
     ],
     debrief: [
@@ -1304,18 +1313,22 @@ export const builderChallenges: BuilderChallenge[] = [
         'Загрузка — асинхронный конвейер: файл в S3, событие в очередь, воркеры перекодируют в разные качества. На интервью обсуждают адаптивный битрейт (HLS/DASH), предподписанные ссылки на загрузку и стоимость трафика CDN.',
         'Upload is an asynchronous pipeline: file to S3, event to a queue, workers transcode into different qualities. Interviews cover adaptive bitrate (HLS/DASH), presigned upload URLs and CDN traffic costs.',
       ),
+      tr(
+        'Бюджет схемы — это серверы. Главные статьи расходов настоящего видеохостинга в него не вошли: перекодирование (минуты процессора или GPU на каждое видео) и трафик CDN — 31 тысяча сегментов в секунду это десятки гигабайт в секунду, счёт на сотни тысяч долларов в месяц.',
+        'The diagram budget covers servers. The main costs of a real video host are not in it: transcoding (minutes of CPU or GPU per video) and CDN traffic, where 31,000 segments per second is tens of gigabytes per second and a bill in the hundreds of thousands of dollars a month.',
+      ),
     ],
     hitRatio: { cache: 0.8, cdn: 0.95 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Просмотр', 'Viewing'), 40, 100, { rps: 31250, workload: 'blob' }),
-        n('c2', 'client', tr('Загрузка', 'Uploads'), 40, 260, { rps: 5, workload: 'blob' }),
-        n('c3', 'client', tr('Каталог', 'Catalog'), 40, 420, { rps: 1500, workload: 'oltp' }),
+        n('c1', 'client', tr('Просмотр', 'Viewing'), 40, 100, { rps: 31250, workload: 'blob', writeShare: 0 }),
+        n('c2', 'client', tr('Загрузка', 'Uploads'), 40, 260, { rps: 5, workload: 'blob', writeShare: 1 }),
+        n('c3', 'client', tr('Каталог', 'Catalog'), 40, 420, { rps: 1500, workload: 'oltp', writeShare: 0.02 }),
         n('cdn', 'cdn', 'CDN', 260, 60, { hitRatio: 0.95 }),
         n('s3', 's3', 'S3', 820, 120),
         n('up', 'service', 'Upload API', 260, 260, svc('fast')),
         n('q1', 'queue', 'Kafka', 460, 260),
-        n('tr', 'service', tr('Перекодирование', 'Transcoding'), 640, 260, svc('heavy')),
+        n('tr', 'service', tr('Облачный транскодер', 'Cloud transcoder'), 640, 260, svc('external')),
         n('ms', 'service', 'Catalog API', 260, 420, { ...svc('fast'), instances: 8 }),
         n('k1', 'cache', 'Redis', 460, 420, { hitRatio: 0.8 }),
         n('pg', 'postgres', 'PostgreSQL', 660, 440),
@@ -1348,8 +1361,8 @@ export const builderChallenges: BuilderChallenge[] = [
       ),
     },
     nodes: [
-      n('c1', 'client', tr('Подсказки', 'Suggestions'), 40, 160, { rps: 9259, workload: 'search' }),
-      n('c2', 'client', tr('Аналитика трендов', 'Trend analytics'), 40, 400, { rps: 50, workload: 'analytics' }),
+      n('c1', 'client', tr('Подсказки', 'Suggestions'), 40, 160, { rps: 9259, workload: 'search', writeShare: 0 }),
+      n('c2', 'client', tr('Аналитика трендов', 'Trend analytics'), 40, 400, { rps: 50, workload: 'analytics', writeShare: 0 }),
     ],
     edges: [],
     budget: 2400,
@@ -1388,8 +1401,8 @@ export const builderChallenges: BuilderChallenge[] = [
     hitRatio: { cache: 0.8 },
     solution: {
       nodes: [
-        n('c1', 'client', tr('Подсказки', 'Suggestions'), 40, 160, { rps: 9259, workload: 'search' }),
-        n('c2', 'client', tr('Аналитика трендов', 'Trend analytics'), 40, 400, { rps: 50, workload: 'analytics' }),
+        n('c1', 'client', tr('Подсказки', 'Suggestions'), 40, 160, { rps: 9259, workload: 'search', writeShare: 0 }),
+        n('c2', 'client', tr('Аналитика трендов', 'Trend analytics'), 40, 400, { rps: 50, workload: 'analytics', writeShare: 0 }),
         n('l1', 'lb', 'LB', 220, 160),
         n('s1', 'service', 'Suggest API', 400, 160, { ...svc('light'), instances: 16 }),
         n('k1', 'cache', 'Redis', 600, 80, { hitRatio: 0.8 }),

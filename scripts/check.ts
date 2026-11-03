@@ -133,6 +133,29 @@ console.log('\nЛовушки конструктора')
     ],
   ])
   trap('tickets', 'воркеров 20 — перегрев БД', (n, e) => [set(n, 'w1', { instances: 20 }), e])
+  trap('tickets', 'Redis вместо очереди', (n) => [
+    [...n.filter((x) => x.id !== 'q1' && x.id !== 'w1'), { id: 'k9', kind: 'cache', label: 'Redis', x: 600, y: 240, instances: 3, hitRatio: 0.8 }],
+    [
+      { id: 'e1', from: 'c1', to: 'g1' },
+      { id: 'e2', from: 'g1', to: 's1' },
+      { id: 'e3', from: 's1', to: 'k9' },
+      { id: 'e4', from: 'k9', to: 'd1' },
+    ],
+  ])
+  trap('tickets', 'без очереди, PostgreSQL на 8 шардах', (n) => [
+    set(n.filter((x) => x.id !== 'q1' && x.id !== 'w1'), 'd1', { shards: 8 }),
+    [
+      { id: 'e1', from: 'c1', to: 'g1' },
+      { id: 'e2', from: 'g1', to: 's1' },
+      { id: 'e3', from: 's1', to: 'd1' },
+    ],
+  ])
+  trap('feed', 'fan-out синхронно из Post API', (n, e) => [
+    n.filter((x) => x.id !== 'q1' && x.id !== 's3'),
+    [...e.filter((x) => !['s2', 'q1', 's3'].includes(x.from) || (x.from === 's2' && x.to === 'd2')), { id: 'z1', from: 's2', to: 'd1' }],
+  ])
+  trap('feed', 'Cassandra на одной ноде', (n, e) => [set(n, 'd1', { instances: 1 }), e])
+  trap('feed', 'ленты в PostgreSQL постов', (n, e) => [n.filter((x) => x.id !== 'd1'), e.map((x) => (x.to === 'd1' ? { ...x, to: 'd2' } : x)).filter((x) => x.from !== 'k1')])
   trap('tickets', 'воркеров 8 — очередь растёт', (n, e) => [set(n, 'w1', { instances: 8 }), e])
   trap('revenue-dashboard', 'Elasticsearch вместо ClickHouse', (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind: 'elastic' as const } : x)), e])
   trap('sensor-stream', 'MongoDB вместо Cassandra', (n, e) => [n.map((x) => (x.id === 'cs' ? { ...x, kind: 'mongo' as const, instances: 6 } : x)), e])
@@ -209,10 +232,11 @@ console.log('\nМодель конструктора: тупиковые бло�
   console.log(`- без базы: сервис ${noDb.clientSuccess}, сервис + кэш ${onlyRedis.clientSuccess}; внешний API ${ext.clientSuccess}`)
   const q = leaf('queue')
   if (q.backlogGrowth < 99) fail(`очередь без потребителей не копит сообщения: ${q.backlogGrowth}`)
-  // cache-aside: сервис → Redis и сервис → БД; в БД доходят только промахи
+  // cache-aside: сервис → Redis и сервис → БД; в БД доходят только промахи чтения
+  const reader = { ...client, workload: 'oltp' as const, writeShare: 0 }
   const aside = simulate(
     [
-      client,
+      reader,
       { id: 's', kind: 'service', label: 's', x: 200, y: 0, instances: 1, capacity: 300, latency: 20 },
       { id: 'k', kind: 'cache', label: 'k', x: 400, y: 0, instances: 1, hitRatio: 0.8 },
       { id: 'd', kind: 'postgres', label: 'd', x: 400, y: 200, instances: 1 },
@@ -226,6 +250,34 @@ console.log('\nМодель конструктора: тупиковые бло�
   if (Math.abs(aside.nodes.d.in - 20) > 1e-6) fail(`cache-aside: в БД дошло ${aside.nodes.d.in} rps вместо 20`)
   if (!aside.persisted.c) fail('cache-aside: данные клиента не доходят до хранилища')
   console.log(`- cache-aside: в БД ${Math.round(aside.nodes.d.in)} из 100 rps`)
+
+  // запись: кэш её не закрывает, реплики не масштабируют, машина крупнее и шарды — масштабируют
+  const db = (extra: object, rps: number, writeShare: number) =>
+    simulate(
+      [
+        { ...client, workload: 'oltp' as const, rps, writeShare },
+        { id: 's', kind: 'service', label: 's', x: 200, y: 0, instances: 40, capacity: 300, latency: 20 },
+        { id: 'k', kind: 'cache', label: 'k', x: 400, y: 0, instances: 1, hitRatio: 0.8 },
+        { id: 'd', kind: 'postgres', label: 'd', x: 400, y: 200, instances: 1, ...extra },
+      ],
+      [
+        { id: 'e1', from: 'c', to: 's' },
+        { id: 'e2', from: 's', to: 'k' },
+        { id: 'e3', from: 's', to: 'd' },
+      ],
+    ).nodes.d
+  const writesThrough = db({}, 100, 1)
+  if (Math.abs(writesThrough.in - 100) > 1e-6) fail(`запись прошла мимо кэша не целиком: ${writesThrough.in} из 100`)
+  const replicas = db({ instances: 5 }, 1500, 1)
+  if (replicas.util < 1.4) fail(`реплики масштабируют запись: загрузка ${replicas.util.toFixed(2)} при 1500 записях и 5 узлах`)
+  const bigger = db({ size: 2 }, 1500, 1)
+  const sharded = db({ shards: 3 }, 1500, 1)
+  if (bigger.util > 0.8 || sharded.util > 0.8) fail(`машина крупнее или шарды не масштабируют запись: ${bigger.util.toFixed(2)} / ${sharded.util.toFixed(2)}`)
+  const readsOnReplicas = db({ instances: 5 }, 4000, 0)
+  if (readsOnReplicas.util > 0.9) fail(`реплики не масштабируют чтение: ${readsOnReplicas.util.toFixed(2)}`)
+  console.log(
+    `- запись: 1500 rps на primary + 4 реплики → ${Math.round(replicas.util * 100)}%, машина ×2 → ${Math.round(bigger.util * 100)}%, 3 шарда → ${Math.round(sharded.util * 100)}%; чтение 4000 на 5 узлах → ${Math.round(readsOnReplicas.util * 100)}%`,
+  )
   console.log(`- шлюз ${gw.clientSuccess}, балансировщик ${lb.clientSuccess}, кэш ${cache.clientSuccess}, рост очереди ${q.backlogGrowth}/с`)
 }
 

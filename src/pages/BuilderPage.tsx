@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
+  SIZES,
   WORKLOADS,
+  baseCapacity,
+  nodeCost,
+  scaleText,
+  writeCapacity,
   isStorage,
   pathBetween,
   reaches,
@@ -25,6 +31,7 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
+import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { markScenario, recordStars, cappedStars, useHints } from '../progress'
 import { tr } from '../i18n'
 import { TaskGate, TaskLevelTag } from '../components/Level'
@@ -203,6 +210,19 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const closePopover = useCallback(() => setSelected(null), [])
+  const addRef = useRef<HTMLDivElement>(null)
+  // меню «Добавить компонент» закрывается от любого клика мимо него — как обычное выпадающее меню
+  useEffect(() => {
+    if (!addOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!addRef.current?.contains(e.target as Node)) setAddOpen(false)
+    }
+    // в фазе погружения: блоки на холсте останавливают всплытие, а меню должно закрыться и от щелчка по ним
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [addOpen])
   /** Где на холсте выбранный элемент (в координатах схемы 1000×540) */
   const anchorOf = (n?: BNode, e?: BEdge) => {
     if (n) return { x: n.x, y: n.y, w: NODE_W, h: NODE_H }
@@ -297,6 +317,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       <div className="builder-grid">
 
         <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
+          <div ref={addRef}>
           <div className="add-bar">
             <button className={'add-btn' + (addOpen ? ' primary' : '')} onClick={() => setAddOpen(!addOpen)} aria-expanded={addOpen}>
               ＋ {tr('Добавить компонент', 'Add a component')}
@@ -345,8 +366,15 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
             )}
           </p>
+          <p className="small muted">
+            {tr(
+              'Числа условные: настоящий PostgreSQL на простых запросах держит в разы больше. Важны пропорции и то, что во что упирается.',
+              'The numbers are stylized: a real PostgreSQL handles several times more on simple queries. What matters is the proportions and what limits what.',
+            )}
+          </p>
             </div>
           )}
+          </div>
           <div className="builder-stats">
             <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
             <Stat
@@ -411,11 +439,13 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               setAddOpen(false)
             }}
             traces={traffic.inFlight}
+            onDragging={setDragging}
           />
-          {(selNode || selEdge) && (
+          {(selNode || selEdge) && !dragging && (
             <ElementPopover
               anchor={anchorOf(selNode, selEdge)}
               wrap={wrapRef.current}
+              onClose={closePopover}
               tone={selNode ? nodeStatus(selNode, result.nodes[selNode.id], !estimated).tone : edgeStatus(selEdge!, result, nodes, !estimated).tone}
             >
               {selEdge && (
@@ -444,15 +474,19 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                     </button>
                   </div>
                   <StatusBadge {...nodeStatus(selNode, result.nodes[selNode.id], !estimated)} />
-                  <NodeProps
-                    node={selNode}
-                    hideLoad={!estimated}
-                    fixedHit={challenge ? challenge.hitRatio : null}
-                    stats={result.nodes[selNode.id]}
-                    locked={locked(selNode.id)}
-                    patch={(p) => patch(selNode.id, p)}
-                    remove={remove}
-                  />
+                  {(['settings', 'load'] as const).map((tab) => (
+                    <NodeProps
+                      key={tab}
+                      tab={tab}
+                      node={selNode}
+                      hideLoad={!estimated}
+                      fixedHit={challenge ? challenge.hitRatio : null}
+                      stats={result.nodes[selNode.id]}
+                      locked={locked(selNode.id)}
+                      patch={(p) => patch(selNode.id, p)}
+                      remove={remove}
+                    />
+                  ))}
                   {estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
                 </>
               )}
@@ -476,7 +510,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; budget?: number }) {
   const lines = nodes
     .filter((n) => KINDS[n.kind].cost > 0)
-    .map((n) => ({ text: `${KINDS[n.kind].icon} ${n.label} ×${n.instances}`, cost: KINDS[n.kind].cost * n.instances }))
+    .map((n) => ({ text: `${KINDS[n.kind].icon} ${n.label} ${scaleText(n)}`, cost: nodeCost(n) }))
     .sort((a, b) => b.cost - a.cost)
   const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : tr('Пока ничего не стоит', 'Nothing costs anything yet')
   const tone = budget === undefined ? undefined : total > budget ? 'bad' : total > budget * 0.85 ? 'warn' : 'ok'
@@ -519,9 +553,11 @@ function NodeProps({
   remove,
   hideLoad,
   fixedHit,
+  tab,
 }: {
   hideLoad: boolean
   fixedHit: BuilderChallenge['hitRatio'] | null
+  tab: 'settings' | 'load'
   node: BNode
   stats?: ReturnType<typeof simulate>['nodes'][string]
   locked: boolean
@@ -532,9 +568,8 @@ function NodeProps({
   const profile = SERVICE_PROFILES.find((p) => p.capacity === node.capacity && p.latency === node.latency)
   return (
     <div>
-      <div className="small muted">
-        {spec.icon} {spec.title}
-      </div>
+      {tab === 'settings' && (
+      <>
       <label>
         {tr('название', 'name')}
         <input type="text" value={node.label} onChange={(e) => patch({ label: e.target.value })} />
@@ -577,16 +612,7 @@ function NodeProps({
           </>
         )
       ) : (
-        <label>
-          {tr('экземпляров', 'instances')}: {node.instances}
-          <input
-            type="range"
-            min={1}
-            max={spec.maxInstances}
-            value={node.instances}
-            onChange={(e) => patch({ instances: +e.target.value })}
-          />
-        </label>
+        <Scaling node={node} patch={patch} external={profile?.id === 'external'} />
       )}
       {node.kind === 'service' && !locked && (
         <label>
@@ -632,7 +658,10 @@ function NodeProps({
             />
           </label>
         ))}
-      {KINDS[node.kind].fit && (
+      {!locked && <button onClick={remove}>{tr('Удалить блок', 'Delete block')}</button>}
+      </>
+      )}
+      {tab === 'load' && KINDS[node.kind].fit && (
         <table className="cmp small fit-table">
           <tbody>
             {(Object.keys(WORKLOADS) as Workload[]).map((w) => {
@@ -652,13 +681,19 @@ function NodeProps({
           </tbody>
         </table>
       )}
-      {stats && node.kind !== 'client' && (
+      {tab === 'load' && stats && node.kind !== 'client' && (
         <table className="cmp small">
           <tbody>
             <tr>
               <td>{tr('вход', 'input')}</td>
               <td>{hideLoad ? '?' : `${fmt(stats.in)} rps`}</td>
             </tr>
+            {!hideLoad && stats.writes > 0 && (
+              <tr>
+                <td>{tr('из них запись', 'of which writes')}</td>
+                <td>{fmt(stats.writes)} rps</td>
+              </tr>
+            )}
             {stats.unsupported > 0 && (
               <tr className="bad-text">
                 <td>{tr('не умеет', 'unsupported')}</td>
@@ -683,12 +718,11 @@ function NodeProps({
             </tr>
             <tr>
               <td>{tr('стоимость', 'cost')}</td>
-              <td>${spec.cost * node.instances}</td>
+              <td>${nodeCost(node)}</td>
             </tr>
           </tbody>
         </table>
       )}
-      {!locked && <button onClick={remove}>{tr('Удалить блок', 'Delete block')}</button>}
     </div>
   )
 }
@@ -754,45 +788,40 @@ function EstimatePanel({
 
 const POPOVER_W = 320
 
-/** Окно параметров рядом с элементом: справа от него, а если не помещается — слева */
+/**
+ * Окно параметров — колонка сбоку от элемента на всю видимую высоту: справа от него, а если не помещается — слева.
+ * Так окно не упирается в низ экрана, и прокручивать почти ничего не нужно.
+ */
 function ElementPopover({
   anchor,
   wrap,
   tone,
+  onClose,
   children,
 }: {
   anchor: { x: number; y: number; w: number; h: number }
   wrap: HTMLDivElement | null
   tone: Tone
+  onClose: () => void
   children: ReactNode
 }) {
-  // перерисовываемся при изменении размеров окна, чтобы окно держалось у элемента
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const h = () => setTick((t) => t + 1)
-    window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
-  }, [])
+  usePopoverReflow()
+  const ref = useRef<HTMLDivElement>(null)
+  useCloseOnOutside(ref, onClose, '.bnode, .bedge, .access-row, .wf-name')
   const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
-  let style: React.CSSProperties = { left: 8, top: 8 }
-  if (wrap && svg) {
-    const wr = wrap.getBoundingClientRect()
+  let style: React.CSSProperties = { left: 8, top: 72, bottom: 8 }
+  if (svg) {
     const sr = svg.getBoundingClientRect()
     const vb = svg.viewBox.baseVal
     const k = sr.width / (vb.width || 1000)
-    const ox = sr.left - wr.left + wrap.scrollLeft
-    const oy = sr.top - wr.top + wrap.scrollTop
-    const left = ox + (anchor.x - vb.x) * k
-    const top = oy + (anchor.y - vb.y) * k
-    const right = left + anchor.w * k
-    const fitsRight = right + 12 + POPOVER_W <= wrap.scrollWidth
-    const x = fitsRight ? right + 12 : Math.max(8, left - 12 - POPOVER_W)
-    style = { left: x, top: Math.max(8, top - 8) }
+    style = sideColumn(sr.left + (anchor.x - vb.x) * k, sr.left + (anchor.x + anchor.w - vb.x) * k, POPOVER_W)
   }
-  return (
-    <div className={'node-popover tone-' + tone} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
+  // через портал в body: у панелей есть backdrop-filter, и position: fixed внутри них считался бы от панели
+  return createPortal(
+    <div ref={ref} className={'node-popover tone-' + tone} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -871,3 +900,70 @@ function StatusBadge({ tone, label, detail, face }: Status) {
     </div>
   )
 }
+
+/** Масштабирование: у разных блоков — разные способы, и они дают разное */
+function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BNode>) => void; external: boolean }) {
+  const spec = KINDS[node.kind]
+  const unitLabel: Record<typeof spec.unit, string> = {
+    instances: external
+      ? tr('подключений к провайдеру', 'connections to the provider')
+      : tr('экземпляров (горизонтально)', 'instances (horizontal)'),
+    replicas: tr('узлов в шарде: primary + реплики для чтения', 'nodes per shard: primary + read replicas'),
+    nodes: tr('узлов (данные и запись делятся между ними)', 'nodes (data and writes are split across them)'),
+    brokers: tr('брокеров', 'brokers'),
+    partitions: tr('партиций (префиксов ключей)', 'partitions (key prefixes)'),
+  }
+  const unitHint: Record<typeof spec.unit, string> = {
+    instances: external
+      ? tr('Внешний API ограничен лимитом провайдера и числом подключений, а не процессором', 'An external API is limited by the provider’s rate limit and connections, not by CPU')
+      : tr('Без состояния — просто добавляйте одинаковые экземпляры', 'Stateless: just add identical instances'),
+    replicas: tr('Реплики масштабируют только чтение: вся запись идёт в primary', 'Replicas scale reads only: all writes go to the primary'),
+    nodes: tr('Масштабируется и чтение, и запись', 'Scales both reads and writes'),
+    brokers: tr('Больше брокеров — больше пропускная способность и партиций', 'More brokers means more throughput and partitions'),
+    partitions: tr('Объектное хранилище масштабируется по префиксам ключей', 'Object storage scales by key prefix'),
+  }
+  const size = node.size ?? 1
+  const shards = node.shards ?? 1
+  return (
+    <div className="scaling">
+      <label>
+        {unitLabel[spec.unit]}: {node.instances}
+        {spec.unit === 'replicas' && node.instances > 1 && <span className="muted"> (1 + {node.instances - 1})</span>}
+        <input type="range" min={1} max={spec.maxInstances} value={node.instances} onChange={(e) => patch({ instances: +e.target.value })} />
+      </label>
+      <div className="small muted">{unitHint[spec.unit]}</div>
+      {spec.vertical && (
+        <label>
+          {tr('размер машины (вертикально)', 'machine size (vertical)')}
+          <select value={size} onChange={(e) => patch({ size: +e.target.value })}>
+            {SIZES.map((x) => (
+              <option key={x} value={x}>
+                {x === 1 ? tr('обычная', 'standard') : x === SIZES[SIZES.length - 1] ? tr(`×${x} — самая большая`, `×${x}: the largest`) : `×${x}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {spec.maxShards && (
+        <>
+          <label>
+            {tr('шардов', 'shards')}: {shards}
+            <input type="range" min={1} max={spec.maxShards} value={shards} onChange={(e) => patch({ shards: +e.target.value })} />
+          </label>
+          <div className="small muted">
+            {tr(
+              'Шарды делят данные и запись. Цена — транзакции и JOIN между шардами: OLTP медленнее, аналитика заметно медленнее.',
+              'Shards split data and writes. The price is transactions and JOINs across shards: OLTP gets slower, analytics much slower.',
+            )}
+          </div>
+        </>
+      )}
+      {isStorage(node.kind) && (
+        <div className="small scaling-cap">
+          {tr('ёмкость', 'capacity')}: {tr('чтение', 'reads')} {fmt(baseCapacity(node))} rps · {tr('запись', 'writes')} {fmt(writeCapacity(node))} rps
+        </div>
+      )}
+    </div>
+  )
+}
+

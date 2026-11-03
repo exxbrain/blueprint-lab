@@ -60,14 +60,14 @@ function Lab({ task }: { task: K8sTask }) {
     }
   }, [solved, mine, task.id, stars])
 
-  // проигрывание: 8 секунд кластера в секунду
   useEffect(() => {
     if (!playing) return
     if (pos >= run.frames.length - 1) {
       setPlaying(false)
       return
     }
-    const h = setTimeout(() => setPos(pos + 1), 125)
+    // короткий сценарий — 8 секунд кластера в секунду, длинный (отказ ноды) — быстрее, чтобы уложиться в ~20 с
+    const h = setTimeout(() => setPos(pos + 1), Math.max(40, Math.min(125, 20000 / run.frames.length)))
     return () => clearTimeout(h)
   }, [playing, pos, run.frames.length])
 

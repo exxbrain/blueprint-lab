@@ -202,8 +202,8 @@ const crashloop: K8sTask = {
   ],
   debrief: [
     tr(
-      'RollingUpdate с `maxUnavailable: 0` не трогает старые поды, пока новые не прошли readiness. Сломанный релиз просто застревает (`ProgressDeadlineExceeded`), а сервис живёт на старой версии. Дальше — `kubectl rollout undo deployment/api`.',
-      'RollingUpdate with `maxUnavailable: 0` does not touch old pods until new ones pass readiness. A broken release simply gets stuck (`ProgressDeadlineExceeded`), and the service keeps running the old version. Next step: `kubectl rollout undo deployment/api`.',
+      'RollingUpdate с `maxUnavailable: 0` не трогает старые поды, пока новые не прошли readiness. Сломанный релиз просто застревает (`ProgressDeadlineExceeded`), а сервис живёт на старой версии. Дальше — `kubectl rollout undo deployment/api`. В задаче `progressDeadlineSeconds` сокращён до 60 с, по умолчанию он 600.',
+      'RollingUpdate with `maxUnavailable: 0` does not touch old pods until new ones pass readiness. A broken release simply gets stuck (`ProgressDeadlineExceeded`), and the service keeps running the old version. Next step: `kubectl rollout undo deployment/api`. In this task `progressDeadlineSeconds` is cut to 60 s; the default is 600.',
     ),
   ],
 }
@@ -299,11 +299,11 @@ const hpa: K8sTask = {
     app: app({ replicas: +c.replicas, spread: 'none', hpa: c.hpa === 'on' ? { min: 3, max: 10, target: 0.7 } : null }),
     sc: { duration: 240, nodes: nodes(4), rps: hpaRps, podRps: 200, podCpu: 400, startup: 10, portOpens: 2, versions: { v1: { mem: 400 }, v2: { mem: 400 } }, events: [] },
   }),
-  goals: [errorsBelow(0.03), { text: tr('В среднем не больше 8 подов', 'No more than 8 pods on average'), check: (t) => t.avgPods <= 8 }],
+  goals: [errorsBelow(0.04), { text: tr('В среднем не больше 8 подов', 'No more than 8 pods on average'), check: (t) => t.avgPods <= 8 }],
   hints: [tr('Нагрузка меняется в течение дня — пусть и число подов меняется.', 'The load changes during the day, so let the pod count change too.')],
   debrief: [
     tr(
-      'HPA раз в 15 секунд сравнивает загрузку CPU с целью и меняет число реплик. Цель 70%, а не 100%: новым подам нужно время на старт, запас покрывает рост, пока они поднимаются. Вниз HPA масштабирует осторожно — после нескольких минут низкой нагрузки.',
+      'HPA раз в 15 секунд сравнивает загрузку CPU с целью и меняет число реплик. Цель 70%, а не 100%: новым подам нужно время на старт, запас покрывает рост, пока они поднимаются. Вниз HPA масштабирует осторожно — после пяти минут низкой нагрузки (окно стабилизации).',
       'Every 15 seconds the HPA compares CPU utilisation with the target and changes the replica count. The target is 70%, not 100%: new pods need time to start, and the headroom covers growth while they come up. The HPA scales down cautiously, after several minutes of low load.',
     ),
   ],
@@ -452,7 +452,7 @@ const nodeFailure: K8sTask = {
   build: (c) => ({
     app: app({ replicas: +c.replicas, spread: c.spread as AppSpec['spread'] }),
     sc: {
-      duration: 120,
+      duration: 400,
       nodes: nodes(4),
       rps: flat(300),
       podRps: 200,
@@ -464,15 +464,15 @@ const nodeFailure: K8sTask = {
       initialNodes: c.spread === 'none' ? ['node-1'] : undefined,
     },
   }),
-  goals: [errorsBelow(0.03), { text: tr('Не больше 4 реплик', 'No more than 4 replicas'), check: (_t, c) => +c.replicas <= 4 }],
+  goals: [errorsBelow(0.05), { text: tr('Не больше 4 реплик', 'No more than 4 replicas'), check: (_t, c) => +c.replicas <= 4 }],
   hints: [
-    tr('Kubernetes выселяет поды с мёртвой ноды не сразу, а примерно через полминуты.', 'Kubernetes does not evict pods from a dead node right away, only after about half a minute.'),
+    tr('Kubernetes замечает мёртвую ноду через 40 секунд, а выселяет её поды только через 5 минут — всё это время замены нет.', 'Kubernetes notices a dead node after 40 seconds and evicts its pods only after 5 minutes; there is no replacement all that time.'),
     tr('Больше реплик на той же ноде не помогут.', 'More replicas on the same node will not help.'),
   ],
   debrief: [
     tr(
-      'Реплики защищают от падения пода, но не ноды, если все они на одной машине. `podAntiAffinity` по `kubernetes.io/hostname` (или `topologySpreadConstraints`) разносит реплики по нодам: падение одной стоит трети мощности на несколько секунд, а не полминуты простоя.',
-      'Replicas protect against a pod failure, but not a node failure if they all sit on one machine. `podAntiAffinity` on `kubernetes.io/hostname` (or `topologySpreadConstraints`) spreads replicas across nodes: losing one costs a third of capacity for a few seconds, not half a minute of downtime.',
+      'Реплики защищают от падения пода, но не ноды, если все они на одной машине. `podAntiAffinity` по `kubernetes.io/hostname` (или `topologySpreadConstraints`) разносит реплики по нодам. Отказ ноды Kubernetes замечает через 40 секунд (`node-monitor-grace-period`) — до этого треть запросов уходит в мёртвые поды, — а замену создаёт только через 5 минут (`tolerationSeconds: 300`). Поэтому реплик должно хватать на N−1: оставшиеся поды несут всю нагрузку эти минуты.',
+      'Replicas protect against a pod failure, but not a node failure if they all sit on one machine. `podAntiAffinity` on `kubernetes.io/hostname` (or `topologySpreadConstraints`) spreads replicas across nodes. Kubernetes notices a node failure after 40 seconds (`node-monitor-grace-period`), and until then a third of requests go to dead pods; it creates replacements only after 5 minutes (`tolerationSeconds: 300`). So you need enough replicas for N−1: the remaining pods carry the whole load for those minutes.',
     ),
   ],
 }
@@ -576,8 +576,8 @@ const noisy: K8sTask = {
   ],
   debrief: [
     tr(
-      'Изоляция в Kubernetes держится на requests и limits. Request даёт API гарантированную долю CPU, лимит на пакетную задачу не даёт ей съесть ноду целиком. Ещё лучше — отдельный пул нод для пакетных задач (taints и tolerations).',
-      'Isolation in Kubernetes relies on requests and limits. A request gives the API a guaranteed CPU share; a limit on the batch job keeps it from eating the whole node. Better still is a separate node pool for batch jobs (taints and tolerations).',
+      'Изоляция в Kubernetes держится на requests и limits. Request даёт API гарантированную долю CPU, лимит на пакетную задачу не даёт ей съесть ноду целиком — здесь хватает любой из двух мер, а надёжнее обе. Ещё лучше — отдельный пул нод для пакетных задач (taints и tolerations).',
+      'Isolation in Kubernetes relies on requests and limits. A request gives the API a guaranteed CPU share; a limit on the batch job keeps it from eating the whole node. Either measure is enough here, and both together are safer. Better still is a separate node pool for batch jobs (taints and tolerations).',
     ),
   ],
 }
@@ -647,8 +647,8 @@ const zones: K8sTask = {
   level: 4,
   brief: [
     tr(
-      'Кластер растянут на три зоны облака: в зоне **a** две ноды, в **b** и **c** — по одной. На 30-й секунде зона **a** целиком пропадает. Нагрузка — 360 rps, под держит 200. Бюджет — не больше 3 подов в среднем.',
-      'The cluster spans three cloud zones: zone **a** has two nodes, **b** and **c** have one each. At second 30 zone **a** disappears entirely. Load is 360 rps, a pod handles 200. Budget: no more than 3 pods on average.',
+      'Кластер растянут на три зоны облака: в зоне **a** две ноды, в **b** и **c** — по одной. Планировщик настроен упаковывать поды плотнее (MostAllocated), чтобы экономить ноды. На 30-й секунде зона **a** целиком пропадает. Нагрузка — 360 rps, под держит 200. Бюджет — не больше 3 подов в среднем.',
+      'The cluster spans three cloud zones: zone **a** has two nodes, **b** and **c** have one each. The scheduler is configured to pack pods tightly (MostAllocated) to save nodes. At second 30 zone **a** disappears entirely. Load is 360 rps, a pod handles 200. Budget: no more than 3 pods on average.',
     ),
   ],
   options: [
@@ -668,9 +668,9 @@ const zones: K8sTask = {
   solution: { spread: 'zone', replicas: '3' },
   build: (c) => ({
     app: app({ replicas: +c.replicas, spread: c.spread as AppSpec['spread'] }),
-    sc: { duration: 120, nodes: zoneNodes, rps: flat(360), podRps: 200, podCpu: 400, startup: 10, portOpens: 2, versions: { v1: { mem: 400 }, v2: { mem: 400 } }, events: [{ t: 30, type: 'zone-down', zone: 'a' }] },
+    sc: { duration: 400, nodes: zoneNodes, rps: flat(360), podRps: 200, podCpu: 400, startup: 10, portOpens: 2, versions: { v1: { mem: 400 }, v2: { mem: 400 } }, events: [{ t: 30, type: 'zone-down', zone: 'a' }] },
   }),
-  goals: [errorsBelow(0.03), { text: tr('В среднем не больше 3 подов', 'No more than 3 pods on average'), check: (t) => t.avgPods <= 3.2 }],
+  goals: [errorsBelow(0.05), { text: tr('В среднем не больше 3 подов', 'No more than 3 pods on average'), check: (t) => t.avgPods <= 3.2 }],
   hints: [
     tr('Разнести по нодам — не то же самое, что разнести по зонам: в одной зоне может быть несколько нод.', 'Spreading across nodes is not the same as spreading across zones: one zone can hold several nodes.'),
   ],

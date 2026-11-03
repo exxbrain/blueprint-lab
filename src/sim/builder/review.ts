@@ -1,7 +1,7 @@
 import { tr } from '../../i18n'
 import { grade, type Review, type ReviewItem } from '../review'
 import type { BuilderChallenge } from './challenges'
-import { KINDS, WORKLOADS, fitOf, isStorage, reaches, simulate, type BEdge, type BNode, type Result, type Workload } from './model'
+import { KINDS, WORKLOADS, fitOf, isStorage, nodeCost, reaches, simulate, writeCapacity, type BEdge, type BNode, type Result, type Workload } from './model'
 
 const HOT = 0.85 // выше — работает на пределе
 const IDLE = 0.3 // ниже при нескольких экземплярах — переплата
@@ -41,7 +41,7 @@ export function reviewBuilder(c: BuilderChallenge, nodes: BNode[], edges: BEdge[
     const st = r.nodes[n.id]
     if (!st) continue
     if (st.in === 0) {
-      items.push({ tone: 'warn', text: tr(`«${n.label}» не получает трафика — лишний блок ($${KINDS[n.kind].cost * n.instances})`, `“${n.label}” receives no traffic, so it is redundant ($${KINDS[n.kind].cost * n.instances})`) })
+      items.push({ tone: 'warn', text: tr(`«${n.label}» не получает трафика — лишний блок ($${nodeCost(n)})`, `“${n.label}” receives no traffic, so it is redundant ($${nodeCost(n)})`) })
       continue
     }
     // потребители за очередью могут работать «впритык»: важно лишь, чтобы очередь не росла
@@ -85,12 +85,32 @@ export function reviewBuilder(c: BuilderChallenge, nodes: BNode[], edges: BEdge[
         items.push({
           tone: 'warn',
           text: tr(
-            `«${n.label}»: ${n.instances} экз. загружены на ${Math.round(st.util * 100)}% — хватит ${need}, экономия $${KINDS[n.kind].cost * (n.instances - need)}`,
-            `“${n.label}”: ${n.instances} instances at ${Math.round(st.util * 100)}% load; ${need} would be enough, saving $${KINDS[n.kind].cost * (n.instances - need)}`,
+            `«${n.label}»: ${n.instances} экз. загружены на ${Math.round(st.util * 100)}% — хватит ${need}, экономия $${Math.round((nodeCost(n) / n.instances) * (n.instances - need))}`,
+            `“${n.label}”: ${n.instances} instances at ${Math.round(st.util * 100)}% load; ${need} would be enough, saving $${Math.round((nodeCost(n) / n.instances) * (n.instances - need))}`,
           ),
         })
     }
     if (st.deadEnd) items.push({ tone: 'warn', text: tr(`«${n.label}» — тупик: запросам некуда идти дальше`, `“${n.label}” is a dead end: requests have nowhere to go next`) })
+    // запись упирается в primary: реплики тут не помогут
+    if (isStorage(n.kind) && !KINDS[n.kind].writeScales && st.writes > 0) {
+      const wUtil = st.writes / writeCapacity(n)
+      if (wUtil > HOT)
+        items.push({
+          tone: 'warn',
+          text: tr(
+            `«${n.label}»: запись упирается в primary (${Math.round(wUtil * 100)}% его ёмкости). Реплики масштабируют только чтение — нужны шарды, машина крупнее или очередь, которая выровняет пик`,
+            `“${n.label}”: writes hit the primary’s limit (${Math.round(wUtil * 100)}% of its capacity). Replicas scale reads only; you need shards, a bigger machine or a queue that levels the peak`,
+          ),
+        })
+      else if (n.instances > 1 && st.writes / Math.max(1, st.in) > 0.9)
+        items.push({
+          tone: 'warn',
+          text: tr(
+            `«${n.label}»: почти весь поток — запись, а реплики для чтения простаивают ($${Math.round((nodeCost(n) / n.instances) * (n.instances - 1))} впустую)`,
+            `“${n.label}”: almost all traffic is writes, so the read replicas sit idle ($${Math.round((nodeCost(n) / n.instances) * (n.instances - 1))} wasted)`,
+          ),
+        })
+    }
     // хранилище не по назначению
     if (isStorage(n.kind)) {
       for (const w of Object.keys(st.vec) as Workload[]) {

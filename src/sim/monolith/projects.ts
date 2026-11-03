@@ -150,7 +150,7 @@ const SHOP_FULL_MODES = {
   'reports-catalog': 'replica',
 } as const
 
-const RESILIENCE_ONLY = ['rateLimiter', 'containers', 'circuitBreakers', 'bulkhead', 'canary', 'health'] as const
+const RESILIENCE_ONLY = ['rateLimiter', 'containers', 'circuitBreakers', 'bulkhead', 'canary', 'health', 'metrics'] as const
 
 const shopMissions: Mission[] = [
   {

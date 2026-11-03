@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
 import { href, useRoute } from './router'
 import { findModule } from './content/modules'
-import { lang, setLang, tr } from './i18n'
+import { tr } from './i18n'
+import { LangPicker } from './components/LangPicker'
 import { Home } from './pages/Home'
 import { ModulePage } from './pages/ModulePage'
 import { LessonPage } from './pages/LessonPage'
@@ -93,14 +94,7 @@ export default function App() {
           </a>
         </nav>
         <LevelBadge active={first === 'profile'} />
-        <div className="lang-switch" role="group" aria-label="Language">
-          <button className={lang === 'ru' ? 'primary' : ''} onClick={() => lang !== 'ru' && setLang('ru')}>
-            RU
-          </button>
-          <button className={lang === 'en' ? 'primary' : ''} onClick={() => lang !== 'en' && setLang('en')}>
-            EN
-          </button>
-        </div>
+        <LangPicker />
       </header>
       <Suspense fallback={<div className="page muted">{tr('Загрузка…', 'Loading…')}</div>}>
         <div key={route.join('/')}>{page}</div>

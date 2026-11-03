@@ -1,19 +1,29 @@
 /**
- * Двуязычность: язык выбирается один раз при загрузке страницы, смена языка перезагружает страницу.
- * Поэтому tr() можно вызывать где угодно — в компонентах и в данных, которые вычисляются при импорте.
+ * Языки: английский (основной), русский, китайский. Язык выбирается один раз при загрузке страницы,
+ * смена языка перезагружает страницу. Поэтому tr() можно вызывать где угодно — в компонентах и в данных,
+ * которые вычисляются при импорте.
  */
 
-export type Lang = 'ru' | 'en'
+export type Lang = 'ru' | 'en' | 'zh'
+
+/** Языки в меню выбора — названием на самом языке */
+export const LANGS: { id: Lang; name: string; short: string }[] = [
+  { id: 'en', name: 'English', short: 'EN' },
+  { id: 'ru', name: 'Русский', short: 'RU' },
+  { id: 'zh', name: '中文', short: '中文' },
+]
 
 const KEY = 'blueprint-lab-lang'
+const isLang = (v: string | null | undefined): v is Lang => v === 'ru' || v === 'en' || v === 'zh'
 
 function detect(): Lang {
   try {
     const q = new URLSearchParams(window.location.search).get('lang')
-    if (q === 'ru' || q === 'en') return q
+    if (isLang(q)) return q
     const saved = localStorage.getItem(KEY)
-    if (saved === 'ru' || saved === 'en') return saved
-    // основной язык — английский; русский включается явным выбором (?lang=ru или переключатель)
+    if (isLang(saved)) return saved
+    // основной язык — английский; китайский — если браузер на китайском; русский — явным выбором
+    if (navigator.language?.toLowerCase().startsWith('zh')) return 'zh'
     return 'en'
   } catch {
     return 'en'
@@ -22,14 +32,17 @@ function detect(): Lang {
 
 /** Текущий язык; вне браузера (npm run check) — из переменной BLUEPRINT_LANG, по умолчанию русский */
 const envLang = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.BLUEPRINT_LANG
-export const lang: Lang = typeof window === 'undefined' ? (envLang === 'en' ? 'en' : 'ru') : detect()
+export const lang: Lang = typeof window === 'undefined' ? (isLang(envLang) ? envLang : 'ru') : detect()
 
-/** Выбрать вариант текста (или любого значения, включая JSX) по текущему языку */
-export function tr<T>(ru: T, en: T): T {
-  return lang === 'en' ? en : ru
+/**
+ * Выбрать вариант текста (или любого значения, включая JSX) по текущему языку.
+ * Китайского варианта ещё нет — показывается английский: перевод добавляется частями, ничего не ломая.
+ */
+export function tr<T>(ru: T, en: T, zh?: T): T {
+  return lang === 'ru' ? ru : lang === 'zh' && zh !== undefined ? zh : en
 }
 
-export const locale = lang === 'en' ? 'en-US' : 'ru-RU'
+export const locale = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ru-RU'
 
 export function setLang(next: Lang) {
   localStorage.setItem(KEY, next)

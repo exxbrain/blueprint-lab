@@ -234,7 +234,8 @@ label.check {
 }
 .topbar nav a { flex: none; white-space: nowrap; }
 .topbar > .logo,
-.topbar > .lang-switch { flex: none; }
+.topbar > .lang-switch,
+.topbar > .lang-picker { flex: none; }
 /* дорога на карту — главная кнопка шапки, а не только значок в углу */
 .topbar nav a.nav-home {
   padding: 5px 14px;
@@ -3513,4 +3514,29 @@ body.ws-mode .page { animation: none; }
 .c4-wrap .add-menu { width: min(420px, 90vw); }
 .c4-wrap .add-menu .c4-card { display: block; width: 100%; margin: 0 0 6px; text-align: left; }
 .ws .ws-canvas { position: absolute; inset: 0; }
+
+/* выбор языка: кнопка с текущим языком и меню */
+.lang-picker { position: relative; }
+.lang-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lang-btn .lang-short { display: none; }
+.lang-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.lang-menu button { display: flex; justify-content: space-between; border: none; background: transparent; text-align: left; }
+.lang-menu button:hover { background: rgba(124, 196, 255, 0.12); }
+.lang-menu button.on { color: var(--accent); font-weight: 600; }
+@media (max-width: 640px) {
+  .lang-btn .lang-name { display: none; }
+  .lang-btn .lang-short { display: inline; }
+  .lang-btn { padding: 3px 8px; font-size: 0.8rem; }
+}
 

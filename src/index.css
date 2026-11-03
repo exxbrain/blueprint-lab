@@ -3019,3 +3019,21 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 @media (max-width: 640px) {
   .node-popover { max-height: 60vh; }
 }
+/* подсказки прямо на поле */
+.hint-dock { position: relative; margin-left: auto; }
+.hint-dock-btn { white-space: nowrap; }
+.hint-dock-card {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 25;
+  width: min(380px, 80vw);
+  max-height: 60vh;
+  overflow: auto;
+  border-color: var(--accent-2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.hint-dock-card ol { margin: 0 0 8px; padding-left: 18px; }
+.hint-dock-card li { margin-bottom: 6px; }
+.hint-dock-note { margin: 8px 0 0; }
+.c4-wrap { position: relative; }

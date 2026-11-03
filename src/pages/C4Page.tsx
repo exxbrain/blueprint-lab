@@ -15,6 +15,7 @@ import {
 } from '../sim/c4/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
+import { HintDock } from '../components/HintDock'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { markScenario, recordStars, useProgress, cappedStars, useHints } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
@@ -223,7 +224,10 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           </p>
         </aside>
 
-        <div className="panel canvas-wrap">
+        <div className="panel canvas-wrap c4-wrap">
+          <div className="add-bar">
+            <HintDock hints={ex.hints} used={hints} take={hintState.take} />
+          </div>
           <C4Canvas
             ex={ex}
             diagram={d}

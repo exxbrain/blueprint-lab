@@ -9,6 +9,7 @@ import {
   MAP_PATTERNS,
   isRightPattern,
   mapStars,
+  misplacedCards,
   partitionSolved,
   referenceState,
   reviewPartition,
@@ -130,16 +131,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
   }
 
   const pool = task.cards.filter((c) => !state.place[c.id])
-  const wrongIds = new Set<string>()
-  if (review) {
-    const major: Record<string, string | undefined> = {}
-    for (const g of state.groups) {
-      const counts: Record<string, number> = {}
-      for (const c of task.cards) if (state.place[c.id] === g.id) counts[c.ctx] = (counts[c.ctx] ?? 0) + 1
-      major[g.id] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
-    }
-    for (const c of task.cards) if (state.place[c.id] && major[state.place[c.id]] !== c.ctx) wrongIds.add(c.id)
-  }
+  // красным — те же стикеры, что названы в проверке
+  const wrongIds = new Set<string>(review ? misplacedCards(task, state).map((c) => c.id) : [])
   const dropProps = (groupId: string | null) => ({
     onDragOver: (e: React.DragEvent) => {
       if (e.dataTransfer.types.includes(CARD_MIME)) e.preventDefault()

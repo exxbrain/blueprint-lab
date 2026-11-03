@@ -158,22 +158,56 @@ export function partitionSolved(t: PartitionTask, s: PartitionState): boolean {
 }
 
 /** Какому контексту эталона соответствует группа игрока: тому, чьих карточек в ней больше всего */
-export function groupMajority(t: PartitionTask, s: PartitionState): Record<string, string | undefined> {
-  const out: Record<string, string | undefined> = {}
+/** Основы слов названия: «Корзины покупателя» → корзи, покуп. Хватает, чтобы узнать контекст в имени группы */
+function stems(name: string): string[] {
+  return name
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .split(/[^a-zа-я0-9]+/)
+    .filter((w) => w.length >= 3 && w !== 'and')
+    .map((w) => w.slice(0, 5))
+}
+
+/** Контекст, который игрок сам назвал в имени группы, — если он однозначен и его стикеры в группе есть */
+function namedContext(t: PartitionTask, name: string, present: Set<string>): string | undefined {
+  const mine = new Set(stems(name))
+  if (!mine.size) return
+  const candidates = t.contexts.filter((c) => present.has(c.id))
+  // сначала — все слова названия контекста есть в имени группы, потом — хотя бы первое
+  for (const fits of [(c: DddContext) => stems(c.name).every((w) => mine.has(w)), (c: DddContext) => mine.has(stems(c.name)[0])]) {
+    const hits = candidates.filter((c) => stems(c.name).length && fits(c))
+    if (hits.length === 1) return hits[0].id
+    if (hits.length > 1) return
+  }
+}
+
+/**
+ * О каком контексте группа. Если игрок назвал группу контекстом («Корзина») и такие стикеры в ней есть — этим контекстом:
+ * тогда «не на месте» — чужие стикеры в ней, а не стикеры корзины. Иначе — по большинству стикеров.
+ */
+export function groupContexts(t: PartitionTask, s: PartitionState): Record<string, { ctx: string | undefined; byName: boolean }> {
+  const out: Record<string, { ctx: string | undefined; byName: boolean }> = {}
   for (const g of s.groups) {
     const counts: Record<string, number> = {}
     for (const c of t.cards) if (s.place[c.id] === g.id) counts[c.ctx] = (counts[c.ctx] ?? 0) + 1
-    const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-    out[g.id] = best?.[0]
+    const named = namedContext(t, g.name, new Set(Object.keys(counts)))
+    out[g.id] = named ? { ctx: named, byName: true } : { ctx: Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0], byName: false }
   }
   return out
+}
+
+/** Стикеры не в своём контексте — по тому, о чём группа (см. groupContexts) */
+export function misplacedCards(t: PartitionTask, s: PartitionState): DddCard[] {
+  const g = groupContexts(t, s)
+  return t.cards.filter((c) => s.place[c.id] && g[s.place[c.id]]?.ctx !== c.ctx)
 }
 
 export function reviewPartition(t: PartitionTask, s: PartitionState, hintsUsed: number): Review {
   const sc = scorePartition(t, s)
   const items: ReviewItem[] = []
   const ctxName = (id: string) => t.contexts.find((c) => c.id === id)?.name ?? id
-  const major = groupMajority(t, s)
+  const about = groupContexts(t, s)
+  const major = Object.fromEntries(Object.entries(about).map(([k, v]) => [k, v.ctx]))
   const groupName = (id: string) => s.groups.find((g) => g.id === id)?.name ?? id
 
   if (sc.placed < sc.total)
@@ -181,16 +215,24 @@ export function reviewPartition(t: PartitionTask, s: PartitionState, hintsUsed: 
 
   const solved = partitionSolved(t, s)
   // карточки не в «своём» контексте; пока задача не решена — без ответа, только пара наводящих подсказок
-  const misplaced = t.cards.filter((c) => s.place[c.id] && major[s.place[c.id]] !== c.ctx)
+  const misplaced = misplacedCards(t, s)
   if (solved)
-    for (const c of misplaced)
+    for (const c of misplaced) {
+      const g = s.place[c.id]
       items.push({
         tone: 'bad',
-        text: tr(
-          `«${c.name}» лежит в группе «${groupName(s.place[c.id])}», где в основном «${ctxName(major[s.place[c.id]]!)}», а относится к «${ctxName(c.ctx)}»: ${c.why}`,
-          `“${c.name}” sits in group “${groupName(s.place[c.id])}”, which is mostly “${ctxName(major[s.place[c.id]]!)}”, but it belongs to “${ctxName(c.ctx)}”: ${c.why}`,
-        ),
+        // группу называем так, как её назвал игрок; «в основном» — только когда о ней говорит большинство стикеров, а не название
+        text: about[g].byName
+          ? tr(
+              `«${c.name}» лежит в группе «${groupName(g)}», а относится к «${ctxName(c.ctx)}»: ${c.why}`,
+              `“${c.name}” sits in group “${groupName(g)}”, but it belongs to “${ctxName(c.ctx)}”: ${c.why}`,
+            )
+          : tr(
+              `«${c.name}» лежит в группе «${groupName(g)}» — там в основном стикеры контекста «${ctxName(major[g]!)}», а этот относится к «${ctxName(c.ctx)}»: ${c.why}`,
+              `“${c.name}” sits in group “${groupName(g)}”, which mostly holds “${ctxName(major[g]!)}” stickies, but this one belongs to “${ctxName(c.ctx)}”: ${c.why}`,
+            ),
       })
+    }
   else if (misplaced.length) {
     items.push({
       tone: 'bad',

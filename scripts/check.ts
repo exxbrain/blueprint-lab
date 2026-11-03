@@ -20,7 +20,7 @@ import { DDD_STAGES } from '../src/sim/ddd/tasks'
 import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
-import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
+import { MAP_PATTERNS, misplacedCards, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
 // Worker перед сайтом на Cloudflare: вход по логину и паролю
 import worker, { guard } from '../worker/index.js'
 
@@ -386,6 +386,22 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
       const each = { groups: t.cards.map((c) => ({ id: c.id, name: c.id })), place: Object.fromEntries(t.cards.map((c) => [c.id, c.id])) }
       if (partitionSolved(t, each)) fail(`${projectId}/${t.id}: по контексту на карточку считается решением`)
       if (project && t.contexts.length !== project.modules.length) fail(`${projectId}/${t.id}: контекстов не столько же, сколько модулей`)
+      // игрок назвал группу контекстом и подложил туда чужих стикеров больше, чем своих: «не на месте» — чужие,
+      // и проверка не пишет «лежит в группе «X»… относится к «X»»
+      for (const a of t.contexts) {
+        const b = t.contexts.find((x) => x.id !== a.id && t.cards.filter((c) => c.ctx === x.id).length > t.cards.filter((c) => c.ctx === a.id).length)
+        if (!b) continue
+        const st = referenceState(t)
+        for (const c of t.cards) if (c.ctx === b.id) st.place[c.id] = `g-${a.id}`
+        st.groups = st.groups.filter((g) => g.id !== `g-${b.id}`)
+        const wrong = new Set(misplacedCards(t, st).map((c) => c.ctx))
+        if (wrong.has(a.id) || !wrong.has(b.id)) fail(`${projectId}/${t.id}: в группе «${a.name}» не на месте названы не те стикеры`)
+        for (const i of reviewPartition(t, st, 0).items) {
+          const m = i.text.match(/в группе «([^»]+)».*относится к «([^»]+)»/)
+          if (m && m[1] === m[2]) fail(`${projectId}/${t.id}: несуразица в проверке: ${i.text.slice(0, 90)}`)
+        }
+        break
+      }
       console.log(`- ${project?.title}: ${t.cards.length} карточек, ${t.contexts.length} контекстов`)
     } else {
       const ids = new Set(t.contexts.map((c) => c.id))

@@ -1,0 +1,75 @@
+/**
+ * Вход по email и паролю (HTTP Basic Auth) для Cloudflare Pages.
+ *
+ * Функция стоит перед каждым запросом к сайту — страницами, файлами сборки и превью-адресами.
+ * Email и пароль задаются в настройках проекта Pages, в репозитории их нет:
+ *   AUTH_EMAIL    — email, под которым входить;
+ *   AUTH_PASSWORD — пароль (тип Secret).
+ * Если переменные не заданы, сайт закрыт для всех: лучше не открыть, чем открыть случайно.
+ */
+
+const REALM = 'Blueprint Lab'
+
+/** Заголовки из public/_headers: на ответы, прошедшие через функцию, Cloudflare их может не применить */
+const HEADERS = {
+  'X-Robots-Tag': 'noindex, nofollow',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+}
+
+export async function onRequest({ request, env, next }) {
+  const email = (env.AUTH_EMAIL ?? '').trim().toLowerCase()
+  const password = env.AUTH_PASSWORD ?? ''
+  if (!email || !password)
+    return text(503, 'Вход не настроен: задайте AUTH_EMAIL и AUTH_PASSWORD в настройках проекта Cloudflare Pages.')
+
+  const given = credentials(request.headers.get('Authorization'))
+  // обе проверки считаются всегда — время ответа не подсказывает, что из двух неверно
+  const emailOk = await same(given?.user.trim().toLowerCase() ?? '', email)
+  const passwordOk = await same(given?.pass ?? '', password)
+  if (!emailOk || !passwordOk) {
+    const res = text(401, 'Нужен вход: email и пароль.')
+    res.headers.set('WWW-Authenticate', `Basic realm="${REALM}", charset="UTF-8"`)
+    return res
+  }
+
+  const upstream = await next()
+  const res = new Response(upstream.body, upstream)
+  for (const [k, v] of Object.entries(HEADERS)) res.headers.set(k, v)
+  // страницы за паролем не должны лежать в общих кэшах по дороге
+  const cache = res.headers.get('Cache-Control')
+  res.headers.set('Cache-Control', cache ? cache.replace(/\bpublic\b/, 'private') : 'private, no-cache')
+  return res
+}
+
+function text(status, body) {
+  return new Response(body, {
+    status,
+    headers: { ...HEADERS, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+  })
+}
+
+/** «Basic base64(email:пароль)» → email и пароль; UTF-8, чтобы пароль мог быть и по-русски */
+function credentials(header) {
+  const m = /^Basic\s+([A-Za-z0-9+/=]+)\s*$/i.exec(header ?? '')
+  if (!m) return null
+  try {
+    const raw = new TextDecoder().decode(Uint8Array.from(atob(m[1]), (c) => c.charCodeAt(0)))
+    const i = raw.indexOf(':')
+    return i < 0 ? null : { user: raw.slice(0, i), pass: raw.slice(i + 1) }
+  } catch {
+    return null
+  }
+}
+
+/** Сравнение без утечки по времени: сравниваются SHA-256 обеих строк, всегда целиком */
+async function same(a, b) {
+  const enc = new TextEncoder()
+  const [x, y] = await Promise.all([a, b].map((s) => crypto.subtle.digest('SHA-256', enc.encode(s))))
+  const u = new Uint8Array(x)
+  const v = new Uint8Array(y)
+  let diff = 0
+  for (let i = 0; i < u.length; i++) diff |= u[i] ^ v[i]
+  return diff === 0
+}

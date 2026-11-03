@@ -1,6 +1,6 @@
 # Blueprint Lab
 
-[English version](README.md) · Публикация под логином: [Cloudflare Pages + Access](docs/deploy-cloudflare.md)
+[English version](README.md) · Публикация под паролем: [Cloudflare Pages](docs/deploy-cloudflare.md)
 
 Интерактивное обучение архитектуре: короткие уроки, живые симуляции и задачи-инциденты.
 

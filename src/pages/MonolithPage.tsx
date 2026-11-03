@@ -31,6 +31,7 @@ import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/p
 import { markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { DddStage } from '../components/DddStage'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
 import { tr } from '../i18n'
 import { CLIENT, GATEWAY, KAFKA, MONO_DB, emulateMono } from '../sim/monolith/emulate'
@@ -183,6 +184,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
   const review = showReview || solved ? reviewMission(project, mission, state, spent) : null
   const stars = solved && !viewingRef ? review?.stars : undefined
+  const result$ = useResultModal(solved, !viewingRef)
   useEffect(() => {
     if (stars) recordStars(`monolith/${project.id}/${mission.id}`, stars)
   }, [stars, project.id, mission.id])
@@ -307,14 +309,6 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </div>
       </div>
 
-      {solved && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>{tr('Разбор', 'Debrief')}</h3>
-          {mission.debrief.map((para) => (
-            <p key={para}>{para}</p>
-          ))}
-        </div>
-      )}
 
       {viewingRef && (
         <div className="ref-banner">
@@ -332,14 +326,38 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </div>
       )}
       <div className="row review-actions">
-        {!solved && (
+        {solved && !viewingRef ? (
+          <ResultButton solved onClick={() => result$.setOpen(true)} />
+        ) : (
           <button onClick={() => setShowReview(!showReview)}>
             📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
           </button>
         )}
         {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
       </div>
-      {review && order && (
+      <ResultModal
+        open={result$.open}
+        onClose={() => result$.setOpen(false)}
+        progressKey={`monolith/${project.id}/${mission.id}`}
+        stars={review?.stars ?? 1}
+        title={tr('Миссия выполнена!', 'Mission complete!')}
+      >
+        {review && order && (
+          <div className="review-pair">
+            <ReviewPanel review={review} title={tr('Итоговая архитектура', 'Final architecture')} />
+            <ReviewPanel review={order.review} title={tr('Порядок распила', 'Decomposition order')}>
+              <Timeline marks={order.timeline} />
+            </ReviewPanel>
+          </div>
+        )}
+        <div className="lesson">
+          <h3>{tr('Разбор', 'Debrief')}</h3>
+          {mission.debrief.map((para) => (
+            <p key={para}>{para}</p>
+          ))}
+        </div>
+      </ResultModal>
+      {review && order && showReview && !(solved && !viewingRef) && (
         <div className="review-pair">
           <ReviewPanel review={review} title={viewingRef ? tr('Итог эталона', 'Reference solution result') : tr('Итоговая архитектура', 'Final architecture')} />
           <ReviewPanel review={order.review} title={viewingRef ? tr('Рекомендуемый порядок', 'Recommended order') : tr('Порядок распила', 'Decomposition order')}>

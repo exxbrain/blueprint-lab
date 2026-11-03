@@ -14,6 +14,7 @@ import {
   type DiagramState,
 } from '../sim/c4/model'
 import { Rich } from '../components/Rich'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
@@ -67,6 +68,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const viewingRef = mine !== null
   const review = reviewDiagram(ex, d)
   const showReview = checked || review.solved
+  const result$ = useResultModal(review.solved, !viewingRef)
 
   useEffect(() => {
     if (review.solved && !viewingRef) {
@@ -128,12 +130,14 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             </ol>
           )}
           <div className="row">
-            {hints < ex.hints.length && !review.solved && (
+            {hints < ex.hints.length && (
               <button onClick={() => setHints(hints + 1)}>
                 💡 {tr('Подсказка', 'Hint')} ({hints}/{ex.hints.length})
               </button>
             )}
-            {!review.solved && (
+            {review.solved && !viewingRef ? (
+              <ResultButton solved onClick={() => result$.setOpen(true)} />
+            ) : (
               <button className="primary" onClick={() => setChecked(true)}>
                 {tr('✔ Проверить диаграмму', '✔ Check diagram')}
               </button>
@@ -182,13 +186,14 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           </button>
         </div>
       )}
-      {review.solved && !viewingRef && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`c4/${ex.id}`} stars={review.stars}>
+        <ReviewPanel review={review} title={tr('Проверка диаграммы', 'Diagram check')} />
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={ex.debrief} />
         </div>
-      )}
-      {showReview && <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Проверка диаграммы', 'Diagram check')} />}
+      </ResultModal>
+      {showReview && !(review.solved && !viewingRef) && <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Проверка диаграммы', 'Diagram check')} />}
 
       <div className="builder-grid c4-grid">
         <aside className="panel palette">

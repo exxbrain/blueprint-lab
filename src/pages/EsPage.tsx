@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
@@ -46,6 +47,7 @@ function EsLab({ task }: { task: EsTask }) {
   const run = task.run(cfg)
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
   const solved = goals.every((g) => g.ok)
+  const result$ = useResultModal(solved, !mine)
 
   useEffect(() => {
     if (solved && !mine) {
@@ -67,7 +69,7 @@ function EsLab({ task }: { task: EsTask }) {
             </ol>
           )}
           <div className="row">
-            {hints < task.hints.length && !solved && (
+            {hints < task.hints.length && (
               <button onClick={() => setHints(hints + 1)}>
                 💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
               </button>
@@ -105,14 +107,15 @@ function EsLab({ task }: { task: EsTask }) {
               </li>
             ))}
           </ul>
+          <ResultButton solved={solved && !mine} onClick={() => result$.setOpen(true)} />
         </div>
       </div>
-      {solved && !mine && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`data/es/${task.id}`} stars={hintStars(hints)}>
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
         </div>
-      )}
+      </ResultModal>
 
       <div className="es-grid">
         <aside className="panel">

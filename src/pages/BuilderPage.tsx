@@ -25,6 +25,7 @@ import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { markScenario, recordStars, useProgress } from '../progress'
 import { tr } from '../i18n'
 import { href } from '../router'
@@ -114,6 +115,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   const review = challenge && (showReview || solved) ? reviewBuilder(challenge, nodes, edges, result, estimated) : null
   const stars = solved && !viewingRef ? review?.stars : undefined
+  const result$ = useResultModal(solved, !viewingRef)
   useEffect(() => {
     if (stars && challenge) recordStars(`builder/${challenge.id}`, stars)
   }, [stars, challenge])
@@ -250,7 +252,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                 ))}
               </ol>
             )}
-            {hints < challenge.hints.length && !solved && (
+            {hints < challenge.hints.length && (
               <button onClick={() => setHints(hints + 1)}>
                 💡 {tr('Подсказка', 'Hint')} ({hints}/{challenge.hints.length})
               </button>
@@ -283,15 +285,11 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </button>
         </div>
       )}
-      {solved && challenge && !viewingRef && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
-          <h3>{tr('Разбор задачи', 'Debrief')}</h3>
-          <Rich paras={challenge.debrief} />
-        </div>
-      )}
       {challenge && (
         <div className="row review-actions">
-          {!solved && (
+          {solved && !viewingRef ? (
+            <ResultButton solved onClick={() => result$.setOpen(true)} />
+          ) : (
             <button onClick={() => setShowReview(!showReview)}>
               📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
             </button>
@@ -299,7 +297,18 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           {!viewingRef && <button onClick={toggleReference}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
         </div>
       )}
-      {review && <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />}
+      {review && showReview && !(solved && !viewingRef) && (
+        <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />
+      )}
+      {challenge && (
+        <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={review?.stars ?? 1}>
+          {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment')} />}
+          <div className="lesson">
+            <h3>{tr('Разбор задачи', 'Debrief')}</h3>
+            <Rich paras={challenge.debrief} />
+          </div>
+        </ResultModal>
+      )}
 
       {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="builder-grid">

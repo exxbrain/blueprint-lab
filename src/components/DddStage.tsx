@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { ReviewPanel } from './ReviewPanel'
+import { ResultButton, ResultModal, useResultModal } from './ResultModal'
 import { markScenario, recordStars } from '../progress'
 import {
   CARD_KIND,
@@ -82,6 +83,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
   const viewingRef = mine !== null
   const review = checked ? reviewPartition(task, state, hints) : null
   const solved = checked && partitionSolved(task, state)
+  const result$ = useResultModal(solved, !viewingRef)
 
   useEffect(() => {
     if (solved && !viewingRef && review) {
@@ -178,26 +180,32 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
       )}
 
       <div className="row review-actions">
-        <button className="primary" disabled={pool.length > 0 || viewingRef} onClick={() => setChecked(true)}>
-          ✔ {tr('Проверить', 'Check')}
-        </button>
+        {solved && !viewingRef ? (
+          <ResultButton solved onClick={() => result$.setOpen(true)} />
+        ) : (
+          <button className="primary" disabled={pool.length > 0 || viewingRef} onClick={() => setChecked(true)}>
+            ✔ {tr('Проверить', 'Check')}
+          </button>
+        )}
         {!viewingRef && <button onClick={toggleRef}>👁 {tr('Показать эталон', 'Show reference')}</button>}
         {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back')}</span>}
       </div>
 
-      {review && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
-
-      {solved && !viewingRef && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      {review && !(solved && !viewingRef) && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
+      <ResultModal
+        open={result$.open}
+        onClose={() => result$.setOpen(false)}
+        progressKey={progressKey}
+        stars={review?.stars ?? 1}
+        title={tr('Границы найдены!', 'Boundaries found!')}
+        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next'), onClick: onNext } : undefined}
+      >
+        {review && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
-          {onNext && (
-            <button className="primary" onClick={onNext}>
-              {nextLabel ?? tr('Дальше →', 'Next →')}
-            </button>
-          )}
         </div>
-      )}
+      </ResultModal>
 
       {picked && (
         <div className="ddd-picker" role="dialog" aria-label={tr('Куда положить стикер', 'Where to put the sticky')}>
@@ -293,6 +301,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
   const allAnswered = task.relations.every((r) => answers[r.id])
   const solved = checked && sc.correct === sc.total && !showRef
   const stars = mapStars(wrongChecks, hints)
+  const result$ = useResultModal(solved)
   const ctx = (id: string) => task.contexts.find((c) => c.id === id)
 
   useEffect(() => {
@@ -345,25 +354,31 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
       </details>
 
       <div className="row review-actions">
-        <button className="primary" disabled={!allAnswered || showRef} onClick={check}>
-          ✔ {tr('Проверить', 'Check')}
-        </button>
+        {solved ? (
+          <ResultButton solved onClick={() => result$.setOpen(true)} />
+        ) : (
+          <button className="primary" disabled={!allAnswered || showRef} onClick={check}>
+            ✔ {tr('Проверить', 'Check')}
+          </button>
+        )}
         <button onClick={() => setShowRef(!showRef)}>
           {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers') : '👁 ' + tr('Показать ответы', 'Show answers')}
         </button>
       </div>
 
-      {solved && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      <ResultModal
+        open={result$.open}
+        onClose={() => result$.setOpen(false)}
+        progressKey={progressKey}
+        stars={stars}
+        title={tr('Карта готова!', 'Map complete!')}
+        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next'), onClick: onNext } : undefined}
+      >
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
-          {onNext && (
-            <button className="primary" onClick={onNext}>
-              {nextLabel ?? tr('Дальше →', 'Next →')}
-            </button>
-          )}
         </div>
-      )}
+      </ResultModal>
 
       <div className="ddd-relations">
         {task.relations.map((r, i) => {

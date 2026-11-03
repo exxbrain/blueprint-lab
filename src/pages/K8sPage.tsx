@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from '../components/Rich'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { href } from '../router'
@@ -52,6 +53,7 @@ function Lab({ task }: { task: K8sTask }) {
   const run = useMemo(() => runTask(task, cfg), [task, cfg])
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run.totals, cfg) }))
   const solved = goals.every((g) => g.ok)
+  const result$ = useResultModal(solved, !mine)
   const stars = hintStars(hints)
 
   useEffect(() => {
@@ -93,7 +95,7 @@ function Lab({ task }: { task: K8sTask }) {
             </ol>
           )}
           <div className="row">
-            {hints < task.hints.length && !solved && (
+            {hints < task.hints.length && (
               <button onClick={() => setHints(hints + 1)}>
                 💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
               </button>
@@ -135,6 +137,7 @@ function Lab({ task }: { task: K8sTask }) {
               </li>
             ))}
           </ul>
+          <ResultButton solved={solved && !mine} onClick={() => result$.setOpen(true)} />
           <div className="k8s-totals small">
             <span className={t.errorRate < 0.01 ? 'ok-text' : 'bad-text'}>
               {tr('ошибок', 'errors')} {(t.errorRate * 100).toFixed(2)}%
@@ -146,12 +149,13 @@ function Lab({ task }: { task: K8sTask }) {
         </div>
       </div>
 
-      {solved && !mine && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={k8sKey(task.id)} stars={stars}
+        title={tr('Инцидент закрыт!', 'Incident closed!')}>
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
         </div>
-      )}
+      </ResultModal>
 
       <div className="k8s-grid">
         <div className="panel k8s-manifest">

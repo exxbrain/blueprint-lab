@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
+import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
@@ -48,6 +49,7 @@ function CapLab({ task }: { task: CapTask }) {
   const run = useMemo(() => runCap(cfg, task.steps), [cfg, task.steps])
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
   const solved = goals.every((g) => g.ok)
+  const result$ = useResultModal(solved, !mine)
 
   useEffect(() => {
     if (solved && !mine) {
@@ -93,7 +95,7 @@ function CapLab({ task }: { task: CapTask }) {
             </ol>
           )}
           <div className="row">
-            {hints < task.hints.length && !solved && (
+            {hints < task.hints.length && (
               <button onClick={() => setHints(hints + 1)}>
                 💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
               </button>
@@ -133,6 +135,7 @@ function CapLab({ task }: { task: CapTask }) {
               </li>
             ))}
           </ul>
+          <ResultButton solved={solved && !mine} onClick={() => result$.setOpen(true)} />
           <p className="small muted">
             {tr(
               'Цели проверяются по всему сценарию — прогоните его до конца, чтобы увидеть, где что пошло не так.',
@@ -141,12 +144,12 @@ function CapLab({ task }: { task: CapTask }) {
           </p>
         </div>
       </div>
-      {solved && !mine && (
-        <div className="panel success lesson" style={{ marginBottom: 12 }}>
+      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`data/cap/${task.id}`} stars={hintStars(hints)}>
+        <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>
           <Rich paras={task.debrief} />
         </div>
-      )}
+      </ResultModal>
 
       <div className="cap-grid">
         <aside className="panel">

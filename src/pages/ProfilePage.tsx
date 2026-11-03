@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { tr } from '../i18n'
 import { LevelTag } from '../components/Level'
 import { RANKS, TASKS, TASK_LEVEL, TASK_XP, XP, levelStatus, playerLevel, recommended, taskXp, type TaskLevel } from '../levels'
@@ -119,15 +120,36 @@ export default function ProfilePage() {
         })}
       </div>
 
-      <p className="small muted" style={{ marginTop: 24 }}>
-        <button
-          onClick={() => {
-            if (confirm(tr('Сбросить весь прогресс и уровень?', 'Reset all progress and your level?'))) resetProgress()
-          }}
-        >
-          {tr('Сбросить прогресс', 'Reset progress')}
-        </button>
-      </p>
+      <ResetProgress />
+    </div>
+  )
+}
+
+/** Сброс с подтверждением прямо на странице: системные окна confirm() браузеры и встроенные панели часто блокируют */
+function ResetProgress() {
+  const [asking, setAsking] = useState(false)
+  const [done, setDone] = useState(false)
+  if (done) return <p className="small ok-text reset-row">{tr('Прогресс сброшен. Начинаем с первого уровня.', 'Progress reset. Starting from level one.')}</p>
+  return (
+    <div className="reset-row small">
+      {!asking ? (
+        <button onClick={() => setAsking(true)}>{tr('Сбросить прогресс', 'Reset progress')}</button>
+      ) : (
+        <>
+          <span>{tr('Сбросить весь прогресс, звёзды и уровень? Отменить будет нельзя.', 'Reset all progress, stars and your level? This cannot be undone.')}</span>
+          <button
+            className="danger"
+            onClick={() => {
+              resetProgress()
+              setDone(true)
+              window.scrollTo(0, 0)
+            }}
+          >
+            {tr('Да, сбросить', 'Yes, reset')}
+          </button>
+          <button onClick={() => setAsking(false)}>{tr('Отмена', 'Cancel')}</button>
+        </>
+      )}
     </div>
   )
 }

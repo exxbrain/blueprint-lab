@@ -23,3 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 .check-en.log
+.check-zh.log

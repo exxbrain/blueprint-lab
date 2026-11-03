@@ -9,7 +9,7 @@ export function ReviewPanel({ review, title, children }: { review: Review; title
   return (
     <div className={'panel review stars-' + review.stars}>
       <div className="review-head">
-        <span className="review-stars" aria-label={tr(`${review.stars} из 3`, `${review.stars} of 3`)}>
+        <span className="review-stars" aria-label={tr(`${review.stars} из 3`, `${review.stars} of 3`, `${review.stars} 星（满分 3 星）`)}>
           {[1, 2, 3].map((i) => (
             <span key={i} className={i <= review.stars ? 'on' : ''}>
               ★

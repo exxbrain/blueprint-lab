@@ -33,11 +33,12 @@ export function Home() {
     <div className="page">
       <section className="game-top">
         <div className="game-title">
-          <h1>{tr('Blueprint Lab: путь архитектора', 'Blueprint Lab: the architect\'s path')}</h1>
+          <h1>{tr('Blueprint Lab: путь архитектора', 'Blueprint Lab: the architect\'s path', 'Blueprint Lab：架构师之路')}</h1>
           <p className="muted">
             {tr(
               'Проходите уровни от Младшего до Архитектора: собирайте системы, пускайте в них трафик и чините то, что падает.',
               'Go from Junior to Architect: build systems, send traffic through them and fix what breaks.',
+              '从初级一路成长为架构师：搭建系统，让流量跑起来，修好出故障的地方。',
             )}
           </p>
         </div>
@@ -48,7 +49,7 @@ export function Home() {
 
       <section className="hub-hero">
         <div>
-          <h2>{tr('Как это работает', 'How it works')}</h2>
+          <h2>{tr('Как это работает', 'How it works', '玩法说明')}</h2>
           <p>
             {tr(
               <>
@@ -61,18 +62,22 @@ export function Home() {
                 SQL, Kafka takes events, and overloaded blocks fail with the same errors as in production: 503s,
                 timeouts, too many clients, consumer lag.
               </>,
+              <>
+                每个关卡都是一张实时运行的架构图。客户端发出真实的请求，Redis 返回 HIT 和 MISS，PostgreSQL 执行
+                SQL，Kafka 接收事件，而过载的组件会像在生产环境中一样报错宕掉：503、超时、too many clients、消费者积压（consumer lag）。
+              </>,
             )}
           </p>
           <div className="row">
             <a className="btn big" href={href('builder')}>
-              🏗️ {tr('Свободный режим', 'Sandbox')}
+              🏗️ {tr('Свободный режим', 'Sandbox', '自由模式')}
             </a>
           </div>
         </div>
         <LiveDemo />
       </section>
 
-      <h2 className="hub-more">{tr('Уроки и другие симуляторы', 'Lessons and other simulators')}</h2>
+      <h2 className="hub-more">{tr('Уроки и другие симуляторы', 'Lessons and other simulators', '课程与其他模拟器')}</h2>
       <div className="tiles">
         {modules.map((m) => {
           const { done, total } = moduleProgress(m, progress)
@@ -82,14 +87,14 @@ export function Home() {
               <h3>{m.title}</h3>
               <p>{m.summary}</p>
               {m.status === 'soon' ? (
-                <span className="badge warn">{tr('скоро', 'coming soon')}</span>
+                <span className="badge warn">{tr('скоро', 'coming soon', '即将推出')}</span>
               ) : total > 0 ? (
                 <>
                   <div className="progressbar">
                     <div style={{ width: `${(done / total) * 100}%` }} />
                   </div>
                   <div className="small muted" style={{ marginTop: 6 }}>
-                    {tr(`пройдено ${done} из ${total}`, `${done} of ${total} completed`)}
+                    {tr(`пройдено ${done} из ${total}`, `${done} of ${total} completed`, `已完成 ${done} / ${total}`)}
                   </div>
                 </>
               ) : (
@@ -127,10 +132,10 @@ function LiveDemo() {
         <b>{ch.title}</b>
         <div className="row tabs">
           <button className={fixed ? '' : 'primary'} onClick={() => setFixed(false)}>
-            {tr('Как есть', 'As is')}
+            {tr('Как есть', 'As is', '修复前')}
           </button>
           <button className={fixed ? 'primary' : ''} onClick={() => setFixed(true)}>
-            {tr('После исправления', 'Fixed')}
+            {tr('После исправления', 'Fixed', '修复后')}
           </button>
         </div>
       </div>

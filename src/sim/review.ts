@@ -30,11 +30,11 @@ export function grade(goalsOk: boolean, costRatio: number, items: ReviewItem[]):
   score = Math.max(0, Math.round(score))
   const stars = score >= 85 ? 3 : score >= 65 ? 2 : 1
   const verdict = !goalsOk
-    ? tr('Цели пока не выполнены', 'Goals not met yet')
+    ? tr('Цели пока не выполнены', 'Goals not met yet', '目标尚未达成')
     : stars === 3
-      ? tr('Отличное решение — на уровне эталона', 'Excellent solution, on par with the reference')
+      ? tr('Отличное решение — на уровне эталона', 'Excellent solution, on par with the reference', '出色的方案，与参考答案不相上下')
       : stars === 2
-        ? tr('Хорошее решение, но есть что улучшить', 'Good solution, with room for improvement')
-        : tr('Работает, но заметно дороже или рискованнее эталона', 'Works, but noticeably more expensive or riskier than the reference')
+        ? tr('Хорошее решение, но есть что улучшить', 'Good solution, with room for improvement', '不错的方案，但仍有改进空间')
+        : tr('Работает, но заметно дороже или рискованнее эталона', 'Works, but noticeably more expensive or riskier than the reference', '能运行，但明显比参考答案成本更高或风险更大')
   return { score, stars, verdict, items }
 }

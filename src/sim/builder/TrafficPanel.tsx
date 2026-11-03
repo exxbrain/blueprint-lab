@@ -86,13 +86,13 @@ const STATUS_LABEL: Record<Span['status'], string> = {
   ok: 'OK',
   hit: 'HIT',
   miss: 'MISS',
-  slow: tr('медленно', 'slow'),
-  error: tr('ошибка', 'error'),
-  queued: tr('в очереди', 'queued'),
-  async: tr('фоном', 'async'),
+  slow: tr('медленно', 'slow', '慢'),
+  error: tr('ошибка', 'error', '错误'),
+  queued: tr('в очереди', 'queued', '排队中'),
+  async: tr('фоном', 'async', '异步'),
 }
 
-export const ms = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)} ${tr('с', 's')}` : `${v < 10 ? v.toFixed(1) : Math.round(v)} ${tr('мс', 'ms')}`)
+export const ms = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)} ${tr('с', 's', 's')}` : `${v < 10 ? v.toFixed(1) : Math.round(v)} ${tr('мс', 'ms', 'ms')}`)
 
 function codeOf(t: Trace) {
   return t.httpStatus ? String(t.httpStatus) : 'ERR'
@@ -130,15 +130,15 @@ export function TrafficPanel({
   return (
     <div className="traffic-panel">
       <div className="traffic-head">
-        <h4>📡 {tr('Живой трафик', 'Live traffic')}</h4>
+        <h4>📡 {tr('Живой трафик', 'Live traffic', '实时流量')}</h4>
         <button className={running ? '' : 'primary'} onClick={() => setRunning(!running)}>
-          {running ? tr('⏸ Пауза', '⏸ Pause') : tr('▶ Пустить трафик', '▶ Resume traffic')}
+          {running ? tr('⏸ Пауза', '⏸ Pause', '⏸ 暂停') : tr('▶ Пустить трафик', '▶ Resume traffic', '▶ 恢复流量')}
         </button>
         {recent.length > 0 && (
           <span className="small muted">
-            {tr(`последние ${recent.length}:`, `last ${recent.length}:`)}{' '}
+            {tr(`последние ${recent.length}:`, `last ${recent.length}:`, `最近 ${recent.length} 个请求：`)}{' '}
             <b className={errors ? 'bad-text' : 'ok-text'}>
-              {tr(`${errors} ошибок`, `${errors} errors`)}
+              {tr(`${errors} ошибок`, `${errors} errors`, `${errors} 个错误`)}
             </b>{' '}
             · p95 {ms(p95)}
           </span>
@@ -156,7 +156,7 @@ export function TrafficPanel({
                 setPinned(t.id)
                 setRunning(false)
               }}
-              title={tr('Показать путь запроса', 'Show the request path')}
+              title={tr('Показать путь запроса', 'Show the request path', '查看请求路径')}
             >
               <span className={'code ' + (t.status === 'error' ? 'bad' : 'ok')}>{codeOf(t)}</span>
               <span className="req">{t.request.split('  ')[0]}</span>
@@ -164,12 +164,12 @@ export function TrafficPanel({
             </button>
           ))}
           </div>
-          {!calm.length && <p className="small muted">{tr('Подключите клиента — запросы появятся здесь', 'Connect a client: requests will show up here')}</p>}
+          {!calm.length && <p className="small muted">{tr('Подключите клиента — запросы появятся здесь', 'Connect a client: requests will show up here', '连接一个客户端，请求就会显示在这里')}</p>}
         </div>
         {shown ? (
           <Waterfall trace={shown} describe={name} onPickNode={onPickNode} />
         ) : (
-          <div className="waterfall small muted">{tr('Здесь появится путь запроса по блокам', 'The request path through the blocks will appear here')}</div>
+          <div className="waterfall small muted">{tr('Здесь появится путь запроса по блокам', 'The request path through the blocks will appear here', '这里会显示请求经过各个组件的路径')}</div>
         )}
       </div>
     </div>
@@ -197,7 +197,7 @@ function Waterfall({
         if (!n) return null
         return (
           <div key={i} className={'wf-row ' + STATUS_CLASS[s.status]}>
-            <button className="wf-name" style={{ paddingLeft: 4 + (s.depth - 1) * 12 }} onClick={() => onPickNode(s.nodeId)} title={tr('Выделить блок', 'Select block')}>
+            <button className="wf-name" style={{ paddingLeft: 4 + (s.depth - 1) * 12 }} onClick={() => onPickNode(s.nodeId)} title={tr('Выделить блок', 'Select block', '选中该组件')}>
               {n.icon} {n.label}
             </button>
             <div className="wf-track">
@@ -225,8 +225,8 @@ export function NodeLog({ nodeId, log }: { nodeId: string; log: Trace[] }) {
   }
   return (
     <div className="node-log">
-      <div className="pattern-group-title">{tr('Лог блока', 'Block log')}</div>
-      {!lines.length && <p className="small muted">{tr('Сюда пока не дошёл ни один запрос', 'No request has reached this block yet')}</p>}
+      <div className="pattern-group-title">{tr('Лог блока', 'Block log', '组件日志')}</div>
+      {!lines.length && <p className="small muted">{tr('Сюда пока не дошёл ни один запрос', 'No request has reached this block yet', '还没有请求到达这个组件')}</p>}
       <div className="log-window">
       <div className="log-slide">
       {lines.slice(0, 10).map(({ t, s }) => (

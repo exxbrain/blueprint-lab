@@ -53,17 +53,17 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
       markScenario(key)
       recordStars(key, hintStars(hints))
     }
-    setGoal({ progress: p, status: (armed ? '' : tr('ждём аварию · ', 'waiting for the failure · ')) + g.status(sim), solved })
+    setGoal({ progress: p, status: (armed ? '' : tr('ждём аварию · ', 'waiting for the failure · ', '等待故障发生 · ')) + g.status(sim), solved })
   }
 
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Инцидент', 'Incident')}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Инцидент', 'Incident', '事故')}
       </div>
       <h1>
         🚨 {scenario.title} <span className="small muted">{'★'.repeat(scenario.difficulty)}</span>
-        {progress.scenarios[key] && !goal.solved && <span className="badge ok" style={{ marginLeft: 12 }}>{tr('решено ранее', 'solved earlier')}</span>}
+        {progress.scenarios[key] && !goal.solved && <span className="badge ok" style={{ marginLeft: 12 }}>{tr('решено ранее', 'solved earlier', '之前已解决')}</span>}
       </h1>
       <TaskGate taskKey={key}>
       <div className="scenario-head">
@@ -77,12 +77,12 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
             </ol>
           )}
           {hints < scenario.hints.length && (
-            <button onClick={hintState.take}>💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, scenario.hints.length)}/{scenario.hints.length})</button>
+            <button onClick={hintState.take}>💡 {tr('Подсказка', 'Hint', '提示')} ({Math.min(hints, scenario.hints.length)}/{scenario.hints.length})</button>
           )}
         </div>
         <div className={'panel goal' + (goal.solved ? ' success' : '')}>
           <h4>
-            {goal.solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цель', '🎯 Goal')}
+            {goal.solved ? tr('✅ Решено!', '✅ Solved!', '✅ 已解决！') : tr('🎯 Цель', '🎯 Goal', '🎯 目标')}
             {goal.solved && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= hintStars(hints) ? 'on' : ''}>★</span>)}</span>}
           </h4>
           <div>{scenario.goal.text}</div>
@@ -98,11 +98,11 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
         onClose={() => result$.setOpen(false)}
         progressKey={key}
         stars={hintStars(hints)}
-        title={tr('Инцидент закрыт!', 'Incident closed!')}
-        next={next ? { label: tr(`Следующий инцидент: ${next.title}`, `Next incident: ${next.title}`), onClick: () => (window.location.hash = href(mod.id, 'scenario', next.id)) } : undefined}
+        title={tr('Инцидент закрыт!', 'Incident closed!', '事故已解决！')}
+        next={next ? { label: tr(`Следующий инцидент: ${next.title}`, `Next incident: ${next.title}`, `下一个事故：${next.title}`), onClick: () => (window.location.hash = href(mod.id, 'scenario', next.id)) } : undefined}
       >
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           {scenario.debrief}
         </div>
       </ResultModal>

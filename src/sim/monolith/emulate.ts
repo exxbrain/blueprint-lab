@@ -62,7 +62,7 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
   // вход: фасад или прямо в монолит
   let t = 0
   if (anyExtracted && has(s.infra, 'gateway')) {
-    push({ nodeId: GATEWAY, op: tr(`маршрут ${request.split('  ')[0]} → ${s.extracted[start] ? `${start}-service` : 'monolith'}`, `route ${request.split('  ')[0]} → ${s.extracted[start] ? `${start}-service` : 'monolith'}`), ms: jitter(4), status: 'ok', depth: 1, start: t })
+    push({ nodeId: GATEWAY, op: tr(`маршрут ${request.split('  ')[0]} → ${s.extracted[start] ? `${start}-service` : 'monolith'}`, `route ${request.split('  ')[0]} → ${s.extracted[start] ? `${start}-service` : 'monolith'}`, `路由 ${request.split('  ')[0]} → ${s.extracted[start] ? `${start}-service` : 'monolith'}`), ms: jitter(4), status: 'ok', depth: 1, start: t })
     t += 4
   } else if (s.extracted[start]) {
     // модуль вынесен, а клиенты по-прежнему ходят в монолит
@@ -75,6 +75,7 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       detail: tr(
         `404 Not Found: монолит больше не обслуживает /api/${start} — модуль вынесен, а фасада, который перенаправит запрос, нет`,
         `404 Not Found: the monolith no longer serves /api/${start}; the module was extracted and there is no facade to route the request`,
+        `404 Not Found：单体不再处理 /api/${start}——模块已经拆出，却没有门面把请求转发过去`,
       ),
     })
     hop(entryEdge(start), 0, 'error')
@@ -90,8 +91,8 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
     const own = push({
       nodeId: m,
       op: ext
-        ? `${m}-service: ${viaNet ? tr('обработчик', 'handler') : request.split('  ')[0]} (${tr('под', 'pod')} #${int(1, 3)})`
-        : `Monolith → ${mod.title}${tr('Service', 'Service')}.handle()`,
+        ? `${m}-service: ${viaNet ? tr('обработчик', 'handler', '处理器') : request.split('  ')[0]} (${tr('под', 'pod', 'Pod')} #${int(1, 3)})`
+        : `Monolith → ${mod.title}${tr('Service', 'Service', 'Service')}.handle()`,
       ms: jitter(ext ? 8 : 4),
       status: 'ok',
       depth,
@@ -116,6 +117,7 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       dbSpan.detail = tr(
         'медленно: тяжёлый отчёт гоняет агрегаты по общей БД, запрос ждёт блокировки',
         'slow: a heavy report runs aggregates on the shared DB, the query waits for locks',
+        '慢：一个繁重的报表正在共享数据库上跑聚合，查询在等待锁',
       )
     }
     cur += dbSpan.ms
@@ -144,8 +146,8 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       }
       if (visited.has(d.to)) return 0
       hop(d.id, depth - 1, 'ok')
-      const sp = push({ nodeId: d.to, op: tr(`вызов в процессе: ${to.title}.${d.kind === 'tx' ? 'update' : 'call'}() — ${label}`, `in-process call: ${to.title}.${d.kind === 'tx' ? 'update' : 'call'}() — ${label}`), ms: jitter(1), status: 'ok', depth, start: at })
-      if (d.kind === 'tx') sp.op += tr(' (та же транзакция БД)', ' (same DB transaction)')
+      const sp = push({ nodeId: d.to, op: tr(`вызов в процессе: ${to.title}.${d.kind === 'tx' ? 'update' : 'call'}() — ${label}`, `in-process call: ${to.title}.${d.kind === 'tx' ? 'update' : 'call'}() — ${label}`, `进程内调用：${to.title}.${d.kind === 'tx' ? 'update' : 'call'}() — ${label}`), ms: jitter(1), status: 'ok', depth, start: at })
+      if (d.kind === 'tx') sp.op += tr(' (та же транзакция БД)', ' (same DB transaction)', '（同一个数据库事务）')
       return sp.ms
     }
 
@@ -155,7 +157,7 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       const sp = push({ nodeId: db, op: `SELECT … FROM ${d.to}.${d.to}_data — ${label}`, ms: jitter(5), status: broken ? 'error' : 'ok', depth, start: at })
       hop(d.id, depth - 1, sp.status)
       if (broken) {
-        sp.detail = `ERROR: relation "${d.to}.${d.to}_data" does not exist — ${tr('таблицы переехали в отдельную БД', 'the tables moved to a separate DB')}`
+        sp.detail = `ERROR: relation "${d.to}.${d.to}_data" does not exist — ${tr('таблицы переехали в отдельную БД', 'the tables moved to a separate DB', '这些表已迁到独立的数据库')}`
         if (d.critical) fail(500)
       }
       return sp.ms
@@ -164,19 +166,19 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
     if (mode === 'replica') {
       const sp = push({
         nodeId: dbNode(s, d.from),
-        op: tr(`SELECT из своей копии данных «${to.title}» — ${label}`, `SELECT from own copy of “${to.title}” data — ${label}`),
+        op: tr(`SELECT из своей копии данных «${to.title}» — ${label}`, `SELECT from own copy of “${to.title}” data — ${label}`, `从自己保存的“${to.title}”数据副本中 SELECT — ${label}`),
         ms: jitter(2),
         status: 'ok',
         depth,
         start: at,
-        detail: tr(`копия отстаёт на ~${int(100, 900)} мс — это нормально для eventual consistency`, `the copy lags by ~${int(100, 900)} ms, which is normal for eventual consistency`),
+        detail: tr(`копия отстаёт на ~${int(100, 900)} мс — это нормально для eventual consistency`, `the copy lags by ~${int(100, 900)} ms, which is normal for eventual consistency`, `副本落后约 ${int(100, 900)} ms，这对最终一致性来说很正常`),
       })
       return sp.ms
     }
 
     if (mode === 'async' || mode === 'saga') {
       if (!kafka) {
-        const sp = push({ nodeId: d.from, op: `publish ${d.to}.${d.id}`, ms: jitter(2), status: 'error', depth, start: at, detail: tr('NoBrokersAvailable: выбран обмен событиями, но брокер не развёрнут', 'NoBrokersAvailable: event messaging is selected, but no broker is deployed') })
+        const sp = push({ nodeId: d.from, op: `publish ${d.to}.${d.id}`, ms: jitter(2), status: 'error', depth, start: at, detail: tr('NoBrokersAvailable: выбран обмен событиями, но брокер не развёрнут', 'NoBrokersAvailable: event messaging is selected, but no broker is deployed', 'NoBrokersAvailable：选择了事件消息通信，但没有部署 Broker') })
         hop(d.id, depth - 1, 'error')
         if (d.critical) fail(500)
         return sp.ms
@@ -188,12 +190,13 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
         pub.detail = tr(
           'событие потеряно: запись в БД прошла, а публикация упала (dual write без outbox) — «' + to.title + '» об этом не узнает',
           'event lost: the DB write succeeded but publishing failed (dual write without an outbox); “' + to.title + '” will never know',
+          '事件丢失：数据库写入成功了，发布却失败了（没有 Outbox 的 dual write，即双写）——“' + to.title + '”永远不会知道这件事',
         )
         return pub.ms
       }
       const consumer = push({
         nodeId: d.to,
-        op: mode === 'saga' ? tr(`шаг саги: ${label}`, `saga step: ${label}`) : tr(`обработчик события: ${label}`, `event handler: ${label}`),
+        op: mode === 'saga' ? tr(`шаг саги: ${label}`, `saga step: ${label}`, `Saga 步骤：${label}`) : tr(`обработчик события: ${label}`, `event handler: ${label}`, `事件处理器：${label}`),
         ms: jitter(s.extracted[d.to] ? 10 : 5),
         status: 'async',
         depth: depth + 1,
@@ -201,8 +204,8 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       })
       if (mode === 'saga' && rnd() < 0.08) {
         consumer.status = 'error'
-        consumer.detail = tr(`шаг не удался — запущена компенсация: отмена «${label}» у «${byId[d.from].title}»`, `the step failed; compensation started: undo “${label}” in “${byId[d.from].title}”`)
-        push({ nodeId: d.from, op: tr(`компенсация: откат «${label}»`, `compensation: roll back “${label}”`), ms: jitter(6), status: 'async', depth: depth + 1, start: consumer.start + consumer.ms })
+        consumer.detail = tr(`шаг не удался — запущена компенсация: отмена «${label}» у «${byId[d.from].title}»`, `the step failed; compensation started: undo “${label}” in “${byId[d.from].title}”`, `该步骤失败，已启动补偿：撤销“${byId[d.from].title}”中的“${label}”`)
+        push({ nodeId: d.from, op: tr(`компенсация: откат «${label}»`, `compensation: roll back “${label}”`, `补偿：回滚“${label}”`), ms: jitter(6), status: 'async', depth: depth + 1, start: consumer.start + consumer.ms })
       }
       return pub.ms
     }
@@ -221,18 +224,18 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
     const remote = unitOf(s, d.to) !== unitOf(s, d.from)
     const pFail = remote ? (retry ? 0.006 : 0.03) : 0
     const down = rnd() < pFail
-    if (!down && retry && remote && rnd() < 0.05) call.detail = tr('первая попытка — таймаут, ретрай №1 → 200', 'first attempt timed out, retry #1 → 200')
+    if (!down && retry && remote && rnd() < 0.05) call.detail = tr('первая попытка — таймаут, ретрай №1 → 200', 'first attempt timed out, retry #1 → 200', '第一次尝试超时，重试 #1 → 200')
     if (down) {
       call.ms = jitter(retry ? 3000 : 1000)
       if (cb && !d.critical) {
         call.status = 'miss'
-        call.detail = tr('сервис не отвечает → circuit breaker открыт, отдан запасной ответ', 'the service is not responding → circuit breaker open, fallback returned')
+        call.detail = tr('сервис не отвечает → circuit breaker открыт, отдан запасной ответ', 'the service is not responding → circuit breaker open, fallback returned', '服务无响应 → 熔断器（circuit breaker）打开，返回了降级响应')
         call.ms = jitter(2)
         hops[hops.length - 1].status = 'miss'
         return call.ms
       }
       call.status = 'error'
-      call.detail = `504 Gateway Timeout: ${d.to}-service ${tr('не ответил', 'did not respond')}${d.critical ? '' : tr(' — некритичная связь, но без circuit breaker падает весь запрос', '; a non-critical link, but without a circuit breaker the whole request fails')}`
+      call.detail = `504 Gateway Timeout: ${d.to}-service ${tr('не ответил', 'did not respond', '没有响应')}${d.critical ? '' : tr(' — некритичная связь, но без circuit breaker падает весь запрос', '; a non-critical link, but without a circuit breaker the whole request fails', '；这是非关键依赖，但没有熔断器（circuit breaker），整个请求都会失败')}`
       hops[hops.length - 1].status = 'error'
       fail(504)
       return call.ms
@@ -243,6 +246,7 @@ export function emulateMono(p: Project, s: State, metrics: Metrics): Trace {
       call.detail = tr(
         `первая часть записана, второй вызов упал — данные записаны наполовину (${label})`,
         `the first part is written, the second call failed; data is half-written (${label})`,
+        `第一部分已写入，第二次调用失败——数据只写了一半（${label}）`,
       )
       hops[hops.length - 1].status = 'error'
       fail(500)

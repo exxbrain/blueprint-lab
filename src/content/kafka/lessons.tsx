@@ -756,47 +756,359 @@ function StorageEn() {
   )
 }
 
+function IntroZh() {
+  return (
+    <div className="lesson">
+      <p>
+        设想一家网店。订单服务需要通知计费、仓库、数据分析和邮件推送服务：有新订单了。如果它逐个直接调用这些服务，它就得知道所有服务的存在，要等最慢的那个响应，而且其中任何一个出故障，它都会跟着一起挂掉。
+      </p>
+      <p>
+        <b>Kafka</b> 用另一种方式解决这个问题。订单服务只需把一条“订单已创建”事件追加到一份共享日志中，所有感兴趣的服务都按自己的节奏读取这份日志。写入方不知道有哪些读取方，读取方之间也互不干扰。
+      </p>
+      <h2>核心概念</h2>
+      <ul>
+        <li>
+          <b>Topic</b>（主题）——一份有名字的事件日志，例如 <code>orders</code>。
+        </li>
+        <li>
+          <b>Producer</b>（生产者）——向 Topic 写入数据的一方。写入总是追加到末尾（append-only）。
+        </li>
+        <li>
+          <b>Consumer</b>（消费者）——读取数据的一方。它自己记录读到了哪里：这就是它的 <b>offset</b>。
+        </li>
+        <li>
+          <b>Broker</b>——一台 Kafka 服务器。一个集群通常有 3 个或更多 Broker。
+        </li>
+      </ul>
+      <Callout>
+        与传统队列（RabbitMQ、SQS）的关键区别在于：读过的消息<b>不会被删除</b>。它会一直保存到保留期（retention）结束（例如 7 天）。因此新服务可以从最开始读取历史，崩溃过的服务也能从中断的地方继续读。
+      </Callout>
+      <h2>Lag（消费滞后）</h2>
+      <p>
+        如果生产者写入的速度超过消费者处理的速度，差额就会越积越多。这就是 <b>consumer lag</b>：已写入但尚未处理的消息数。Lag 是任何基于 Kafka 的系统最关键的健康指标。
+      </p>
+      <Try
+        title="动手试试"
+        task={
+          <>
+            现在消费者每秒处理 8 条消息，生产者每秒写入 5 条。把生产者的速率调到 15，观察 lag 如何增长（▲billing 标记离日志末尾越来越远）。然后加快消费者的速度。
+          </>
+        }
+      >
+        <KafkaSimulator config={base} controls={{ producers: true, consumerRate: true }} compact />
+      </Try>
+    </div>
+  )
+}
+
+function PartitionsZh() {
+  return (
+    <div className="lesson">
+      <p>
+        一份日志只能由一个线程读取，这就是上限。所以 Topic 被拆分成多个<b>分区</b>（partition），也就是几份相互独立的日志。每个分区有自己的 offset，各分区可以并行读取。
+      </p>
+      <h2>消息如何选择分区</h2>
+      <ul>
+        <li>
+          <b>有 key</b> → <code>hash(key) % partition_count</code>。相同的 key 总是落到同一个分区。
+        </li>
+        <li>
+          <b>没有 key</b> → 消息被分散到各个分区（round-robin；较新的客户端使用 sticky partitioner，按批次分配）。
+        </li>
+      </ul>
+      <Callout>
+        Kafka <b>只在分区内部</b>保证顺序。如果同一个订单的事件（“已创建” → “已支付” → “已发货”）落到了不同的分区，不同的消费者可能以任意顺序处理它们，仓库就会把一个还没付款的订单发出去。
+      </Callout>
+      <p>
+        因此 key 要按“顺序很重要”的那个实体来选：<code>orderId</code>、<code>userId</code>、<code>accountId</code>。
+      </p>
+      <Try
+        title="事件顺序"
+        task={
+          <>
+            生产者写入时不带 key。观察消费者组的“顺序错乱”计数。把 key 切换为“订单 id”：新的顺序违规就不再出现了。方块里的数字是订单所处的阶段，颜色代表订单本身：可以看到同一种颜色的事件散落在不同的分区里。
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 3,
+            producers: [{ rate: 20, keyStrategy: 'none', acks: 1 }],
+            groups: [{ name: 'shipping', consumers: 3, consumerRate: 9 }],
+          }}
+          controls={{ keys: true, producers: true }}
+          compact
+        />
+      </Try>
+      <h2>常见陷阱</h2>
+      <ul>
+        <li>
+          <b>热点分区。</b>如果某个 key 占了很大一部分流量（比如一个大客户），它所在的分区就会过载，而其他分区却闲着。
+        </li>
+        <li>
+          <b>增加分区</b>会改变 <code>hash % N</code>：key 会“搬”到另一个分区，在过渡期间顺序会被打乱。分区数要一开始就留足余量。
+        </li>
+        <li>分区数量无法减少。</li>
+      </ul>
+    </div>
+  )
+}
+
+function GroupsZh() {
+  return (
+    <div className="lesson">
+      <p>
+        <b>消费者组</b>（consumer group）是一组共同处理同一个 Topic 的消费者。Kafka 会把分区分配给它们，使得<b>组内的每个分区恰好只由一个消费者读取</b>。
+      </p>
+      <ul>
+        <li>消费者少于分区 → 有些消费者要读多个分区。</li>
+        <li>
+          消费者多于分区 → 多出来的消费者<b>处于空闲</b>。分区数就是消费者组并行度的上限。
+        </li>
+        <li>
+          不同的消费者组<b>相互独立</b>地读取同一个 Topic：计费和数据分析各有自己的 offset 和自己的 lag。
+        </li>
+      </ul>
+      <h2>重平衡（rebalancing）</h2>
+      <p>
+        当有消费者加入、离开或崩溃时，消费者组会重新分配分区。在经典的（eager）协议中，这段时间里<b>所有消费者都停止读取</b>。频繁的重平衡（例如因为处理太慢而错过心跳）是 lag 增长的常见原因。cooperative-sticky 分配策略和静态成员（static membership）可以缓解这个问题。
+      </p>
+      <h2>提交 offset 与重复消息</h2>
+      <p>
+        消费者会定期<b>提交</b>（commit）自己的 offset：把读到的位置保存在 Kafka 中。默认每 5 秒自动提交一次（模拟器中为每秒一次）。如果消费者在处理完消息之后、提交之前崩溃，接手该分区的新消费者会从上一次提交的位置开始，于是有些消息会被<b>再次</b>处理。
+      </p>
+      <Callout>
+        这就是 <b>at-least-once</b> 语义，也是大多数系统的默认语义。结论：消息处理逻辑必须是<b>幂等的</b>，这样重复处理才不会把钱扣两次。
+      </Callout>
+      <Try
+        title="消费者组、空闲消费者与重复消息"
+        task={
+          <>
+            1）给 billing 组添加消费者，直到超过 4 个，找出空闲的那些。2）用 💥 按钮让一个消费者崩溃，观察重复消息的计数。3）正常停止一个消费者（✕）：不会出现重复消息。4）再添加一个消费者组：它有自己的 lag。
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 4,
+            producers: [{ rate: 30, keyStrategy: 'order', acks: 1 }],
+            groups: [{ name: 'billing', consumers: 2, consumerRate: 20 }],
+          }}
+          controls={{ consumers: true, groups: true, consumerRate: true }}
+          compact
+        />
+      </Try>
+    </div>
+  )
+}
+
+function ReplicationZh() {
+  return (
+    <div className="lesson">
+      <p>
+        Broker 会出故障。为了不丢数据，每个分区都保存多个副本，副本的个数就是<b>副本因子</b>（replication factor，通常为 3）。其中一个副本是<b>领导者</b>（leader，★），负责处理写入和读取；其余的是<b>跟随者</b>（follower），它们从领导者那里复制数据。
+      </p>
+      <h2>ISR 与 high watermark</h2>
+      <p>
+        <b>ISR</b>（in-sync replicas，同步副本）是跟得上领导者的那些副本。如果某个跟随者落后的时间超过 <code>replica.lag.time.max.ms</code>，它就会被移出 ISR。<b>high watermark</b>（高水位，HW）是这样一个 offset：在它之前的消息已经存在于所有 ISR 副本上。消费者只能看到 HW 之前的消息。在模拟器中，HW 之后的内容都用虚线表示。
+      </p>
+      <h2>acks：生产者何时认为写入成功</h2>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>acks</th>
+            <th>等待什么</th>
+            <th>风险</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0</td>
+            <td>什么都不等</td>
+            <td>任何故障都会丢数据</td>
+          </tr>
+          <tr>
+            <td>1</td>
+            <td>领导者写入成功</td>
+            <td>领导者在复制完成前宕机——已确认的消息会丢失</td>
+          </tr>
+          <tr>
+            <td>all</td>
+            <td>所有 ISR 副本写入成功</td>
+            <td>更慢，但已确认的消息不会丢失</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <code>acks=all</code> 要和 <code>min.insync.replicas</code> 配合使用。如果 ISR 中剩下的副本少于这个数，Kafka 会<b>拒绝写入</b>：报错总比制造可靠的假象要好。典型的生产环境配置：RF=3，min.insync.replicas=2，acks=all。这样集群在失去一个 Broker 时，既不会丢数据，也不会停止服务。
+      </p>
+      <Callout danger>
+        <b>unclean.leader.election.enable=true</b> 允许一个已经落后、不在 ISR 中的副本成为领导者。分区会更快恢复，但新领导者上缺少的数据将永久丢失。
+      </Callout>
+      <Try
+        title="让领导者宕机"
+        task={
+          <>
+            在 acks=1 时关掉 Broker 1，观察“已确认但丢失”的消息数。点击“重新开始”，把 acks 设为 all，再试一次。然后在 min.insync.replicas=2 的情况下关掉两个 Broker：写入会开始被拒绝。
+          </>
+        }
+      >
+        <KafkaSimulator
+          config={{
+            ...base,
+            partitions: 3,
+            replicationFactor: 3,
+            minInsyncReplicas: 2,
+            producers: [{ rate: 40, keyStrategy: 'order', acks: 1 }],
+            groups: [{ name: 'billing', consumers: 3, consumerRate: 20 }],
+            replicaDelay: 0.5,
+          }}
+          controls={{ brokers: true, acks: true, reliability: true }}
+          compact
+        />
+      </Try>
+    </div>
+  )
+}
+
+function SemanticsZh() {
+  return (
+    <div className="lesson">
+      <h2>三种投递语义</h2>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>语义</th>
+            <th>如何实现</th>
+            <th>代价</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>at-most-once</td>
+            <td>先提交 offset，再处理</td>
+            <td>处理过程中出故障 → 消息丢失</td>
+          </tr>
+          <tr>
+            <td>at-least-once</td>
+            <td>处理完再提交</td>
+            <td>提交前出故障 → 重复处理</td>
+          </tr>
+          <tr>
+            <td>exactly-once</td>
+            <td>幂等生产者 + 事务（或在消费者端去重）</td>
+            <td>更复杂，且只在 Kafka 内部有效</td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>幂等生产者</h2>
+      <p>
+        生产者收不到响应时会重发请求，如果没有保护措施，消息就会被写入两次。开启 <code>enable.idempotence=true</code>（自 Kafka 3.0 起为默认值）后，生产者拥有一个 ID，并给每条消息分配序列号，Broker 会丢弃重复的消息。
+      </p>
+      <h2>事务</h2>
+      <p>
+        “读取 → 处理 → 写入另一个 Topic → 提交 offset”这一模式可以做成原子操作。设置了 <code>isolation.level=read_committed</code> 的消费者看不到未提交的事务。Kafka Streams 的 <code>exactly_once_v2</code> 就是这样工作的。
+      </p>
+      <Callout>
+        Kafka 的 exactly-once 止步于 Kafka 的边界。如果处理逻辑要写入 Postgres 或调用支付 API，就需要<b>在消费者端实现幂等</b>：唯一的操作键、已处理消息表、用 upsert 代替 insert。
+      </Callout>
+      <h2>Transactional Outbox</h2>
+      <p>
+        一个经典陷阱：服务把订单保存到数据库，然后向 Kafka 发布事件。这是两个独立的系统，没有共同的事务。如果服务在两步之间崩溃，事件就会丢失；或者反过来，发出了一个关于并不存在的订单的事件。
+      </p>
+      <p>
+        解决办法：在<b>同一个数据库事务</b>中把事件写入 <code>outbox</code> 表，再由一个单独的进程（或通过 CDC 的 Debezium）把它搬到 Kafka。投递语义是 at-least-once，所以消费者同样必须是幂等的。
+      </p>
+    </div>
+  )
+}
+
+function StorageZh() {
+  return (
+    <div className="lesson">
+      <p>
+        在磁盘上，一个分区是一组 <b>segment</b>（段）文件。写入只发生在活动段上，旧的段不可变。这正是 Kafka 快的原因：顺序写磁盘、操作系统的 page cache、向消费者零拷贝（zero-copy）传输。
+      </p>
+      <h2>Retention（保留策略）</h2>
+      <p>
+        旧的段会按时间（<code>retention.ms</code>，默认 7 天）或按大小（<code>retention.bytes</code>）删除。如果消费者落后的时间超过了保留期，它的 offset 就会指向已被删除的数据。这时 <code>auto.offset.reset</code> 生效（earliest 或 latest），有些事件它将永远看不到。
+      </p>
+      <h2>Log compaction（日志压缩）</h2>
+      <p>
+        设置 <code>cleanup.policy=compact</code> 后，Kafka 会<b>为每个 key 保留最新的值</b>，并清理更早的版本。结果就是一张以日志形式存在的表：例如每个用户的当前资料。要删除一个 key，就写入一条 <b>tombstone</b>（墓碑消息）——带有该 key 且 value = null 的消息。
+      </p>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>场景</th>
+            <th>策略</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>事件流：点击、订单、日志</td>
+            <td>delete + retention</td>
+          </tr>
+          <tr>
+            <td>实体的当前状态、KTable 的 changelog</td>
+            <td>compact</td>
+          </tr>
+          <tr>
+            <td>两者兼有</td>
+            <td>compact,delete</td>
+          </tr>
+        </tbody>
+      </table>
+      <Callout>
+        Kafka 不是用来查询的数据库。你没法在里面找出“客户 X 的所有订单”。它是传输通道，也是日志。要得到可查询的视图，需要把事件投影到数据库中（CQRS），或者使用 Kafka Streams 和 ksqlDB。
+      </Callout>
+    </div>
+  )
+}
+
 export const kafkaLessons: Lesson[] = [
   {
     id: 'intro',
-    title: tr('Kafka как журнал событий', 'Kafka as an event log'),
-    summary: tr('Топик, продюсер, консьюмер, offset и лаг', 'Topic, producer, consumer, offset and lag'),
+    title: tr('Kafka как журнал событий', 'Kafka as an event log', 'Kafka 作为事件日志'),
+    summary: tr('Топик, продюсер, консьюмер, offset и лаг', 'Topic, producer, consumer, offset and lag', 'Topic、生产者、消费者、offset 和 lag'),
     minutes: 6,
-    Body: tr(Intro, IntroEn),
+    Body: tr(Intro, IntroEn, IntroZh),
   },
   {
     id: 'partitions',
-    title: tr('Партиции и ключи', 'Partitions and keys'),
-    summary: tr('Параллелизм, порядок событий, горячие партиции', 'Parallelism, event order, hot partitions'),
+    title: tr('Партиции и ключи', 'Partitions and keys', '分区与 key'),
+    summary: tr('Параллелизм, порядок событий, горячие партиции', 'Parallelism, event order, hot partitions', '并行度、事件顺序、热点分区'),
     minutes: 8,
-    Body: tr(Partitions, PartitionsEn),
+    Body: tr(Partitions, PartitionsEn, PartitionsZh),
   },
   {
     id: 'groups',
-    title: tr('Consumer groups и offsets', 'Consumer groups and offsets'),
-    summary: tr('Распределение партиций, ребалансировка, дубликаты', 'Partition assignment, rebalancing, duplicates'),
+    title: tr('Consumer groups и offsets', 'Consumer groups and offsets', '消费者组与 offset'),
+    summary: tr('Распределение партиций, ребалансировка, дубликаты', 'Partition assignment, rebalancing, duplicates', '分区分配、重平衡、重复消息'),
     minutes: 8,
-    Body: tr(Groups, GroupsEn),
+    Body: tr(Groups, GroupsEn, GroupsZh),
   },
   {
     id: 'replication',
-    title: tr('Репликация, ISR и acks', 'Replication, ISR and acks'),
-    summary: tr('Как Kafka переживает падение брокеров и когда теряет данные', 'How Kafka survives broker failures and when it loses data'),
+    title: tr('Репликация, ISR и acks', 'Replication, ISR and acks', '复制、ISR 与 acks'),
+    summary: tr('Как Kafka переживает падение брокеров и когда теряет данные', 'How Kafka survives broker failures and when it loses data', 'Kafka 如何挺过 Broker 故障，以及何时会丢数据'),
     minutes: 10,
-    Body: tr(Replication, ReplicationEn),
+    Body: tr(Replication, ReplicationEn, ReplicationZh),
   },
   {
     id: 'semantics',
-    title: tr('Гарантии доставки', 'Delivery guarantees'),
-    summary: tr('At-least-once, exactly-once, идемпотентность, outbox', 'At-least-once, exactly-once, idempotency, outbox'),
+    title: tr('Гарантии доставки', 'Delivery guarantees', '投递保证'),
+    summary: tr('At-least-once, exactly-once, идемпотентность, outbox', 'At-least-once, exactly-once, idempotency, outbox', 'At-least-once、exactly-once、幂等性、outbox'),
     minutes: 7,
-    Body: tr(Semantics, SemanticsEn),
+    Body: tr(Semantics, SemanticsEn, SemanticsZh),
   },
   {
     id: 'storage',
-    title: tr('Хранение: retention и compaction', 'Storage: retention and compaction'),
-    summary: tr('Сегменты, удаление старых данных, журнал как таблица', 'Segments, deleting old data, the log as a table'),
+    title: tr('Хранение: retention и compaction', 'Storage: retention and compaction', '存储：retention 与 compaction'),
+    summary: tr('Сегменты, удаление старых данных, журнал как таблица', 'Segments, deleting old data, the log as a table', 'segment、删除旧数据、把日志当作表'),
     minutes: 5,
-    Body: tr(Storage, StorageEn),
+    Body: tr(Storage, StorageEn, StorageZh),
   },
 ]

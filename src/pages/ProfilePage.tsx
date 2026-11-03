@@ -11,7 +11,7 @@ export default function ProfilePage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Мой уровень', 'My level')}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / {tr('Мой уровень', 'My level', '我的等级')}
       </div>
 
       <section className="panel level-card">
@@ -27,15 +27,16 @@ export default function ProfilePage() {
               ? tr(
                   `${lv.xp} опыта · до уровня ${lv.level + 1} «${lv.next.title}» осталось ${lv.next.xp - lv.xp}`,
                   `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1} "${lv.next.title}"`,
+                  `${lv.xp} XP · 距离第 ${lv.level + 1} 级“${lv.next.title}”还差 ${lv.next.xp - lv.xp} XP`,
                 )
-              : tr(`${lv.xp} опыта · высший уровень`, `${lv.xp} XP · top level`)}
+              : tr(`${lv.xp} опыта · высший уровень`, `${lv.xp} XP · top level`, `${lv.xp} XP · 已达最高等级`)}
           </div>
         </div>
       </section>
 
       <div className="profile-grid">
         <section className="panel">
-          <h3>{tr('Лестница уровней', 'Level ladder')}</h3>
+          <h3>{tr('Лестница уровней', 'Level ladder', '等级阶梯')}</h3>
           <ol className="rank-ladder">
             {RANKS.map((r, i) => (
               <li key={r.title} className={i + 1 === lv.level ? 'current' : i + 1 < lv.level ? 'passed' : ''}>
@@ -47,19 +48,19 @@ export default function ProfilePage() {
               </li>
             ))}
           </ol>
-          <h4>{tr('Как растёт опыт', 'How you earn XP')}</h4>
+          <h4>{tr('Как растёт опыт', 'How you earn XP', '如何获得 XP')}</h4>
           <ul className="small">
             <li>
-              {tr('Задача: ', 'Challenge: ')}
+              {tr('Задача: ', 'Challenge: ', '任务：')}
               {([1, 2, 3, 4] as TaskLevel[]).map((l) => `${TASK_LEVEL[l].name} ${TASK_XP[l]}`).join(' · ')} {XP}
             </li>
-            <li>{tr('Каждая звезда оценки сверх первой — ещё +25%', 'Each assessment star beyond the first adds +25%')}</li>
-            <li>{tr('Урок — 15 опыта, тест — до 40 по лучшему результату', 'Lesson: 15 XP; quiz: up to 40 XP for your best score')}</li>
+            <li>{tr('Каждая звезда оценки сверх первой — ещё +25%', 'Each assessment star beyond the first adds +25%', '评分中第一颗星之外，每多一颗星再加 +25%')}</li>
+            <li>{tr('Урок — 15 опыта, тест — до 40 по лучшему результату', 'Lesson: 15 XP; quiz: up to 40 XP for your best score', '课程：15 XP；测验：按最好成绩计，最多 40 XP')}</li>
           </ul>
         </section>
 
         <section className="panel">
-          <h3>{tr('Для вашего уровня', 'For your level')}</h3>
+          <h3>{tr('Для вашего уровня', 'For your level', '适合你的等级')}</h3>
           {next.length ? (
             <ul className="task-list">
               {next.map((t) => (
@@ -73,16 +74,17 @@ export default function ProfilePage() {
               ))}
             </ul>
           ) : (
-            <p>{tr('Всё решено. Вы прошли Blueprint Lab целиком!', 'Everything is solved. You have completed Blueprint Lab!')}</p>
+            <p>{tr('Всё решено. Вы прошли Blueprint Lab целиком!', 'Everything is solved. You have completed Blueprint Lab!', '全部完成！你已经通关 Blueprint Lab！')}</p>
           )}
         </section>
       </div>
 
-      <h2>{tr('Задачи по уровням', 'Challenges by level')}</h2>
+      <h2>{tr('Задачи по уровням', 'Challenges by level', '按等级划分的任务')}</h2>
       <p className="small muted">
         {tr(
           'Уровни открываются по порядку: задачи следующего уровня становятся доступны, когда решены все задачи предыдущего.',
           'Levels open in order: the next level\'s challenges become available once every challenge of the previous level is solved.',
+          '等级按顺序解锁：完成上一等级的全部任务后，下一等级的任务才会开放。',
         )}
       </p>
       <div className="level-columns">
@@ -95,7 +97,7 @@ export default function ProfilePage() {
               <h3>
                 {!st.open && '🔒 '}
                 <LevelTag level={l} full /> <span className="small muted">{done}/{list.length}</span>
-                {st.passed && <span className="small ok-text"> ✓ {tr('пройден', 'passed')}</span>}
+                {st.passed && <span className="small ok-text"> ✓ {tr('пройден', 'passed', '已通过')}</span>}
               </h3>
               <div className="progressbar">
                 <div style={{ width: `${(done / list.length) * 100}%` }} />
@@ -129,14 +131,14 @@ export default function ProfilePage() {
 function ResetProgress() {
   const [asking, setAsking] = useState(false)
   const [done, setDone] = useState(false)
-  if (done) return <p className="small ok-text reset-row">{tr('Прогресс сброшен. Начинаем с первого уровня.', 'Progress reset. Starting from level one.')}</p>
+  if (done) return <p className="small ok-text reset-row">{tr('Прогресс сброшен. Начинаем с первого уровня.', 'Progress reset. Starting from level one.', '进度已重置，从第 1 级重新开始。')}</p>
   return (
     <div className="reset-row small">
       {!asking ? (
-        <button onClick={() => setAsking(true)}>{tr('Сбросить прогресс', 'Reset progress')}</button>
+        <button onClick={() => setAsking(true)}>{tr('Сбросить прогресс', 'Reset progress', '重置进度')}</button>
       ) : (
         <>
-          <span>{tr('Сбросить весь прогресс, звёзды и уровень? Отменить будет нельзя.', 'Reset all progress, stars and your level? This cannot be undone.')}</span>
+          <span>{tr('Сбросить весь прогресс, звёзды и уровень? Отменить будет нельзя.', 'Reset all progress, stars and your level? This cannot be undone.', '要重置全部进度、星和等级吗？此操作无法撤销。')}</span>
           <button
             className="danger"
             onClick={() => {
@@ -145,9 +147,9 @@ function ResetProgress() {
               window.scrollTo(0, 0)
             }}
           >
-            {tr('Да, сбросить', 'Yes, reset')}
+            {tr('Да, сбросить', 'Yes, reset', '是的，重置')}
           </button>
-          <button onClick={() => setAsking(false)}>{tr('Отмена', 'Cancel')}</button>
+          <button onClick={() => setAsking(false)}>{tr('Отмена', 'Cancel', '取消')}</button>
         </>
       )}
     </div>

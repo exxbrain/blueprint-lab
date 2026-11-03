@@ -43,9 +43,9 @@ import { TaskGate, TaskLevelTag } from '../components/Level'
 import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
-  Трафик: tr('Трафик', 'Traffic'),
-  Вычисления: tr('Вычисления', 'Compute'),
-  Хранилища: tr('Хранилища', 'Storage'),
+  Трафик: tr('Трафик', 'Traffic', '流量'),
+  Вычисления: tr('Вычисления', 'Compute', '计算'),
+  Хранилища: tr('Хранилища', 'Storage', '存储'),
 }
 
 let uid = 100
@@ -57,16 +57,16 @@ export default function BuilderPage({ id }: { id?: string }) {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / {challenge ? tr('Конструктор', 'Builder') : tr('Конструктор: свободный режим', 'Builder: sandbox')}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / {challenge ? tr('Конструктор', 'Builder', '构建器') : tr('Конструктор: свободный режим', 'Builder: sandbox', '构建器：自由模式')}
       </div>
       <h1>
-        🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder')}{' '}
+        🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder', '架构构建器')}{' '}
         {challenge && <TaskLevelTag taskKey={`builder/${challenge.id}`} full />}
       </h1>
       {!challenge && (
         <p className="muted">
-          {tr('Свободный режим: собирайте что угодно. Задачи — на ', 'Sandbox: build anything. Challenges are on the ')}
-          <a href="#/">{tr('карте уровней', 'level map')}</a>.
+          {tr('Свободный режим: собирайте что угодно. Задачи — на ', 'Sandbox: build anything. Challenges are on the ', '自由模式：想搭什么就搭什么。任务请见')}
+          <a href="#/">{tr('карте уровней', 'level map', '关卡地图')}</a>.
         </p>
       )}
       {challenge ? (
@@ -101,8 +101,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     ? [
         ...challenge.paths.map((p) => ({ text: p.text, ok: reaches(edges, p.from, p.to) })),
         ...challenge.goals.map((g) => ({ text: g.text, ok: g.check(result) })),
-        { text: tr(`Стоимость ≤ $${challenge.budget}`, `Cost ≤ $${challenge.budget}`), ok: result.cost <= challenge.budget },
-        ...(challenge.estimate ? [{ text: tr('Прикидка нагрузки сделана', 'Back-of-the-envelope estimate done'), ok: estimated }] : []),
+        { text: tr(`Стоимость ≤ $${challenge.budget}`, `Cost ≤ $${challenge.budget}`, `成本 ≤ $${challenge.budget}`), ok: result.cost <= challenge.budget },
+        ...(challenge.estimate ? [{ text: tr('Прикидка нагрузки сделана', 'Back-of-the-envelope estimate done', '已完成负载估算'), ok: estimated }] : []),
       ]
     : []
   const solved = goals.length > 0 && goals.every((g) => g.ok)
@@ -179,8 +179,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const connect = (from: string, to: string) => {
     const a = nodes.find((n) => n.id === from)!
     const b = nodes.find((n) => n.id === to)!
-    if (b.kind === 'client') return say(tr('Клиенты — только источник нагрузки', 'Clients are only a source of load'))
-    if (edges.some((e) => e.from === from && e.to === to)) return say(tr('Такая связь уже есть', 'This connection already exists'))
+    if (b.kind === 'client') return say(tr('Клиенты — только источник нагрузки', 'Clients are only a source of load', '客户端只能作为负载的来源'))
+    if (edges.some((e) => e.from === from && e.to === to)) return say(tr('Такая связь уже есть', 'This connection already exists', '这条连接已经存在'))
     if (wouldCycle(nodes, edges, from, to)) {
       const label = (id: string) => nodes.find((x) => x.id === id)?.label ?? id
       const back = pathBetween(edges, to, from) ?? [to, from]
@@ -190,17 +190,19 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             'Запрос бегал бы по нему бесконечно.',
           `The connection “${a.label} → ${b.label}” would close a loop: ${[...back, to].map(label).join(' → ')}. ` +
             'A request would circle it forever.',
+          `连接“${a.label} → ${b.label}”会形成一个环：${[...back, to].map(label).join(' → ')}。` +
+            '请求会在环里无休止地打转。',
         ),
       )
     }
     setCycleNote(null)
-    if (isStorage(a.kind)) return say(tr('Хранилище никого не вызывает', 'Storage does not call anything'))
+    if (isStorage(a.kind)) return say(tr('Хранилище никого не вызывает', 'Storage does not call anything', '存储不会调用任何组件'))
     setEdges([...edges, { id: nextId('e'), from, to }])
   }
 
   const remove = () => {
     if (selNode) {
-      if (locked(selNode.id)) return say(tr('Этот компонент — часть исходной системы', 'This component is part of the original system'))
+      if (locked(selNode.id)) return say(tr('Этот компонент — часть исходной системы', 'This component is part of the original system', '该组件是原有系统的一部分'))
       setNodes(nodes.filter((n) => n.id !== selNode.id))
       setEdges(edges.filter((e) => e.from !== selNode.id && e.to !== selNode.id))
     } else if (selEdge) {
@@ -265,27 +267,27 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   const statsEl = (
     <div className="builder-stats">
-      <Stat label={tr('нагрузка', 'load')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
+      <Stat label={tr('нагрузка', 'load', '负载')} value={estimated ? `${fmt(result.totalRps)} rps` : '? rps'} />
       <Stat
-        label={tr('успешных', 'success')}
+        label={tr('успешных', 'success', '成功率')}
         value={`${(result.clientSuccess * 100).toFixed(2)}%`}
         tone={result.clientSuccess >= 0.995 ? 'ok' : result.clientSuccess >= 0.95 ? 'warn' : 'bad'}
       />
       <Stat
-        label={tr('латентность', 'latency')}
-        value={tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}
+        label={tr('латентность', 'latency', '延迟')}
+        value={tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`, `${Math.round(result.clientLatency)} ms`)}
         tone={result.clientLatency <= 150 ? 'ok' : result.clientLatency <= 500 ? 'warn' : 'bad'}
       />
       <Stat
-        label={tr('рост очереди', 'queue growth')}
-        value={tr(`${fmt(result.backlogGrowth)}/с`, `${fmt(result.backlogGrowth)}/s`)}
+        label={tr('рост очереди', 'queue growth', '队列增长')}
+        value={tr(`${fmt(result.backlogGrowth)}/с`, `${fmt(result.backlogGrowth)}/s`, `${fmt(result.backlogGrowth)}/s`)}
         tone={result.backlogGrowth < 1 ? 'ok' : 'bad'}
       />
       <CostStat nodes={nodes} total={result.cost} budget={challenge?.budget} />
       {flash && <span className="flash">{flash}</span>}
     </div>
   )
-  const title = challenge?.title ?? tr('Свободный режим', 'Sandbox')
+  const title = challenge?.title ?? tr('Свободный режим', 'Sandbox', '自由模式')
   const headEl = <>
       {challenge && (
         <div className="scenario-head">
@@ -303,12 +305,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             )}
             {hints < challenge.hints.length && (
               <button onClick={hintState.take}>
-                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, challenge.hints.length)}/{challenge.hints.length})
+                💡 {tr('Подсказка', 'Hint', '提示')} ({Math.min(hints, challenge.hints.length)}/{challenge.hints.length})
               </button>
             )}
           </div>
           <div className={'panel goal' + (solved ? ' success' : '')}>
-            <h4>{solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цели', '🎯 Goals')}</h4>
+            <h4>{solved ? tr('✅ Решено!', '✅ Solved!', '✅ 已解决！') : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}</h4>
             <ul className="goal-list">
               {goals.map((g) => (
                 <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -330,9 +332,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             <>
               👁 You are viewing the <b>reference solution</b>; it does not count toward completion.
             </>,
+            <>
+              👁 你正在查看<b>参考答案</b>，它不计入完成进度。
+            </>,
           )}
           <button className="primary" onClick={toggleReference}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution')}
+            ↩ {tr('Вернуть моё решение', 'Back to my solution', '恢复我的方案')}
           </button>
         </div>
       )}
@@ -344,24 +349,24 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             <ResultButton solved onClick={() => result$.setOpen(true)} />
           ) : (
             <button onClick={() => setShowReview(!showReview)}>
-              📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
+              📋 {showReview ? tr('Скрыть оценку', 'Hide assessment', '隐藏评估') : tr('Оценить решение', 'Assess solution', '评估方案')}
             </button>
           )}
-          {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
+          {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas', '在画布上显示参考答案')}</button>}
         </div>
       )}
     </>
   const reviewEl = <>
       {review && showReview && !(solved && !viewingRef) && (
-        <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />
+        <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment', '参考答案评估') : tr('Оценка вашего решения', 'Your solution assessment', '你的方案评估')} />
       )}
     </>
   const resultEl = <>
       {challenge && (
         <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={stars ?? 1}>
-          {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment')} />}
+          {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment', '你的方案评估')} />}
           <div className="lesson">
-            <h3>{tr('Разбор задачи', 'Debrief')}</h3>
+            <h3>{tr('Разбор задачи', 'Debrief', '解析')}</h3>
             <Rich paras={challenge.debrief} />
           </div>
         </ResultModal>
@@ -393,7 +398,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                   </button>
                   <button
                     className="icon info-btn"
-                    title={tr('Что это и когда применять', 'What it is and when to use it')}
+                    title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，何时使用')}
                     onClick={() => setRefId(k)}
                   >
                     ⓘ
@@ -407,27 +412,30 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               ? tr(
                   'Нажмите — компонент появится на схеме. Связь — тяните за кружок справа от блока.',
                   'Tap to place a component on the diagram. To connect, drag from the circle on the right of a block.',
+                  '点一下即可把组件放到图上。要建立连接，从组件右侧的圆点拖出。',
                 )
               : tr(
                   'Кликните — компонент появится внизу холста, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
                   'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
+                  '点击即可把组件放到画布底部，也可以把它拖到想要的位置。要建立连接，从组件右侧的圆点拖出。按 Del 删除选中的元素。',
                 )}
           </p>
           <p className="small muted">
             {tr(
               'Числа условные: настоящий PostgreSQL на простых запросах держит в разы больше. Важны пропорции и то, что во что упирается.',
               'The numbers are stylized: a real PostgreSQL handles several times more on simple queries. What matters is the proportions and what limits what.',
+              '数字是示意性的：真实的 PostgreSQL 处理简单查询的能力要高出好几倍。重要的是比例关系，以及谁会成为谁的瓶颈。',
             )}
           </p>
     </>
   const cycleEl = <>
           {(cycleNote || result.cycle) && (
             <div className="cycle-note">
-              <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it')}>
+              <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it', '知道了')}>
                 ✕
               </button>
-              <b>{tr('🔁 Цикл: связь не добавлена.', '🔁 Loop: connection not added.')}</b>{' '}
-              {cycleNote ?? tr('На схеме есть замкнутый круг связей.', 'The diagram contains a closed loop of connections.')}
+              <b>{tr('🔁 Цикл: связь не добавлена.', '🔁 Loop: connection not added.', '🔁 出现环路：连接未添加。')}</b>{' '}
+              {cycleNote ?? tr('На схеме есть замкнутый круг связей.', 'The diagram contains a closed loop of connections.', '图中存在一个闭合的连接环路。')}
               <div className="small">
                 {tr(
                   <>
@@ -443,6 +451,11 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                     checks Redis first and, on a miss, goes to the DB and puts the result into the cache), connect{' '}
                     <b>service → Redis</b> and <b>service → DB</b>: only misses will reach the DB. The{' '}
                     <b>read-through</b> option is the chain service → Redis → DB.
+                  </>,
+                  <>
+                    箭头表示<b>请求</b>的方向：谁调用谁。响应会沿着同一条箭头自动返回，不需要再画一条反向的箭头。如果你想要的是
+                    <b>cache-aside</b>（服务先查 Redis，未命中时再去数据库，并把结果放入缓存），请连接 <b>服务 → Redis</b> 和
+                    <b>服务 → 数据库</b>：只有未命中的请求才会到达数据库。<b>read-through</b> 方案则是一条链：服务 → Redis → 数据库。
                   </>,
                 )}
               </div>
@@ -477,7 +490,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             <ElementDialog
               wrap={wrapRef.current}
               id={(selNode ?? selEdge)!.id}
-              label={selNode ? selNode.label : tr('Связь', 'Connection')}
+              label={selNode ? selNode.label : tr('Связь', 'Connection', '连接')}
               keep=".bnode, .bedge, .access-row, .wf-name, .zoom-tool"
               onClose={closePopover}
               tone={selNode ? nodeStatus(selNode, result.nodes[selNode.id], !estimated).tone : edgeStatus(selEdge!, result, nodes, !estimated).tone}
@@ -486,15 +499,15 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                 <>
                   <div className="card-head">
                     <b>
-                      {tr('Связь', 'Connection')}: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
+                      {tr('Связь', 'Connection', '连接')}: {nodes.find((n) => n.id === selEdge.from)?.label} → {nodes.find((n) => n.id === selEdge.to)?.label}
                     </b>
-                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
                       ✕
                     </button>
                   </div>
                   <StatusBadge {...edgeStatus(selEdge, result, nodes, !estimated)} />
                   <p className="small muted">{estimated ? `${fmt(result.edges[selEdge.id]?.rps ?? 0)} rps` : '? rps'}{result.edges[selEdge.id]?.async ? ' · async' : ''}</p>
-                  <button onClick={remove}>{tr('Удалить связь', 'Delete connection')}</button>
+                  <button onClick={remove}>{tr('Удалить связь', 'Delete connection', '删除连接')}</button>
                 </>
               )}
               {selNode && (
@@ -503,7 +516,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                     <b>
                       {KINDS[selNode.kind].icon} {selNode.label}
                     </b>
-                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+                    <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
                       ✕
                     </button>
                   </div>
@@ -541,7 +554,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             />
           ) : (
             <p className="small muted traffic-locked">
-              📡 {tr('Живой трафик включится после прикидки нагрузки.', 'Live traffic starts once the load estimate is done.')}
+              📡 {tr('Живой трафик включится после прикидки нагрузки.', 'Live traffic starts once the load estimate is done.', '完成负载估算后，实时流量才会开始。')}
             </p>
           )}
     </>
@@ -551,7 +564,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       used={hints}
       take={hintState.take}
       live={live}
-      liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
+      liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.', '请先完成负载估算：在此之前，模型不会显示任何数字。')}
       onPick={(id) => {
         setSelected(id)
         setAddOpen(false)
@@ -576,7 +589,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           panel={
             <>
               {!challenge && (
-                <p className="muted">{tr('Собирайте что угодно: компоненты — кнопкой внизу, задачи — на карте уровней.', 'Build anything: components are on the bottom button, challenges are on the level map.')}</p>
+                <p className="muted">{tr('Собирайте что угодно: компоненты — кнопкой внизу, задачи — на карте уровней.', 'Build anything: components are on the bottom button, challenges are on the level map.', '想搭什么就搭什么：组件在底部按钮里，任务在关卡地图上。')}</p>
               )}
               {headEl}
               {actionsEl}
@@ -589,7 +602,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               <span className={result.clientSuccess >= 0.995 ? 'ok-text' : result.clientSuccess >= 0.95 ? 'warn-text' : 'bad-text'}>
                 ✓ {(result.clientSuccess * 100).toFixed(1)}%
               </span>
-              <span>{tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}</span>
+              <span>{tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`, `${Math.round(result.clientLatency)} ms`)}</span>
               <span className={challenge && result.cost > challenge.budget ? 'bad-text' : ''}>
                 ${result.cost}
                 {challenge ? `/${challenge.budget}` : ''}
@@ -606,7 +619,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               <ZoomMenu vp={vp} />
               {hintsEl(true)}
               {challenge && solved && !viewingRef && (
-                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result', '结果')} aria-label={tr('Результат', 'Result', '结果')}>
                   ★
                 </button>
               )}
@@ -614,8 +627,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           }
           bottom={
             <>
-              <Tool icon="＋" label={tr('Компонент', 'Component')} on={addOpen} onClick={() => setAddOpen(!addOpen)} />
-              <Tool icon="📡" label={tr('Трафик', 'Traffic')} on={trafficOpen} onClick={() => setTrafficOpen(!trafficOpen)} />
+              <Tool icon="＋" label={tr('Компонент', 'Component', '组件')} on={addOpen} onClick={() => setAddOpen(!addOpen)} />
+              <Tool icon="📡" label={tr('Трафик', 'Traffic', '流量')} on={trafficOpen} onClick={() => setTrafficOpen(!trafficOpen)} />
             </>
           }
         >
@@ -627,12 +640,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           {cycleEl}
         </Workspace>
         {addOpen && (
-          <Sheet title={tr('Компоненты', 'Components')} onClose={() => setAddOpen(false)}>
+          <Sheet title={tr('Компоненты', 'Components', '组件')} onClose={() => setAddOpen(false)}>
             <div className="palette">{addMenuEl}</div>
           </Sheet>
         )}
         {trafficOpen && (
-          <Sheet title={'📡 ' + tr('Живой трафик', 'Live traffic')} onClose={() => setTrafficOpen(false)}>
+          <Sheet title={'📡 ' + tr('Живой трафик', 'Live traffic', '实时流量')} onClose={() => setTrafficOpen(false)}>
             {trafficEl}
           </Sheet>
         )}
@@ -655,8 +668,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         <EditorBar
           vp={vp}
           add={{
-            label: tr('Добавить компонент', 'Add a component'),
-            caption: tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…'),
+            label: tr('Добавить компонент', 'Add a component', '添加组件'),
+            caption: tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…', '缓存、队列、数据库、CDN…'),
             open: addOpen,
             setOpen: setAddOpen,
             menu: addMenuEl,
@@ -679,7 +692,7 @@ function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; bud
     .filter((n) => KINDS[n.kind].cost > 0)
     .map((n) => ({ text: `${KINDS[n.kind].icon} ${n.label} ${scaleText(n)}`, cost: nodeCost(n) }))
     .sort((a, b) => b.cost - a.cost)
-  const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : tr('Пока ничего не стоит', 'Nothing costs anything yet')
+  const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : tr('Пока ничего не стоит', 'Nothing costs anything yet', '目前还没有任何花费')
   const tone = budget === undefined ? undefined : total > budget ? 'bad' : total > budget * 0.85 ? 'warn' : 'ok'
   return (
     <div className={'metric budget ' + (tone ?? '')} title={breakdown}>
@@ -690,9 +703,9 @@ function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; bud
       <div className="metric-label">
         {budget !== undefined
           ? total > budget
-            ? tr(`перерасход $${total - budget} в месяц`, `over budget by $${total - budget}/month`)
-            : tr(`стоимость / бюджет · запас $${budget - total}`, `cost / budget · $${budget - total} left`)
-          : tr('стоимость в месяц', 'cost per month')}
+            ? tr(`перерасход $${total - budget} в месяц`, `over budget by $${total - budget}/month`, `每月超支 $${total - budget}`)
+            : tr(`стоимость / бюджет · запас $${budget - total}`, `cost / budget · $${budget - total} left`, `成本 / 预算 · 剩余 $${budget - total}`)
+          : tr('стоимость в месяц', 'cost per month', '每月成本')}
       </div>
       {budget !== undefined && (
         <div className="progressbar">
@@ -738,7 +751,7 @@ function NodeProps({
       {tab === 'settings' && (
       <>
       <label>
-        {tr('название', 'name')}
+        {tr('название', 'name', '名称')}
         <input type="text" value={node.label} onChange={(e) => patch({ label: e.target.value })} />
       </label>
       <p className="small muted">{spec.desc}</p>
@@ -746,14 +759,14 @@ function NodeProps({
         locked ? (
           <>
             <p>
-              {tr('Нагрузка', 'Load')}: {hideLoad ? tr('сначала сделайте прикидку', 'make the estimate first') : `${node.rps} rps`}
+              {tr('Нагрузка', 'Load', '负载')}: {hideLoad ? tr('сначала сделайте прикидку', 'make the estimate first', '请先完成估算') : `${node.rps} rps`}
             </p>
-            <p className="small">{tr('Профиль', 'Workload')}: {WORKLOADS[node.workload ?? 'oltp'].title}</p>
+            <p className="small">{tr('Профиль', 'Workload', '负载类型')}: {WORKLOADS[node.workload ?? 'oltp'].title}</p>
           </>
         ) : (
           <>
             <label>
-              {tr('профиль нагрузки', 'workload')}
+              {tr('профиль нагрузки', 'workload', '负载类型')}
               <select
                 value={node.workload ?? 'oltp'}
                 onChange={(e) => patch({ workload: e.target.value as Workload })}
@@ -766,7 +779,7 @@ function NodeProps({
               </select>
             </label>
           <label>
-            {tr('нагрузка', 'load')}: {node.rps} rps
+            {tr('нагрузка', 'load', '负载')}: {node.rps} rps
             <input
               type="range"
               min={50}
@@ -783,7 +796,7 @@ function NodeProps({
       )}
       {node.kind === 'service' && !locked && (
         <label>
-          {tr('профиль', 'profile')}
+          {tr('профиль', 'profile', '服务类型')}
           <select
             value={profile?.id ?? ''}
             onChange={(e) => {
@@ -801,7 +814,7 @@ function NodeProps({
       )}
       {node.kind === 'service' && locked && (
         <p className="small">
-          {tr(`${node.capacity} rps на экземпляр, ${node.latency} мс`, `${node.capacity} rps per instance, ${node.latency} ms`)}
+          {tr(`${node.capacity} rps на экземпляр, ${node.latency} мс`, `${node.capacity} rps per instance, ${node.latency} ms`, `每个实例 ${node.capacity} rps，${node.latency} ms`)}
         </p>
       )}
       {(node.kind === 'cache' || node.kind === 'cdn') &&
@@ -810,11 +823,12 @@ function NodeProps({
             {tr(
               `Доля попаданий ${Math.round((node.hitRatio ?? 0) * 100)}% — определяется данными задачи`,
               `Hit ratio ${Math.round((node.hitRatio ?? 0) * 100)}%, set by the task`,
+              `命中率 ${Math.round((node.hitRatio ?? 0) * 100)}%，由任务数据决定`,
             )}
           </p>
         ) : (
           <label>
-            {tr('доля попаданий', 'hit ratio')}: {Math.round((node.hitRatio ?? 0.8) * 100)}%
+            {tr('доля попаданий', 'hit ratio', '命中率')}: {Math.round((node.hitRatio ?? 0.8) * 100)}%
             <input
               type="range"
               min={0}
@@ -825,7 +839,7 @@ function NodeProps({
             />
           </label>
         ))}
-      {!locked && <button onClick={remove}>{tr('Удалить блок', 'Delete block')}</button>}
+      {!locked && <button onClick={remove}>{tr('Удалить блок', 'Delete block', '删除组件')}</button>}
       </>
       )}
       {tab === 'load' && KINDS[node.kind].fit && (
@@ -841,7 +855,7 @@ function NodeProps({
                       <div style={{ width: `${f * 100}%` }} />
                     </div>
                   </td>
-                  <td>{f === 0 ? tr('не умеет', 'unsupported') : f >= 1 ? tr('родной', 'native') : `×${f}`}</td>
+                  <td>{f === 0 ? tr('не умеет', 'unsupported', '不支持') : f >= 1 ? tr('родной', 'native', '原生') : `×${f}`}</td>
                 </tr>
               )
             })}
@@ -852,39 +866,39 @@ function NodeProps({
         <table className="cmp small">
           <tbody>
             <tr>
-              <td>{tr('вход', 'input')}</td>
+              <td>{tr('вход', 'input', '输入')}</td>
               <td>{hideLoad ? '?' : `${fmt(stats.in)} rps`}</td>
             </tr>
             {!hideLoad && stats.writes > 0 && (
               <tr>
-                <td>{tr('из них запись', 'of which writes')}</td>
+                <td>{tr('из них запись', 'of which writes', '其中写入')}</td>
                 <td>{fmt(stats.writes)} rps</td>
               </tr>
             )}
             {stats.unsupported > 0 && (
               <tr className="bad-text">
-                <td>{tr('не умеет', 'unsupported')}</td>
-                <td>{tr(`${Math.round(stats.unsupported * 100)}% запросов`, `${Math.round(stats.unsupported * 100)}% of requests`)}</td>
+                <td>{tr('не умеет', 'unsupported', '不支持')}</td>
+                <td>{tr(`${Math.round(stats.unsupported * 100)}% запросов`, `${Math.round(stats.unsupported * 100)}% of requests`, `${Math.round(stats.unsupported * 100)}% 的请求`)}</td>
               </tr>
             )}
             <tr>
-              <td>{tr('ёмкость', 'capacity')}</td>
+              <td>{tr('ёмкость', 'capacity', '容量')}</td>
               <td>{fmt(stats.capacity)} rps</td>
             </tr>
             <tr>
-              <td>{tr('загрузка', 'utilization')}</td>
+              <td>{tr('загрузка', 'utilization', '利用率')}</td>
               <td>{Math.round(stats.util * 100)}%</td>
             </tr>
             <tr>
-              <td>{tr('успешно', 'success')}</td>
+              <td>{tr('успешно', 'success', '成功率')}</td>
               <td>{(stats.success * 100).toFixed(1)}%</td>
             </tr>
             <tr>
-              <td>{tr('латентность', 'latency')}</td>
-              <td>{tr(`${Math.round(stats.latency)} мс`, `${Math.round(stats.latency)} ms`)}</td>
+              <td>{tr('латентность', 'latency', '延迟')}</td>
+              <td>{tr(`${Math.round(stats.latency)} мс`, `${Math.round(stats.latency)} ms`, `${Math.round(stats.latency)} ms`)}</td>
             </tr>
             <tr>
-              <td>{tr('стоимость', 'cost')}</td>
+              <td>{tr('стоимость', 'cost', '成本')}</td>
               <td>${nodeCost(node)}</td>
             </tr>
           </tbody>
@@ -909,7 +923,7 @@ function EstimatePanel({
   if (done)
     return (
       <div className="estimate done">
-        <b>{tr('📐 Прикидка:', '📐 Estimate:')}</b> {estimate.formula}
+        <b>{tr('📐 Прикидка:', '📐 Estimate:', '📐 估算：')}</b> {estimate.formula}
       </div>
     )
   const check = () => {
@@ -922,12 +936,12 @@ function EstimatePanel({
   }
   return (
     <div className="estimate">
-      <b>{tr('📐 Сначала прикидка (back-of-the-envelope):', '📐 First, a back-of-the-envelope estimate:')}</b> {estimate.question}
+      <b>{tr('📐 Сначала прикидка (back-of-the-envelope):', '📐 First, a back-of-the-envelope estimate:', '📐 先做个粗略估算（back-of-the-envelope）：')}</b> {estimate.question}
       <div className="row" style={{ marginTop: 6 }}>
         <input
           type="text"
           inputMode="numeric"
-          placeholder={tr('ваша оценка', 'your estimate')}
+          placeholder={tr('ваша оценка', 'your estimate', '你的估算')}
           value={value}
           onChange={(e) => {
             setValue(e.target.value)
@@ -937,15 +951,16 @@ function EstimatePanel({
         />
         <span className="small muted">{estimate.unit}</span>
         <button className="primary" onClick={check}>
-          {tr('Проверить', 'Check')}
+          {tr('Проверить', 'Check', '检查')}
         </button>
-        {tries >= 2 && <button onClick={onDone}>{tr('Показать расчёт', 'Show calculation')}</button>}
+        {tries >= 2 && <button onClick={onDone}>{tr('Показать расчёт', 'Show calculation', '显示计算过程')}</button>}
       </div>
       {wrong && (
         <div className="small warn-text">
           {tr(
             'Не попали в ±25%. В сутках 86 400 секунд, а пик выше среднего — проверьте множители.',
             'Not within ±25%. A day has 86,400 seconds, and the peak is above average: check your multipliers.',
+            '误差超出了 ±25%。一天有 86,400 秒，而且峰值高于平均值：检查一下你的乘数。',
           )}
         </div>
       )}
@@ -966,57 +981,57 @@ const pctOf = (x: number) => `${Math.round(x * 100)}%`
 
 /** Состояние блока — по тем же правилам, что и цвет его рамки на холсте */
 function nodeStatus(n: BNode, st: ReturnType<typeof simulate>['nodes'][string] | undefined, hidden: boolean): Status {
-  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden'), detail: tr('Сначала сделайте прикидку нагрузки', 'Make the load estimate first') }
-  if (!st) return { tone: 'idle', label: tr('Нет данных', 'No data'), detail: '' }
+  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden', '负载已隐藏'), detail: tr('Сначала сделайте прикидку нагрузки', 'Make the load estimate first', '请先完成负载估算') }
+  if (!st) return { tone: 'idle', label: tr('Нет данных', 'No data', '无数据'), detail: '' }
   if (n.kind === 'client') {
     const mood = clientMood(st.success, st.latency)
     const tone: Tone = mood === 'happy' ? 'ok' : mood === 'meh' ? 'warn' : 'bad'
     const label =
       mood === 'happy'
-        ? tr('Пользователи довольны', 'Users are happy')
+        ? tr('Пользователи довольны', 'Users are happy', '用户很满意')
         : mood === 'meh'
-          ? tr('Пользователи недовольны', 'Users are unhappy')
-          : tr('Пользователи злятся', 'Users are angry')
+          ? tr('Пользователи недовольны', 'Users are unhappy', '用户不太满意')
+          : tr('Пользователи злятся', 'Users are angry', '用户很生气')
     const why =
       st.success < 0.95
-        ? tr('много ошибок', 'many errors')
+        ? tr('много ошибок', 'many errors', '错误很多')
         : st.success < 0.995
-          ? tr('часть запросов падает', 'some requests fail')
+          ? tr('часть запросов падает', 'some requests fail', '部分请求失败')
           : st.latency > 300
-            ? tr('ответы медленные', 'responses are slow')
-            : tr('всё быстро и без ошибок', 'fast and error-free')
+            ? tr('ответы медленные', 'responses are slow', '响应很慢')
+            : tr('всё быстро и без ошибок', 'fast and error-free', '又快又没有错误')
     return {
       tone,
       face: MOOD_FACE[mood],
       label,
-      detail: tr(`${why}: успешных ${(st.success * 100).toFixed(1)}%, ответ за ${Math.round(st.latency)} мс`, `${why}: ${(st.success * 100).toFixed(1)}% successful, ${Math.round(st.latency)} ms response`),
+      detail: tr(`${why}: успешных ${(st.success * 100).toFixed(1)}%, ответ за ${Math.round(st.latency)} мс`, `${why}: ${(st.success * 100).toFixed(1)}% successful, ${Math.round(st.latency)} ms response`, `${why}：成功率 ${(st.success * 100).toFixed(1)}%，响应时间 ${Math.round(st.latency)} ms`),
     }
   }
-  if (st.deadEnd) return { tone: 'bad', label: tr('Тупик', 'Dead end'), detail: tr('Запросам некуда идти дальше — подключите следующий блок', 'Requests have nowhere to go next; connect the next block') }
+  if (st.deadEnd) return { tone: 'bad', label: tr('Тупик', 'Dead end', '死路'), detail: tr('Запросам некуда идти дальше — подключите следующий блок', 'Requests have nowhere to go next; connect the next block', '请求无处可去：请连接下一个组件') }
   if (st.unsupported > 0)
-    return { tone: 'bad', label: tr('Не подходит для запросов', 'Unsuitable for these requests'), detail: tr(`не умеет обрабатывать ${pctOf(st.unsupported)} запросов`, `cannot handle ${pctOf(st.unsupported)} of requests`) }
-  if (st.in <= 0) return { tone: 'idle', label: tr('Простаивает', 'Idle'), detail: tr('Сюда не приходят запросы', 'No requests reach this block') }
+    return { tone: 'bad', label: tr('Не подходит для запросов', 'Unsuitable for these requests', '不适合处理这些请求'), detail: tr(`не умеет обрабатывать ${pctOf(st.unsupported)} запросов`, `cannot handle ${pctOf(st.unsupported)} of requests`, `有 ${pctOf(st.unsupported)} 的请求无法处理`) }
+  if (st.in <= 0) return { tone: 'idle', label: tr('Простаивает', 'Idle', '空闲'), detail: tr('Сюда не приходят запросы', 'No requests reach this block', '没有请求到达这个组件') }
   if (st.util >= 1 || st.success < 0.99)
     return {
       tone: 'bad',
-      label: tr('Перегружен', 'Overloaded'),
-      detail: tr(`загрузка ${pctOf(st.util)}, отказывает ${pctOf(1 - st.success)} запросов`, `${pctOf(st.util)} utilization, rejects ${pctOf(1 - st.success)} of requests`),
+      label: tr('Перегружен', 'Overloaded', '过载'),
+      detail: tr(`загрузка ${pctOf(st.util)}, отказывает ${pctOf(1 - st.success)} запросов`, `${pctOf(st.util)} utilization, rejects ${pctOf(1 - st.success)} of requests`, `利用率 ${pctOf(st.util)}，拒绝了 ${pctOf(1 - st.success)} 的请求`),
     }
-  if (st.util >= 0.8) return { tone: 'warn', label: tr('На пределе', 'Near the limit'), detail: tr(`загрузка ${pctOf(st.util)} — задержки растут, запаса почти нет`, `${pctOf(st.util)} utilization: latency grows, little headroom left`) }
-  return { tone: 'ok', label: tr('В норме', 'Healthy'), detail: tr(`загрузка ${pctOf(st.util)}, ответ за ${Math.round(st.latency)} мс`, `${pctOf(st.util)} utilization, ${Math.round(st.latency)} ms response`) }
+  if (st.util >= 0.8) return { tone: 'warn', label: tr('На пределе', 'Near the limit', '接近极限'), detail: tr(`загрузка ${pctOf(st.util)} — задержки растут, запаса почти нет`, `${pctOf(st.util)} utilization: latency grows, little headroom left`, `利用率 ${pctOf(st.util)}：延迟在上升，几乎没有余量了`) }
+  return { tone: 'ok', label: tr('В норме', 'Healthy', '正常'), detail: tr(`загрузка ${pctOf(st.util)}, ответ за ${Math.round(st.latency)} мс`, `${pctOf(st.util)} utilization, ${Math.round(st.latency)} ms response`, `利用率 ${pctOf(st.util)}，响应时间 ${Math.round(st.latency)} ms`) }
 }
 
 /** Связь: асинхронная — жёлтая, в проблемный блок — красная, иначе зелёная */
 function edgeStatus(e: BEdge, r: ReturnType<typeof simulate>, nodes: BNode[], hidden: boolean): Status {
-  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden'), detail: '' }
+  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden', '负载已隐藏'), detail: '' }
   const st = r.edges[e.id]
   const target = r.nodes[e.to]
   const to = nodes.find((n) => n.id === e.to)
-  if (!st || st.rps <= 0) return { tone: 'idle', label: tr('Без трафика', 'No traffic'), detail: tr('По этой связи сейчас ничего не идёт', 'Nothing flows along this connection now') }
+  if (!st || st.rps <= 0) return { tone: 'idle', label: tr('Без трафика', 'No traffic', '无流量'), detail: tr('По этой связи сейчас ничего не идёт', 'Nothing flows along this connection now', '这条连接上目前没有任何流量') }
   if (target && (target.success < 0.99 || target.deadEnd))
-    return { tone: 'bad', label: tr('Ведёт в проблемный блок', 'Leads to a failing block'), detail: tr(`«${to?.label}» отвечает успешно только на ${(target.success * 100).toFixed(1)}%`, `“${to?.label}” succeeds only ${(target.success * 100).toFixed(1)}% of the time`) }
-  if (st.async) return { tone: 'warn', label: tr('Асинхронно', 'Asynchronous'), detail: tr('Сообщения ждут в очереди, ответ клиенту не задерживается', 'Messages wait in the queue; the client response is not delayed') }
-  return { tone: 'ok', label: tr('В норме', 'Healthy'), detail: `${fmt(st.rps)} rps` }
+    return { tone: 'bad', label: tr('Ведёт в проблемный блок', 'Leads to a failing block', '指向出问题的组件'), detail: tr(`«${to?.label}» отвечает успешно только на ${(target.success * 100).toFixed(1)}%`, `“${to?.label}” succeeds only ${(target.success * 100).toFixed(1)}% of the time`, `“${to?.label}”的成功率只有 ${(target.success * 100).toFixed(1)}%`) }
+  if (st.async) return { tone: 'warn', label: tr('Асинхронно', 'Asynchronous', '异步'), detail: tr('Сообщения ждут в очереди, ответ клиенту не задерживается', 'Messages wait in the queue; the client response is not delayed', '消息在队列中等待，客户端的响应不会因此变慢') }
+  return { tone: 'ok', label: tr('В норме', 'Healthy', '正常'), detail: `${fmt(st.rps)} rps` }
 }
 
 function StatusBadge({ tone, label, detail, face }: Status) {
@@ -1035,21 +1050,21 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
   const spec = KINDS[node.kind]
   const unitLabel: Record<typeof spec.unit, string> = {
     instances: external
-      ? tr('подключений к провайдеру', 'connections to the provider')
-      : tr('экземпляров (горизонтально)', 'instances (horizontal)'),
-    replicas: tr('узлов в шарде: primary + реплики для чтения', 'nodes per shard: primary + read replicas'),
-    nodes: tr('узлов (данные и запись делятся между ними)', 'nodes (data and writes are split across them)'),
-    brokers: tr('брокеров', 'brokers'),
-    partitions: tr('партиций (префиксов ключей)', 'partitions (key prefixes)'),
+      ? tr('подключений к провайдеру', 'connections to the provider', '到提供方的连接数')
+      : tr('экземпляров (горизонтально)', 'instances (horizontal)', '实例数（水平扩展）'),
+    replicas: tr('узлов в шарде: primary + реплики для чтения', 'nodes per shard: primary + read replicas', '每个分片的节点数：primary + 只读副本'),
+    nodes: tr('узлов (данные и запись делятся между ними)', 'nodes (data and writes are split across them)', '节点数（数据和写入分摊到各节点）'),
+    brokers: tr('брокеров', 'brokers', 'Broker 数'),
+    partitions: tr('партиций (префиксов ключей)', 'partitions (key prefixes)', '分区数（key 前缀）'),
   }
   const unitHint: Record<typeof spec.unit, string> = {
     instances: external
-      ? tr('Внешний API ограничен лимитом провайдера и числом подключений, а не процессором', 'An external API is limited by the provider’s rate limit and connections, not by CPU')
-      : tr('Без состояния — просто добавляйте одинаковые экземпляры', 'Stateless: just add identical instances'),
-    replicas: tr('Реплики масштабируют только чтение: вся запись идёт в primary', 'Replicas scale reads only: all writes go to the primary'),
-    nodes: tr('Масштабируется и чтение, и запись', 'Scales both reads and writes'),
-    brokers: tr('Больше брокеров — больше пропускная способность и партиций', 'More brokers means more throughput and partitions'),
-    partitions: tr('Объектное хранилище масштабируется по префиксам ключей', 'Object storage scales by key prefix'),
+      ? tr('Внешний API ограничен лимитом провайдера и числом подключений, а не процессором', 'An external API is limited by the provider’s rate limit and connections, not by CPU', '外部 API 受限于提供方的调用频率上限和连接数，而不是 CPU')
+      : tr('Без состояния — просто добавляйте одинаковые экземпляры', 'Stateless: just add identical instances', '无状态：直接添加相同的实例即可'),
+    replicas: tr('Реплики масштабируют только чтение: вся запись идёт в primary', 'Replicas scale reads only: all writes go to the primary', '副本只能扩展读取：所有写入都进入 primary'),
+    nodes: tr('Масштабируется и чтение, и запись', 'Scales both reads and writes', '读取和写入都能扩展'),
+    brokers: tr('Больше брокеров — больше пропускная способность и партиций', 'More brokers means more throughput and partitions', 'Broker 越多，吞吐量越大，能容纳的分区也越多'),
+    partitions: tr('Объектное хранилище масштабируется по префиксам ключей', 'Object storage scales by key prefix', '对象存储按 key 前缀扩展'),
   }
   const size = node.size ?? 1
   const shards = node.shards ?? 1
@@ -1066,11 +1081,11 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
       <div className="small muted">{unitHint[spec.unit]}</div>
       {spec.vertical && (
         <label>
-          {tr('размер машины (вертикально)', 'machine size (vertical)')}
+          {tr('размер машины (вертикально)', 'machine size (vertical)', '机器规格（垂直扩展）')}
           <select value={size} onChange={(e) => patch({ size: +e.target.value })}>
             {SIZES.map((x) => (
               <option key={x} value={x}>
-                {x === 1 ? tr('обычная', 'standard') : x === SIZES[SIZES.length - 1] ? tr(`×${x} — самая большая`, `×${x}: the largest`) : `×${x}`}
+                {x === 1 ? tr('обычная', 'standard', '标准') : x === SIZES[SIZES.length - 1] ? tr(`×${x} — самая большая`, `×${x}: the largest`, `×${x}：最大规格`) : `×${x}`}
               </option>
             ))}
           </select>
@@ -1079,20 +1094,21 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
       {spec.maxShards && (
         <>
           <label>
-            {tr('шардов', 'shards')}: <span className="range-num">{shards}</span>
+            {tr('шардов', 'shards', '分片数')}: <span className="range-num">{shards}</span>
             <input type="range" min={1} max={spec.maxShards} value={shards} onChange={(e) => patch({ shards: +e.target.value })} />
           </label>
           <div className="small muted">
             {tr(
               'Шарды делят данные и запись. Цена — транзакции и JOIN между шардами: OLTP медленнее, аналитика заметно медленнее.',
               'Shards split data and writes. The price is transactions and JOINs across shards: OLTP gets slower, analytics much slower.',
+              '分片会拆分数据和写入。代价是跨分片的事务和 JOIN：OLTP 变慢，分析查询会慢得多。',
             )}
           </div>
         </>
       )}
       {isStorage(node.kind) && (
         <div className="small scaling-cap">
-          {tr('ёмкость', 'capacity')}: {tr('чтение', 'reads')} {fmt(baseCapacity(node))} rps · {tr('запись', 'writes')} {fmt(writeCapacity(node))} rps
+          {tr('ёмкость', 'capacity', '容量')}: {tr('чтение', 'reads', '读取')} {fmt(baseCapacity(node))} rps · {tr('запись', 'writes', '写入')} {fmt(writeCapacity(node))} rps
         </div>
       )}
     </div>

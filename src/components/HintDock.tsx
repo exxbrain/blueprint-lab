@@ -41,16 +41,16 @@ export function HintDock({
   const worst = live?.find((d) => d.tone === 'bad') ? 'bad' : live?.find((d) => d.tone === 'warn') ? 'warn' : live?.length ? 'ok' : null
   return (
     <div className="hint-dock" ref={ref}>
-      <button className={'hint-dock-btn' + (open ? ' primary' : '')} onClick={() => setOpen(!open)} aria-expanded={open} aria-label={tr('Подсказки', 'Hints')}>
+      <button className={'hint-dock-btn' + (open ? ' primary' : '')} onClick={() => setOpen(!open)} aria-expanded={open} aria-label={tr('Подсказки', 'Hints', '提示')}>
         {worst && !liveLocked && <span className={'hint-dot ' + worst} />}
-        💡{!compact && ` ${tr('Подсказки', 'Hints')}`}
+        💡{!compact && ` ${tr('Подсказки', 'Hints', '提示')}`}
         {hints.length > 0 && (compact ? ` ${shown}/${hints.length}` : ` (${shown}/${hints.length})`)}
       </button>
       {open && (
         <div className="panel hint-dock-card" role="dialog">
           {live && (
             <div className="live-hints">
-              <div className="pattern-group-title">🔍 {tr('Сейчас на поле', 'Right now on the field')}</div>
+              <div className="pattern-group-title">🔍 {tr('Сейчас на поле', 'Right now on the field', '画布上当前的情况')}</div>
               {liveLocked ? (
                 <p className="small muted">{liveLocked}</p>
               ) : (
@@ -58,7 +58,7 @@ export function HintDock({
                   {live.slice(0, 3).map((d, i) => (
                     <li key={i + d.text} className={'live-hint ' + d.tone}>
                       {d.nodeId && onPick ? (
-                        <button className="live-hint-link" onClick={() => onPick(d.nodeId!)} title={tr('Показать блок', 'Show the block')}>
+                        <button className="live-hint-link" onClick={() => onPick(d.nodeId!)} title={tr('Показать блок', 'Show the block', '显示该模块')}>
                           {d.text}
                         </button>
                       ) : (
@@ -68,10 +68,10 @@ export function HintDock({
                   ))}
                 </ul>
               )}
-              <p className="small muted hint-dock-note">{tr('Это бесплатно: звёзды не снижает.', 'This is free: it does not lower your stars.')}</p>
+              <p className="small muted hint-dock-note">{tr('Это бесплатно: звёзды не снижает.', 'This is free: it does not lower your stars.', '这是免费的：不会降低你的星级。')}</p>
             </div>
           )}
-          {hints.length > 0 && live && <div className="pattern-group-title">💡 {tr('Подсказки к решению', 'Hints toward the solution')}</div>}
+          {hints.length > 0 && live && <div className="pattern-group-title">💡 {tr('Подсказки к решению', 'Hints toward the solution', '解题提示')}</div>}
           {hints.length === 0 ? null : shown > 0 ? (
             <ol className="small">
               {hints.slice(0, shown).map((h) => (
@@ -79,16 +79,16 @@ export function HintDock({
               ))}
             </ol>
           ) : (
-            <p className="small muted">{tr('Подсказок пока не брали.', 'No hints taken yet.')}</p>
+            <p className="small muted">{tr('Подсказок пока не брали.', 'No hints taken yet.', '还没有使用过提示。')}</p>
           )}
           {hints.length > 0 && shown < hints.length && (
             <button onClick={take}>
-              💡 {shown === 0 ? tr('Взять подсказку', 'Take a hint') : tr('Ещё подсказка', 'Another hint')}
+              💡 {shown === 0 ? tr('Взять подсказку', 'Take a hint', '获取提示') : tr('Ещё подсказка', 'Another hint', '再要一条提示')}
             </button>
           )}
           {hints.length > 0 && (
             <p className="small muted hint-dock-note">
-              {tr('Каждая подсказка снижает потолок звёзд: без подсказок — ★★★, с одной — ★★.', 'Each hint lowers the star ceiling: no hints ★★★, one hint ★★.')}
+              {tr('Каждая подсказка снижает потолок звёзд: без подсказок — ★★★, с одной — ★★.', 'Each hint lowers the star ceiling: no hints ★★★, one hint ★★.', '每条提示都会降低星级上限：不用提示 ★★★，用一条 ★★。')}
             </p>
           )}
         </div>

@@ -183,8 +183,9 @@ console.log('\nЛовушки конструктора')
 // подсказки должны вести к решению через свойства, а не называть инструмент или паттерн
 console.log('\nПодсказки без названий инструментов и паттернов')
 {
-  const tools = /redis|kafka|\bcdn\b|elasticsearch|clickhouse|cassandra|mongo|\bs3\b|кэш|кеш|\bcache|очеред|\bqueue|поисков\w* движ|search engine|колоночн|columnar|объектн\w* хранилищ|object storage|балансировщик|load balancer/i
-  const patterns = /cqrs|event-driven|fan-out|\bsaga|\bсаг[аиуеой]|outbox|\bcdc\b|circuit|bulkhead|backoff|jitter|idempoten|идемпотент|canary|blue-green|tracing|трассировк|\bmtls\b|\bjwt\b|access token|\bbff\b|backend for frontend|service mesh|discovery|rate limit|anti-corruption|contract|контракт|event sourcing|cache-aside|read-through/i
+  // и по-китайски: 缓存 (кэш), 队列 (очередь), 负载均衡 (балансировщик), 搜索引擎/全文检索 (поиск), 列式 (колоночная), 对象存储 (объектное хранилище)
+  const tools = /redis|kafka|\bcdn\b|elasticsearch|clickhouse|cassandra|mongo|\bs3\b|кэш|кеш|\bcache|очеред|\bqueue|поисков\w* движ|search engine|колоночн|columnar|объектн\w* хранилищ|object storage|балансировщик|load balancer|缓存|队列|负载均衡|搜索引擎|全文检索|列式|对象存储/i
+  const patterns = /熔断|幂等|金丝雀|蓝绿|链路追踪|服务网格|限流|防腐层|事件溯源|扇出|cqrs|event-driven|fan-out|\bsaga|\bсаг[аиуеой]|outbox|\bcdc\b|circuit|bulkhead|backoff|jitter|idempoten|идемпотент|canary|blue-green|tracing|трассировк|\bmtls\b|\bjwt\b|access token|\bbff\b|backend for frontend|service mesh|discovery|rate limit|anti-corruption|contract|контракт|event sourcing|cache-aside|read-through/i
   let n = 0
   for (const c of builderChallenges)
     for (const h of c.hints) {
@@ -309,7 +310,8 @@ console.log('\nМодель конструктора: тупиковые бло�
   const heavy = met(heavyNodes, feed.solution.edges)
   if (heavy.r.fanoutDelivered || heavy.r.fanoutLossAt?.nodeId !== 's3' || !heavy.r.fanoutLossAt.overload)
     fail(`лента: перегруженный воркер раскладки не назван причиной: ${JSON.stringify(heavy.r.fanoutLossAt)}`)
-  const heavyHint = diagnose({ nodes: heavyNodes, edges: feed.solution.edges, result: heavy.r }).find((d) => d.nodeId === 's3' && /не справляется|cannot keep up/.test(d.text))
+  // подсказка о потере постов на этом блоке (ранг 3) — без привязки к языку текста
+  const heavyHint = diagnose({ nodes: heavyNodes, edges: feed.solution.edges, result: heavy.r }).find((d) => d.nodeId === 's3' && d.rank === 3 && d.tone === 'bad')
   if (!heavyHint) fail('лента: подсказка на поле не говорит, что воркер раскладки не справляется')
   const viaCache = feed.solution.edges.filter((x) => !(x.from === 's3' && x.to === 'd1')).concat({ id: 'zk', from: 's3', to: 'k1' })
   const lost = simulate(feed.solution.nodes, viaCache)

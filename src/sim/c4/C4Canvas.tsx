@@ -140,7 +140,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
         const mx = (p1.x + p2.x) / 2
         const my = (p1.y + p2.y) / 2
         const sel = selected === r.id
-        const label = r.label.trim() || tr('⚠ без подписи', '⚠ no label')
+        const label = r.label.trim() || tr('⚠ без подписи', '⚠ no label', '⚠ 无标签')
         return (
           <g
             key={r.id}
@@ -185,7 +185,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
       {diagram.placed.map((p) => {
         const c = cardOf(p.card)
         const kind = p.kind
-        const typeLine = kind ? `[${KIND_INFO[kind].title}${p.tech.trim() ? ': ' + p.tech : ''}]` : tr('[тип не выбран]', '[no type]')
+        const typeLine = kind ? `[${KIND_INFO[kind].title}${p.tech.trim() ? ': ' + p.tech : ''}]` : tr('[тип не выбран]', '[no type]', '[未选择类型]')
         return (
           <g
             key={p.card}
@@ -228,7 +228,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
                 onDragging?.(true)
               }}
             >
-              <title>{tr('Потяните к другому элементу, чтобы провести связь', 'Drag to another element to draw a relationship')}</title>
+              <title>{tr('Потяните к другому элементу, чтобы провести связь', 'Drag to another element to draw a relationship', '拖到另一个元素上即可建立关系')}</title>
             </circle>
           </g>
         )

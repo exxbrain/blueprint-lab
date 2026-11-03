@@ -11,11 +11,11 @@ import { tr } from '../../i18n'
 export type Workload = 'oltp' | 'kv' | 'search' | 'analytics' | 'blob'
 
 export const WORKLOADS: Record<Workload, { title: string; short: string }> = {
-  oltp: { title: tr('Транзакции (OLTP): заказы, счета, профили', 'Transactions (OLTP): orders, invoices, profiles'), short: 'OLTP' },
-  kv: { title: tr('Чтение и запись по ключу, огромный поток', 'Key-value reads and writes at huge volume'), short: tr('ключ', 'key-value') },
-  search: { title: tr('Полнотекстовый поиск и подсказки', 'Full-text search and autocomplete'), short: tr('поиск', 'search') },
-  analytics: { title: tr('Аналитика: агрегаты по миллиардам строк', 'Analytics: aggregates over billions of rows'), short: 'OLAP' },
-  blob: { title: tr('Файлы и медиа', 'Files and media'), short: tr('файлы', 'files') },
+  oltp: { title: tr('Транзакции (OLTP): заказы, счета, профили', 'Transactions (OLTP): orders, invoices, profiles', '事务（OLTP）：订单、账单、用户资料'), short: 'OLTP' },
+  kv: { title: tr('Чтение и запись по ключу, огромный поток', 'Key-value reads and writes at huge volume', '按键读写，流量巨大'), short: tr('ключ', 'key-value', '键值') },
+  search: { title: tr('Полнотекстовый поиск и подсказки', 'Full-text search and autocomplete', '全文搜索与自动补全'), short: tr('поиск', 'search', '搜索') },
+  analytics: { title: tr('Аналитика: агрегаты по миллиардам строк', 'Analytics: aggregates over billions of rows', '分析：对数十亿行数据做聚合'), short: 'OLAP' },
+  blob: { title: tr('Файлы и медиа', 'Files and media', '文件和媒体'), short: tr('файлы', 'files', '文件') },
 }
 
 export type NodeKind =
@@ -94,12 +94,12 @@ export function writeShareOf(n: BNode): number {
 export const KINDS: Record<NodeKind, KindSpec> = {
   client: {
     unit: 'instances',
-    title: tr('Клиенты', 'Clients'),
+    title: tr('Клиенты', 'Clients', '客户端'),
     icon: '👥',
     capacity: Infinity,
     latency: 0,
     cost: 0,
-    desc: tr('Источник нагрузки', 'Source of load'),
+    desc: tr('Источник нагрузки', 'Source of load', '负载来源'),
     maxInstances: 1,
     group: 'Трафик',
   },
@@ -110,7 +110,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 1_000_000,
     latency: 5,
     cost: 150,
-    desc: tr('Раздаёт файлы и медиа с серверов рядом с пользователем. Промахи идут дальше', 'Serves files and media from servers close to the user. Misses go further downstream'),
+    desc: tr('Раздаёт файлы и медиа с серверов рядом с пользователем. Промахи идут дальше', 'Serves files and media from servers close to the user. Misses go further downstream', '从离用户最近的服务器分发文件和媒体。未命中的请求继续发往下游'),
     maxInstances: 1,
     group: 'Трафик',
   },
@@ -121,7 +121,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 20000,
     latency: 1,
     cost: 20,
-    desc: tr('Делит трафик поровну между потомками', 'Splits traffic evenly between downstream nodes'),
+    desc: tr('Делит трафик поровну между потомками', 'Splits traffic evenly between downstream nodes', '把流量平均分给下游节点'),
     maxInstances: 4,
     group: 'Трафик',
   },
@@ -132,40 +132,40 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 2500,
     latency: 3,
     cost: 60,
-    desc: tr('Единая точка входа, делит трафик между сервисами', 'Single entry point, splits traffic between services'),
+    desc: tr('Единая точка входа, делит трафик между сервисами', 'Single entry point, splits traffic between services', '统一入口，在各个服务之间分配流量'),
     maxInstances: 8,
     group: 'Трафик',
   },
   service: {
     unit: 'instances',
-    title: tr('Сервис', 'Service'),
+    title: tr('Сервис', 'Service', '服务'),
     icon: '⚙️',
     capacity: 300,
     latency: 20,
     cost: 50,
-    desc: tr('Обрабатывает запрос и вызывает потомков. Каждый тип запроса уходит в самое подходящее из подключённых хранилищ', 'Handles the request and calls downstream nodes. Each request type goes to the best-suited connected storage'),
+    desc: tr('Обрабатывает запрос и вызывает потомков. Каждый тип запроса уходит в самое подходящее из подключённых хранилищ', 'Handles the request and calls downstream nodes. Each request type goes to the best-suited connected storage', '处理请求并调用下游节点。每种类型的请求都会发往已连接的存储中最合适的那个'),
     maxInstances: 40,
     group: 'Вычисления',
   },
   queue: {
     unit: 'brokers',
-    title: tr('Очередь (Kafka)', 'Queue (Kafka)'),
+    title: tr('Очередь (Kafka)', 'Queue (Kafka)', '队列（Kafka）'),
     icon: '📜',
     capacity: 50000,
     latency: 5,
     cost: 150,
-    desc: tr('Принимает сразу, потомки обрабатывают асинхронно в своём темпе', 'Accepts immediately; consumers process asynchronously at their own pace'),
+    desc: tr('Принимает сразу, потомки обрабатывают асинхронно в своём темпе', 'Accepts immediately; consumers process asynchronously at their own pace', '立即接收；消费者按自己的节奏异步处理'),
     maxInstances: 3,
     group: 'Вычисления',
   },
   cache: {
     unit: 'nodes',
-    title: tr('Кэш (Redis)', 'Cache (Redis)'),
+    title: tr('Кэш (Redis)', 'Cache (Redis)', '缓存（Redis）'),
     icon: '⚡',
     capacity: 40000,
     latency: 1,
     cost: 80,
-    desc: tr('Отвечает сам при попадании (OLTP, ключ, поиск), промахи передаёт дальше', 'Answers on a hit (OLTP, key-value, search), passes misses downstream'),
+    desc: tr('Отвечает сам при попадании (OLTP, ключ, поиск), промахи передаёт дальше', 'Answers on a hit (OLTP, key-value, search), passes misses downstream', '命中时直接应答（OLTP、键值、搜索），未命中的请求转发到下游'),
     maxInstances: 3,
     group: 'Хранилища',
   },
@@ -176,7 +176,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 1000,
     latency: 8,
     cost: 200,
-    desc: tr('Реляционная БД: транзакции, JOIN, строгая согласованность. Экземпляры сверх первого — реплики для чтения: запись идёт только в primary', 'Relational DB: transactions, JOINs, strong consistency. Instances beyond the first are read replicas: writes go only to the primary'),
+    desc: tr('Реляционная БД: транзакции, JOIN, строгая согласованность. Экземпляры сверх первого — реплики для чтения: запись идёт только в primary', 'Relational DB: transactions, JOINs, strong consistency. Instances beyond the first are read replicas: writes go only to the primary', '关系型数据库：事务、JOIN、强一致性。第一个之外的实例都是只读副本：写入只进入 primary'),
     maxInstances: 5,
     group: 'Хранилища',
     fit: { oltp: 1, kv: 0.8, search: 0.1, analytics: 0.05, blob: 0.02 },
@@ -190,7 +190,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 4000,
     latency: 5,
     cost: 250,
-    desc: tr('Wide-column: огромный поток записей по ключу, линейное масштабирование. Без транзакций и JOIN', 'Wide-column: huge volume of key-based writes, linear scaling. No transactions or JOINs'),
+    desc: tr('Wide-column: огромный поток записей по ключу, линейное масштабирование. Без транзакций и JOIN', 'Wide-column: huge volume of key-based writes, linear scaling. No transactions or JOINs', '宽列存储：海量按键写入，线性扩展。没有事务，也没有 JOIN'),
     maxInstances: 8,
     group: 'Хранилища',
     fit: { kv: 1, analytics: 0.05 },
@@ -203,7 +203,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 1500,
     latency: 6,
     cost: 220,
-    desc: tr('Документная БД: гибкая схема. Экземпляры — реплики (запись в primary); транзакции есть, но дороже, чем в PostgreSQL', 'Document DB: flexible schema. Instances are replicas (writes go to the primary); transactions exist but cost more than in PostgreSQL'),
+    desc: tr('Документная БД: гибкая схема. Экземпляры — реплики (запись в primary); транзакции есть, но дороже, чем в PostgreSQL', 'Document DB: flexible schema. Instances are replicas (writes go to the primary); transactions exist but cost more than in PostgreSQL', '文档数据库：schema 灵活。实例都是副本（写入进入 primary）；支持事务，但开销比 PostgreSQL 大'),
     maxInstances: 6,
     group: 'Хранилища',
     fit: { oltp: 0.6, kv: 0.8, search: 0.2, analytics: 0.02 },
@@ -217,7 +217,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 2000,
     latency: 15,
     cost: 300,
-    desc: tr('Поисковый движок: полнотекстовый поиск, подсказки, фасеты. Не источник истины', 'Search engine: full-text search, autocomplete, facets. Not a source of truth'),
+    desc: tr('Поисковый движок: полнотекстовый поиск, подсказки, фасеты. Не источник истины', 'Search engine: full-text search, autocomplete, facets. Not a source of truth', '搜索引擎：全文搜索、自动补全、分面筛选。不能作为数据的权威来源（source of truth）'),
     maxInstances: 6,
     group: 'Хранилища',
     fit: { search: 1, analytics: 0.1, kv: 0.3 },
@@ -230,7 +230,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 300,
     latency: 50,
     cost: 300,
-    desc: tr('Колоночная аналитическая БД: агрегаты по миллиардам строк за секунды. Не для точечных запросов', 'Columnar analytical DB: aggregates over billions of rows in seconds. Not for point lookups'),
+    desc: tr('Колоночная аналитическая БД: агрегаты по миллиардам строк за секунды. Не для точечных запросов', 'Columnar analytical DB: aggregates over billions of rows in seconds. Not for point lookups', '列式分析数据库：几秒内完成数十亿行的聚合。不适合按键点查'),
     maxInstances: 6,
     group: 'Хранилища',
     fit: { analytics: 1, kv: 0.05 },
@@ -239,12 +239,12 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   },
   s3: {
     unit: 'partitions',
-    title: tr('Объектное хранилище (S3)', 'Object storage (S3)'),
+    title: tr('Объектное хранилище (S3)', 'Object storage (S3)', '对象存储（S3）'),
     icon: '🪣',
     capacity: 20000,
     latency: 40,
     cost: 100,
-    desc: tr('Файлы и медиа любого размера, дёшево и надёжно. Не база данных', 'Files and media of any size, cheap and durable. Not a database'),
+    desc: tr('Файлы и медиа любого размера, дёшево и надёжно. Не база данных', 'Files and media of any size, cheap and durable. Not a database', '任意大小的文件和媒体，便宜又可靠。不是数据库'),
     maxInstances: 5,
     group: 'Хранилища',
     fit: { blob: 1 },
@@ -350,8 +350,8 @@ export function nodeCost(n: BNode): number {
 /** Коротко о масштабе блока: ×3 · размер ×2 · 4 шард. */
 export function scaleText(n: BNode): string {
   const parts = [`×${n.instances}`]
-  if ((n.size ?? 1) > 1) parts.push(tr(`размер ×${n.size}`, `size ×${n.size}`))
-  if (shardsOf(n) > 1) parts.push(tr(`${shardsOf(n)} шард.`, `${shardsOf(n)} shards`))
+  if ((n.size ?? 1) > 1) parts.push(tr(`размер ×${n.size}`, `size ×${n.size}`, `规格 ×${n.size}`))
+  if (shardsOf(n) > 1) parts.push(tr(`${shardsOf(n)} шард.`, `${shardsOf(n)} shards`, `${shardsOf(n)} 个分片`))
   return parts.join(' · ')
 }
 

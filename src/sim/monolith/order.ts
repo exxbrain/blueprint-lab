@@ -51,9 +51,9 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
   // 1. инциденты и риск по спринтам
   const broken = timeline.filter((t) => t.status === 'broken')
   const risky = timeline.filter((t) => t.status === 'risk')
-  if (!timeline.length) items.push({ tone: 'info', text: tr('Пока ни одного спринта', 'No sprints yet') })
+  if (!timeline.length) items.push({ tone: 'info', text: tr('Пока ни одного спринта', 'No sprints yet', '还没有任何冲刺') })
   else if (!broken.length && !risky.length)
-    items.push({ tone: 'ok', text: tr('Ни одного спринта со сломанным продом или риском потери данных', 'Not a single sprint with broken production or risk of data loss') })
+    items.push({ tone: 'ok', text: tr('Ни одного спринта со сломанным продом или риском потери данных', 'Not a single sprint with broken production or risk of data loss', '没有一个冲刺弄坏生产环境或带来数据丢失风险') })
   // каждая отдельная причина — со спринтом, где она появилась (не больше трёх, чтобы не тонуть)
   const causes = (marks: SprintMark[]) => {
     const seen = new Map<string, SprintMark>()
@@ -61,13 +61,13 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
     return [...seen.entries()].slice(0, 3)
   }
   if (broken.length) {
-    items.push({ tone: 'bad', text: tr(`Прод был сломан ${broken.length} из ${timeline.length} спринтов`, `Production was broken in ${broken.length} of ${timeline.length} sprints`) })
+    items.push({ tone: 'bad', text: tr(`Прод был сломан ${broken.length} из ${timeline.length} спринтов`, `Production was broken in ${broken.length} of ${timeline.length} sprints`, `${timeline.length} 个冲刺中有 ${broken.length} 个弄坏了生产环境`) })
     for (const [pr, t] of causes(broken))
-      items.push({ tone: 'bad', text: tr(`Спринт ${t.sprint} («${t.action}»): ${pr}`, `Sprint ${t.sprint} (“${t.action}”): ${pr}`) })
+      items.push({ tone: 'bad', text: tr(`Спринт ${t.sprint} («${t.action}»): ${pr}`, `Sprint ${t.sprint} (“${t.action}”): ${pr}`, `冲刺 ${t.sprint}（“${t.action}”）：${pr}`) })
   }
   if (risky.length) {
-    items.push({ tone: 'warn', text: tr(`${risky.length} спринт(ов) с риском потери данных`, `${risky.length} sprint(s) at risk of data loss`) })
-    for (const [pr, t] of causes(risky)) items.push({ tone: 'info', text: tr(`Спринт ${t.sprint} («${t.action}»): ${pr}`, `Sprint ${t.sprint} (“${t.action}”): ${pr}`) })
+    items.push({ tone: 'warn', text: tr(`${risky.length} спринт(ов) с риском потери данных`, `${risky.length} sprint(s) at risk of data loss`, `${risky.length} 个冲刺存在数据丢失风险`) })
+    for (const [pr, t] of causes(risky)) items.push({ tone: 'info', text: tr(`Спринт ${t.sprint} («${t.action}»): ${pr}`, `Sprint ${t.sprint} (“${t.action}”): ${pr}`, `冲刺 ${t.sprint}（“${t.action}”）：${pr}`) })
   }
 
   // 2. фасад до первого выноса
@@ -79,6 +79,7 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
       text: tr(
         'Модуль вынесли раньше, чем поставили strangler-фасад. Фасад ставят первым: клиенты переключаются на него, пока всё ещё идёт в монолит',
         'A module was extracted before the strangler facade was in place. The facade goes first: clients switch to it while everything still goes to the monolith',
+        '在 strangler 门面就位之前就拆出了模块。门面要最先上线：客户端先切换到门面，而此时所有请求仍然转发给单体',
       ),
     })
 
@@ -111,9 +112,10 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
         text: tr(
           `«${title(worst.a)}» (${coupling(p, worst.a)} связей) вынесли раньше, чем «${title(worst.b)}» (${coupling(p, worst.b)}). Начинают с краёв: меньше связей — меньше риска и быстрее первый результат`,
           `“${title(worst.a)}” (${coupling(p, worst.a)} dependencies) was extracted before “${title(worst.b)}” (${coupling(p, worst.b)}). Start from the edges: fewer dependencies mean less risk and a faster first result`,
+          `“${title(worst.a)}”（${coupling(p, worst.a)} 个依赖）比“${title(worst.b)}”（${coupling(p, worst.b)} 个）更早被拆出。应当从边缘开始：依赖越少，风险越小，也越快见到第一个成果`,
         ),
       })
-    else items.push({ tone: 'ok', text: tr(`Порядок выноса от краёв к ядру: ${order.map(title).join(' → ')}`, `Extraction order from the edges to the core: ${order.map(title).join(' → ')}`) })
+    else items.push({ tone: 'ok', text: tr(`Порядок выноса от краёв к ядру: ${order.map(title).join(' → ')}`, `Extraction order from the edges to the core: ${order.map(title).join(' → ')}`, `从边缘到核心的拆分顺序：${order.map(title).join(' → ')}`) })
   }
 
   // 4. метания: сделали и откатили
@@ -131,7 +133,7 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
       if (ma !== defaultMode(d) && ma !== plannedMode(b, d)) thrash++
     }
   }
-  if (thrash) items.push({ tone: thrash > 2 ? 'warn' : 'info', text: tr(`Откатов уже сделанной работы: ${thrash}`, `Rollbacks of completed work: ${thrash}`) })
+  if (thrash) items.push({ tone: thrash > 2 ? 'warn' : 'info', text: tr(`Откатов уже сделанной работы: ${thrash}`, `Rollbacks of completed work: ${thrash}`, `回滚已完成工作的次数：${thrash}`) })
 
   // штрафы: инциденты дороже всего
   const r = grade(true, 1, items)
@@ -142,10 +144,10 @@ export function reviewOrder(p: Project, states: State[], actions: string[]): { r
   const stars = score >= 85 ? 3 : score >= 65 ? 2 : 1
   const verdict =
     stars === 3
-      ? tr('Образцовый Strangler Fig: маленькие безопасные шаги', 'Textbook Strangler Fig: small, safe steps')
+      ? tr('Образцовый Strangler Fig: маленькие безопасные шаги', 'Textbook Strangler Fig: small, safe steps', '教科书级的 Strangler Fig：小步快走，步步安全')
       : stars === 2
-        ? tr('Добрались, но по дороге были инциденты или лишние риски', 'You got there, but with incidents or unnecessary risks along the way')
-        : tr('Путь был опасным: прод ломался, данные были под угрозой', 'A dangerous path: production broke and data was at risk')
+        ? tr('Добрались, но по дороге были инциденты или лишние риски', 'You got there, but with incidents or unnecessary risks along the way', '目标达成了，但途中出现了事故或不必要的风险')
+        : tr('Путь был опасным: прод ломался, данные были под угрозой', 'A dangerous path: production broke and data was at risk', '这条路很危险：生产环境坏过，数据也曾面临风险')
   return { review: { score, stars, verdict, items }, timeline }
 }
 
@@ -164,7 +166,7 @@ export function recommendedOrder(p: Project, m: Mission): Step[] {
   const steps: Step[] = []
   const sol = m.solution
   const pat = (k: PatternId): Step => ({
-    label: tr(`Внедрить «${PATTERNS[k].title}»`, `Introduce “${PATTERNS[k].title}”`),
+    label: tr(`Внедрить «${PATTERNS[k].title}»`, `Introduce “${PATTERNS[k].title}”`, `引入“${PATTERNS[k].title}”`),
     apply: (s) => ({ ...s, infra: { ...s.infra, [k]: true } }),
   })
   for (const k of PLATFORM_FIRST) if (sol.patterns.includes(k)) steps.push(pat(k))
@@ -180,13 +182,14 @@ export function recommendedOrder(p: Project, m: Mission): Step[] {
         label: tr(
           `Подготовить ${title(d.from)} → ${title(d.to)}: ${MODE_LABEL[mode]}`,
           `Prepare ${title(d.from)} → ${title(d.to)}: ${MODE_LABEL[mode]}`,
+          `准备 ${title(d.from)} → ${title(d.to)}：${MODE_LABEL[mode]}`,
         ),
         apply: (s) => ({ ...s, modes: { ...s.modes, [d.id]: mode } }),
       })
     }
-    steps.push({ label: tr(`Вынести «${title(mod)}»`, `Extract “${title(mod)}”`), apply: (s) => ({ ...s, extracted: { ...s.extracted, [mod]: true } }) })
+    steps.push({ label: tr(`Вынести «${title(mod)}»`, `Extract “${title(mod)}”`, `拆出“${title(mod)}”`), apply: (s) => ({ ...s, extracted: { ...s.extracted, [mod]: true } }) })
     if (sol.ownDb.includes(mod))
-      steps.push({ label: tr(`Своя БД для «${title(mod)}»`, `Own database for “${title(mod)}”`), apply: (s) => ({ ...s, ownDb: { ...s.ownDb, [mod]: true } }) })
+      steps.push({ label: tr(`Своя БД для «${title(mod)}»`, `Own database for “${title(mod)}”`, `为“${title(mod)}”配置独立数据库`), apply: (s) => ({ ...s, ownDb: { ...s.ownDb, [mod]: true } }) })
   }
   for (const k of sol.patterns) if (!PLATFORM_FIRST.includes(k)) steps.push(pat(k))
   return steps

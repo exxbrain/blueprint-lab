@@ -18,7 +18,7 @@ export default function K8sPage({ id }: { id?: string }) {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href('kubernetes')}>Kubernetes</a>
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / <a href={href('kubernetes')}>Kubernetes</a>
       </div>
       <h1>
         ☸️ {task.title} <TaskLevelTag taskKey={k8sKey(task.id)} full />
@@ -94,7 +94,7 @@ function Lab({ task }: { task: K8sTask }) {
           <div className="row">
             {hints < task.hints.length && (
               <button onClick={hintState.take}>
-                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
+                💡 {tr('Подсказка', 'Hint', '提示')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -107,7 +107,7 @@ function Lab({ task }: { task: K8sTask }) {
                   setPlaying(true)
                 }}
               >
-                {tr('↩ Вернуть мой манифест', '↩ Restore my manifest')}
+                {tr('↩ Вернуть мой манифест', '↩ Restore my manifest', '↩ 恢复我的清单')}
               </button>
             ) : (
               <button
@@ -120,13 +120,13 @@ function Lab({ task }: { task: K8sTask }) {
                   setPlaying(true)
                 }}
               >
-                {tr('👁 Показать эталон', '👁 Show reference')}
+                {tr('👁 Показать эталон', '👁 Show reference', '👁 查看参考答案')}
               </button>
             )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference') : tr('✅ Инцидент закрыт!', '✅ Incident closed!')) : tr('🎯 Цели', '🎯 Goals')}
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference', '👁 参考答案') : tr('✅ Инцидент закрыт!', '✅ Incident closed!', '✅ 事故已解决！')) : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}
             {solved && !mine && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</span>}
           </h4>
           <ul className="goal-list">
@@ -139,26 +139,26 @@ function Lab({ task }: { task: K8sTask }) {
           <ResultButton solved={solved && !mine} onClick={() => result$.setOpen(true)} />
           <div className="k8s-totals small">
             <span className={t.errorRate < 0.01 ? 'ok-text' : 'bad-text'}>
-              {tr('ошибок', 'errors')} {(t.errorRate * 100).toFixed(2)}%
+              {tr('ошибок', 'errors', '错误率')} {(t.errorRate * 100).toFixed(2)}%
             </span>
-            <span>p95 {Math.round(t.p95)} {tr('мс', 'ms')}</span>
-            <span>{tr('подов в среднем', 'avg pods')} {t.avgPods.toFixed(1)}</span>
-            <span>{tr('рестартов', 'restarts')} {t.restarts}</span>
+            <span>p95 {Math.round(t.p95)} {tr('мс', 'ms', 'ms')}</span>
+            <span>{tr('подов в среднем', 'avg pods', '平均 Pod 数')} {t.avgPods.toFixed(1)}</span>
+            <span>{tr('рестартов', 'restarts', '重启次数')} {t.restarts}</span>
           </div>
         </div>
       </div>
 
       <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={k8sKey(task.id)} stars={stars}
-        title={tr('Инцидент закрыт!', 'Incident closed!')}>
+        title={tr('Инцидент закрыт!', 'Incident closed!', '事故已解决！')}>
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
 
       <div className="k8s-grid">
         <div className="panel k8s-manifest">
-          <h4>{tr('Манифест', 'Manifest')}</h4>
+          <h4>{tr('Манифест', 'Manifest', '清单（Manifest）')}</h4>
           <pre className="yaml">
             <span className="muted"># deployment/api</span>
             {'\n'}
@@ -176,7 +176,7 @@ function Lab({ task }: { task: K8sTask }) {
               </span>
             ))}
           </pre>
-          <p className="small muted">{tr('Меняйте значения — сценарий сразу прогоняется заново.', 'Change values and the scenario reruns immediately.')}</p>
+          <p className="small muted">{tr('Меняйте значения — сценарий сразу прогоняется заново.', 'Change values and the scenario reruns immediately.', '修改取值后，场景会立即重新运行。')}</p>
         </div>
 
         <div className="panel k8s-cluster">
@@ -184,7 +184,7 @@ function Lab({ task }: { task: K8sTask }) {
             <button onClick={() => (pos >= run.frames.length - 1 ? (setPos(0), setPlaying(true)) : setPlaying(!playing))}>
               {playing ? '⏸' : pos >= run.frames.length - 1 ? '↺' : '▶'}
             </button>
-            <input type="range" min={0} max={run.frames.length - 1} value={pos} onChange={(e) => (setPos(+e.target.value), setPlaying(false))} aria-label={tr('Время', 'Time')} />
+            <input type="range" min={0} max={run.frames.length - 1} value={pos} onChange={(e) => (setPos(+e.target.value), setPlaying(false))} aria-label={tr('Время', 'Time', '时间')} />
             <span className="mono small">
               t={frame.t}s / {run.frames.length - 1}s
             </span>
@@ -214,13 +214,13 @@ function Traffic({ frames, pos }: { frames: Frame[]; pos: number }) {
           {Math.round(f.rps)} rps
         </span>
         <span className={errShare > 0.01 ? 'bad-text' : 'ok-text'}>
-          {tr('ошибок', 'errors')} {(errShare * 100).toFixed(1)}%
+          {tr('ошибок', 'errors', '错误率')} {(errShare * 100).toFixed(1)}%
         </span>
         <span>
-          {tr('задержка', 'latency')} {Math.round(f.latency)} {tr('мс', 'ms')}
+          {tr('задержка', 'latency', '延迟')} {Math.round(f.latency)} {tr('мс', 'ms', 'ms')}
         </span>
         <span>
-          {tr('реплик', 'replicas')} {f.pods.filter((p) => p.healthy).length}/{f.desired}
+          {tr('реплик', 'replicas', '副本')} {f.pods.filter((p) => p.healthy).length}/{f.desired}
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="k8s-chart" preserveAspectRatio="none">
@@ -229,7 +229,7 @@ function Traffic({ frames, pos }: { frames: Frame[]; pos: number }) {
         <line x1={x(pos)} x2={x(pos)} y1={0} y2={H} className="chart-now" />
       </svg>
       <div className="small muted">
-        <span className="legend rps">— {tr('запросы', 'requests')}</span> <span className="legend err">— {tr('ошибки', 'errors')}</span>
+        <span className="legend rps">— {tr('запросы', 'requests', '请求')}</span> <span className="legend err">— {tr('ошибки', 'errors', '错误')}</span>
       </div>
     </div>
   )
@@ -246,7 +246,7 @@ function Cluster({ frame }: { frame: Frame }) {
             <div className="k8s-node-head">
               <b>{n.id}</b>
               <span className="small muted">
-                {tr('зона', 'zone')} {n.zone}
+                {tr('зона', 'zone', '可用区')} {n.zone}
               </span>
               {!n.up && <span className="bad-text small">NotReady</span>}
               {n.cordoned && n.up && <span className="warn-text small">SchedulingDisabled</span>}
@@ -269,7 +269,7 @@ function Cluster({ frame }: { frame: Frame }) {
         <div className="k8s-node pending-lane">
           <div className="k8s-node-head">
             <b>Pending</b>
-            <span className="small muted">{tr('нет места ни на одной ноде', 'no room on any node')}</span>
+            <span className="small muted">{tr('нет места ни на одной ноде', 'no room on any node', '所有 Node 都没有空间')}</span>
           </div>
           <div className="k8s-pods">
             {pending.map((p) => (
@@ -285,7 +285,7 @@ function Cluster({ frame }: { frame: Frame }) {
 function PodChip({ p }: { p: PodView }) {
   const label =
     p.phase === 'CrashLoopBackOff' ? (p.reason === 'OOMKilled' ? 'OOMKilled' : 'CrashLoopBackOff')
-    : p.phase === 'Ready' && p.hung ? tr('завис', 'hung')
+    : p.phase === 'Ready' && p.hung ? tr('завис', 'hung', '卡死')
     : p.phase === 'Ready' ? 'Running 1/1'
     : p.phase === 'Running' ? 'Running 0/1'
     : p.phase
@@ -295,7 +295,7 @@ function PodChip({ p }: { p: PodView }) {
       <span className="pod-name">{p.name.slice(4)}</span>
       <span className="pod-phase">{label}</span>
       {p.restarts > 0 && <span className="pod-restarts">↻{p.restarts}</span>}
-      {p.inService && <span className="pod-svc" title={tr('получает трафик', 'receives traffic')}>●</span>}
+      {p.inService && <span className="pod-svc" title={tr('получает трафик', 'receives traffic', '正在接收流量')}>●</span>}
     </div>
   )
 }

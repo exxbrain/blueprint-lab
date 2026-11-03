@@ -258,19 +258,134 @@ function NotationEn() {
   )
 }
 
+function LevelsZh() {
+  return (
+    <div className="lesson">
+      <p>
+        <b>C4 model</b> 是一种像画带比例尺的地图一样画架构的方法，由 Simon Brown 提出。它不画一张“所有东西都连在一起”的巨大图，而是分成四个缩放层级，每个层级有自己的一组元素。
+      </p>
+      <table className="cmp">
+        <thead>
+          <tr>
+            <th>层级</th>
+            <th>回答的问题</th>
+            <th>图上画什么</th>
+            <th>给谁看</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1. System Context</td>
+            <td>这是什么系统？它和谁打交道？</td>
+            <td>人、作为一个整体方框的我们的系统、外部系统</td>
+            <td>所有人，包括业务方</td>
+          </tr>
+          <tr>
+            <td>2. Container</td>
+            <td>它由哪些可独立运行的部分组成？</td>
+            <td>应用、服务、数据库、消息 Broker——并标明技术</td>
+            <td>开发、运维、架构师</td>
+          </tr>
+          <tr>
+            <td>3. Component</td>
+            <td>单个容器内部是怎样组织的？</td>
+            <td>容器内部的控制器、服务、仓储（repository）</td>
+            <td>这个容器的开发者</td>
+          </tr>
+          <tr>
+            <td>4. Code</td>
+            <td>组件是如何实现的？</td>
+            <td>类、接口、表</td>
+            <td>通常由 IDE 生成</td>
+          </tr>
+        </tbody>
+      </table>
+      <Callout>
+        C4 中的“容器”（container）不是 Docker。它指任何单独运行、存储或处理数据的东西：浏览器中的 SPA、移动应用、后端服务、数据库、消息 Broker、S3 bucket。
+      </Callout>
+      <h2>首要规则：不要混用层级</h2>
+      <p>
+        在上下文图上画数据库表，或者把控制器和微服务画在一起——这是最常见的错误。每张图回答自己的问题：往下钻一层时，一个方框展开成若干个，其余的一切都留在边界之外。
+      </p>
+      <p>
+        实践中前两个层级几乎总是够用。组件图只为复杂的容器绘制，而 Code 层级几乎从来不画。
+      </p>
+    </div>
+  )
+}
+
+function NotationZh() {
+  return (
+    <div className="lesson">
+      <p>
+        C4 有意不规定严格的图形样式：重要的不是颜色和形状，而是图在作者不在场时也能被读懂。因此每个元素和每条关系都必须带有文字说明。
+      </p>
+      <h2>元素</h2>
+      <ul>
+        <li>
+          <b>名称</b>——“Backend API”、“订单数据库”。
+        </li>
+        <li>
+          <b>类型</b>写在方括号里——[Person]、[Software System]、[Container]、[Component]。
+        </li>
+        <li>
+          <b>技术</b>（用于容器和组件）——[Container: Kotlin, Spring Boot]。
+        </li>
+        <li>
+          <b>描述</b>，一句话——它负责什么。
+        </li>
+      </ul>
+      <h2>关系</h2>
+      <ul>
+        <li>
+          <b>方向</b>——从发起交互的一方指出：“Backend → 核心银行系统：发起支付”，而不是反过来，尽管响应是沿反方向返回的。
+        </li>
+        <li>
+          <b>标签</b>——说明发生了什么：“读写订单”、“发送通知”。没有标签的箭头什么也没告诉你。
+        </li>
+        <li>
+          <b>技术</b>（在容器层级）——JSON/HTTPS、gRPC、SQL/JDBC、Kafka。
+        </li>
+      </ul>
+      <h2>边界</h2>
+      <p>
+        在容器图上，系统画成一个虚线框：框内是它的容器，框外是人和外部系统。在组件图上，这个框就是被展开的那个容器，相邻的容器留在框外。
+      </p>
+      <Callout>
+        C4 评审清单：每个元素都有类型和描述；容器和组件标明了技术；每个箭头都有标签、正确的方向以及（容器之间的）协议；层级没有混用；如果用了颜色，就要有图例。
+      </Callout>
+      <h2>补充图</h2>
+      <ul>
+        <li>
+          <b>System Landscape</b>——公司的所有系统以及它们之间的关系。
+        </li>
+        <li>
+          <b>Dynamic</b>——在容器或组件之上，为某个场景画出带编号的步骤顺序。
+        </li>
+        <li>
+          <b>Deployment</b>——容器运行在什么上、运行在哪里：集群、节点、区域。
+        </li>
+      </ul>
+      <p>
+        图很适合以代码的形式维护：Structurizr DSL、PlantUML C4 或 Mermaid C4——这样它们就和代码一起放在仓库里，并随代码一起评审。
+      </p>
+    </div>
+  )
+}
+
 export const c4Lessons: Lesson[] = [
   {
     id: 'levels',
-    title: tr('Четыре уровня C4', 'The four C4 levels'),
-    summary: tr('Context, Container, Component, Code — и почему их нельзя смешивать', 'Context, Container, Component, Code — and why they must not be mixed'),
+    title: tr('Четыре уровня C4', 'The four C4 levels', 'C4 的四个层级'),
+    summary: tr('Context, Container, Component, Code — и почему их нельзя смешивать', 'Context, Container, Component, Code — and why they must not be mixed', 'Context、Container、Component、Code——以及为什么不能混用'),
     minutes: 6,
-    Body: tr(Levels, LevelsEn),
+    Body: tr(Levels, LevelsEn, LevelsZh),
   },
   {
     id: 'notation',
-    title: tr('Нотация и чек-лист ревью', 'Notation and review checklist'),
-    summary: tr('Тип, технология, подпись и направление связи, граница системы', 'Type, technology, relationship label and direction, system boundary'),
+    title: tr('Нотация и чек-лист ревью', 'Notation and review checklist', '表示法与评审清单'),
+    summary: tr('Тип, технология, подпись и направление связи, граница системы', 'Type, technology, relationship label and direction, system boundary', '类型、技术、关系的标签和方向、系统边界'),
     minutes: 6,
-    Body: tr(Notation, NotationEn),
+    Body: tr(Notation, NotationEn, NotationZh),
   },
 ]

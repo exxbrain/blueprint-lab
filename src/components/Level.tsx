@@ -8,7 +8,7 @@ import { href } from '../router'
 export function LevelTag({ level, full }: { level?: TaskLevel; full?: boolean }) {
   if (!level) return null
   return (
-    <span className={`lvl-tag lvl-${level}`} title={tr(`Уровень задачи: ${TASK_LEVEL[level].name}`, `Challenge level: ${TASK_LEVEL[level].name}`)}>
+    <span className={`lvl-tag lvl-${level}`} title={tr(`Уровень задачи: ${TASK_LEVEL[level].name}`, `Challenge level: ${TASK_LEVEL[level].name}`, `任务等级：${TASK_LEVEL[level].name}`)}>
       {full ? TASK_LEVEL[level].name : TASK_LEVEL[level].short}
     </span>
   )
@@ -26,7 +26,7 @@ export function LevelBadge({ active }: { active: boolean }) {
     <a
       className={'level-badge' + (active ? ' active' : '')}
       href={href('profile')}
-      title={`${lv.rank.title} · ${lv.rank.scale}\n${lv.xp} ${XP}${lv.next ? tr(` · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, ` · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`) : ''}`}
+      title={`${lv.rank.title} · ${lv.rank.scale}\n${lv.xp} ${XP}${lv.next ? tr(` · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, ` · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`, ` · 距离等级 ${lv.level + 1} 还差 ${lv.next.xp - lv.xp} XP`) : ''}`}
     >
       <span className="level-num">{lv.level}</span>
       <span className="level-text">
@@ -56,7 +56,7 @@ export function LevelToasts() {
       items.push({
         id: id + 1,
         big: true,
-        text: tr(`Новый уровень ${lv.level}: ${lv.rank.title} — ${lv.rank.scale}`, `Level ${lv.level}: ${lv.rank.title}, ${lv.rank.scale}`),
+        text: tr(`Новый уровень ${lv.level}: ${lv.rank.title} — ${lv.rank.scale}`, `Level ${lv.level}: ${lv.rank.title}, ${lv.rank.scale}`, `新等级 ${lv.level}：${lv.rank.title}——${lv.rank.scale}`),
       })
     setToasts((xs) => [...xs, ...items])
     // таймер не сбрасываем при перерисовке: всплывашка живёт своё время
@@ -81,7 +81,7 @@ export function TaskMarks({ taskKey }: { taskKey: string }) {
   const p = useProgress()
   return (
     <>
-      {!isTaskOpen(taskKey, p) && <span title={tr('Откроется после прохождения предыдущего уровня', 'Opens after you pass the previous level')}>🔒 </span>}
+      {!isTaskOpen(taskKey, p) && <span title={tr('Откроется после прохождения предыдущего уровня', 'Opens after you pass the previous level', '通过上一等级后解锁')}>🔒 </span>}
       <TaskLevelTag taskKey={taskKey} />
     </>
   )
@@ -97,7 +97,7 @@ export function TaskGate({ taskKey, children }: { taskKey: string; children: Rea
     <div className="panel task-locked">
       <div className="lock-icon">🔒</div>
       <h3>
-        {tr('Задача уровня', 'A challenge of level')} <LevelTag level={own} full />
+        {tr('Задача уровня', 'A challenge of level', '该任务的等级为')} <LevelTag level={own} full />
       </h3>
       <p>
         {tr(
@@ -115,12 +115,19 @@ export function TaskGate({ taskKey, children }: { taskKey: string; children: Rea
             </b>{' '}
             solved.
           </>,
+          <>
+            任务按等级逐级解锁。请先通过 <LevelTag level={b.level} full /> 等级：已解决{' '}
+            <b>
+              {b.status.done} / {b.status.total}
+            </b>
+            。
+          </>,
         )}
       </p>
       <div className="progressbar">
         <div style={{ width: `${(b.status.done / b.status.total) * 100}%` }} />
       </div>
-      <h4>{tr('Осталось решить', 'Still to solve')}</h4>
+      <h4>{tr('Осталось решить', 'Still to solve', '尚待解决')}</h4>
       <ul className="task-list">
         {b.left.map((t) => (
           <li key={t.key}>

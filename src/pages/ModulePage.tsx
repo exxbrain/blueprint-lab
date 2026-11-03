@@ -12,7 +12,7 @@ export function ModulePage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / {mod.title}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / {mod.title}
       </div>
       <h1>
         {mod.icon} {mod.title}
@@ -26,7 +26,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.lessons.length > 0 && (
         <>
-          <h2 className="section-title">📖 {tr('Уроки', 'Lessons')}</h2>
+          <h2 className="section-title">📖 {tr('Уроки', 'Lessons', '课程')}</h2>
           <div className="list">
             {mod.lessons.map((l, i) => (
               <a key={l.id} className="list-item" href={href(mod.id, 'lesson', l.id)}>
@@ -35,7 +35,7 @@ export function ModulePage({ mod }: { mod: Module }) {
                   {l.title}
                   <span className="desc">{l.summary}</span>
                 </span>
-                <span className="small muted">{l.minutes} {tr('мин', 'min')}</span>
+                <span className="small muted">{l.minutes} {tr('мин', 'min', '分钟')}</span>
                 {progress.lessons[`${mod.id}/${l.id}`] && <span className="done-mark">✓</span>}
               </a>
             ))}
@@ -45,7 +45,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.scenarios.length > 0 && (
         <>
-          <h2 className="section-title">🚨 {tr('Задачи-инциденты', 'Incident challenges')}</h2>
+          <h2 className="section-title">🚨 {tr('Задачи-инциденты', 'Incident challenges', '事故任务')}</h2>
           <div className="list">
             {mod.scenarios.map((s) => (
               <a key={s.id} className="list-item" href={href(mod.id, 'scenario', s.id)}>
@@ -54,7 +54,7 @@ export function ModulePage({ mod }: { mod: Module }) {
                   {s.title} <TaskMarks taskKey={`${mod.id}/${s.id}`} />
                   <span className="desc">{s.summary}</span>
                 </span>
-                {progress.scenarios[`${mod.id}/${s.id}`] && <span className="done-mark">✓ {tr('решено', 'solved')}</span>}
+                {progress.scenarios[`${mod.id}/${s.id}`] && <span className="done-mark">✓ {tr('решено', 'solved', '已解决')}</span>}
               </a>
             ))}
           </div>
@@ -63,17 +63,17 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.quiz.length > 0 && (
         <>
-          <h2 className="section-title">❓ {tr('Проверка знаний', 'Knowledge check')}</h2>
+          <h2 className="section-title">❓ {tr('Проверка знаний', 'Knowledge check', '知识检验')}</h2>
           <div className="list">
             <a className="list-item" href={href(mod.id, 'quiz')}>
               <span className="num">?</span>
               <span className="title">
-                {tr(`Квиз: ${mod.quiz.length} вопросов`, `Quiz: ${mod.quiz.length} questions`)}
-                <span className="desc">{tr('Засчитывается от 80% правильных ответов', 'Passed at 80% correct answers')}</span>
+                {tr(`Квиз: ${mod.quiz.length} вопросов`, `Quiz: ${mod.quiz.length} questions`, `测验：${mod.quiz.length} 道题`)}
+                <span className="desc">{tr('Засчитывается от 80% правильных ответов', 'Passed at 80% correct answers', '正确率达到 80% 即为通过')}</span>
               </span>
               {quizScore !== undefined && (
                 <span className={quizScore >= 0.8 ? 'done-mark' : 'warn-text'}>
-                  {tr('лучший', 'best')}: {Math.round(quizScore * 100)}%
+                  {tr('лучший', 'best', '最佳')}: {Math.round(quizScore * 100)}%
                 </span>
               )}
             </a>
@@ -83,7 +83,7 @@ export function ModulePage({ mod }: { mod: Module }) {
 
       {mod.extras.length > 0 && (
         <>
-          <h2 className="section-title">🛠 {tr('Симуляторы', 'Simulators')}</h2>
+          <h2 className="section-title">🛠 {tr('Симуляторы', 'Simulators', '模拟器')}</h2>
           <div className="list">
             {mod.extras.map((e) => (
               <a key={e.href} className="list-item" href={e.href}>

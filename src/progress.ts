@@ -19,7 +19,7 @@ export const REFERENCE_VIEWED = 99
 
 /** Предупреждение на кнопке эталона: после него потолок звёзд за задачу — одна (уже полученные звёзды остаются) */
 export const referenceNote = () =>
-  tr('После эталона за эту задачу можно получить не больше ★. Уже заработанные звёзды останутся.', 'After viewing the reference this task gives at most ★. Stars you already earned stay.')
+  tr('После эталона за эту задачу можно получить не больше ★. Уже заработанные звёзды останутся.', 'After viewing the reference this task gives at most ★. Stars you already earned stay.', '查看参考答案后，这个任务最多只能获得 ★。已经获得的星会保留。')
 
 /**
  * Задачи переименованы: старые идентификаторы подсказывали ответ (tool-redis, readiness, reversal…).

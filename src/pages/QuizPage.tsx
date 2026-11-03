@@ -24,22 +24,22 @@ export function QuizPage({ mod }: { mod: Module }) {
     return (
       <div className="page narrow">
         <div className="crumbs">
-          <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
+          <a href="#/">{tr('Карта', 'Map', '地图')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz', '测验')}
         </div>
         <div className={'panel' + (ratio >= 0.8 ? ' success' : '')} style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ fontSize: '3rem' }}>{ratio >= 0.8 ? '🏆' : ratio >= 0.5 ? '👍' : '📚'}</div>
           <h2>
-            {tr(`${score} из ${qs.length}`, `${score} of ${qs.length}`)}
+            {tr(`${score} из ${qs.length}`, `${score} of ${qs.length}`, `答对 ${score} / ${qs.length} 题`)}
           </h2>
           <p className="muted">
             {ratio >= 0.8
-              ? tr('Отлично! Квиз засчитан.', 'Great! Quiz passed.')
-              : tr('Для зачёта нужно 80%. Перечитайте уроки и попробуйте ещё раз.', 'You need 80% to pass. Review the lessons and try again.')}
+              ? tr('Отлично! Квиз засчитан.', 'Great! Quiz passed.', '太棒了！测验已通过。')
+              : tr('Для зачёта нужно 80%. Перечитайте уроки и попробуйте ещё раз.', 'You need 80% to pass. Review the lessons and try again.', '正确率需达到 80% 才能通过。复习一下课程，再试一次吧。')}
           </p>
           <div className="row" style={{ justifyContent: 'center' }}>
-            <button onClick={restart}>{tr('Пройти заново', 'Try again')}</button>
+            <button onClick={restart}>{tr('Пройти заново', 'Try again', '再试一次')}</button>
             <a href={href(mod.id)}>
-              <button className="primary">{tr('К модулю', 'Back to module')}</button>
+              <button className="primary">{tr('К модулю', 'Back to module', '返回模块')}</button>
             </a>
           </div>
         </div>
@@ -50,13 +50,13 @@ export function QuizPage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz', '测验')}
       </div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="muted">
-          {tr(`Вопрос ${i + 1} из ${qs.length}`, `Question ${i + 1} of ${qs.length}`)}
+          {tr(`Вопрос ${i + 1} из ${qs.length}`, `Question ${i + 1} of ${qs.length}`, `第 ${i + 1} 题，共 ${qs.length} 题`)}
         </span>
-        <span className="muted">{tr('верно', 'correct')}: {score}</span>
+        <span className="muted">{tr('верно', 'correct', '答对')}: {score}</span>
       </div>
       <div className="progressbar" style={{ margin: '8px 0 20px' }}>
         <div style={{ width: `${(i / qs.length) * 100}%` }} />
@@ -90,7 +90,7 @@ export function QuizPage({ mod }: { mod: Module }) {
           <>
             <div className="explain">
               <b className={picked === q.correct ? 'ok-text' : 'bad-text'}>
-                {picked === q.correct ? tr('Верно. ', 'Correct. ') : tr('Неверно. ', 'Incorrect. ')}
+                {picked === q.correct ? tr('Верно. ', 'Correct. ', '正确。') : tr('Неверно. ', 'Incorrect. ', '错误。')}
               </b>
               {q.explain}
             </div>
@@ -107,7 +107,7 @@ export function QuizPage({ mod }: { mod: Module }) {
                   }
                 }}
               >
-                {i + 1 < qs.length ? tr('Дальше →', 'Next →') : tr('Результат', 'Result')}
+                {i + 1 < qs.length ? tr('Дальше →', 'Next →', '下一题 →') : tr('Результат', 'Result', '查看结果')}
               </button>
             </div>
           </>

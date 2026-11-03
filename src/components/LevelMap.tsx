@@ -6,10 +6,10 @@ import { href } from '../router'
 
 /** Миры карты: по одному на уровень задач */
 const WORLDS: Record<TaskLevel, { title: string; scale: string; icon: string }> = {
-  1: { title: tr('Мир 1 · Младший', 'World 1 · Junior'), scale: tr('Сервис, база и первый кэш', 'A service, a database and a first cache'), icon: '🌱' },
-  2: { title: tr('Мир 2 · Средний', 'World 2 · Middle'), scale: tr('Реплики, очереди, правильные хранилища', 'Replicas, queues, the right storage'), icon: '⚙️' },
-  3: { title: tr('Мир 3 · Старший', 'World 3 · Senior'), scale: tr('Микросервисы и распределённые данные', 'Microservices and distributed data'), icon: '🛰️' },
-  4: { title: tr('Мир 4 · Архитектор', 'World 4 · Architect'), scale: tr('Системы на миллионы пользователей', 'Systems for millions of users'), icon: '🏛️' },
+  1: { title: tr('Мир 1 · Младший', 'World 1 · Junior', '世界 1 · 初级'), scale: tr('Сервис, база и первый кэш', 'A service, a database and a first cache', '一个服务、一个数据库和第一个缓存'), icon: '🌱' },
+  2: { title: tr('Мир 2 · Средний', 'World 2 · Middle', '世界 2 · 中级'), scale: tr('Реплики, очереди, правильные хранилища', 'Replicas, queues, the right storage', '副本、队列和合适的存储'), icon: '⚙️' },
+  3: { title: tr('Мир 3 · Старший', 'World 3 · Senior', '世界 3 · 高级'), scale: tr('Микросервисы и распределённые данные', 'Microservices and distributed data', '微服务与分布式数据'), icon: '🛰️' },
+  4: { title: tr('Мир 4 · Архитектор', 'World 4 · Architect', '世界 4 · 架构师'), scale: tr('Системы на миллионы пользователей', 'Systems for millions of users', '面向数百万用户的系统'), icon: '🏛️' },
 }
 
 /** Значок раздела на кружке уровня */
@@ -89,13 +89,13 @@ export function PlayerCard() {
         </div>
         <div className="small muted">
           {lv.next
-            ? tr(`${lv.xp} опыта · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`)
+            ? tr(`${lv.xp} опыта · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`, `${lv.xp} XP · 距离等级 ${lv.level + 1} 还差 ${lv.next.xp - lv.xp} XP`)
             : `${lv.xp} ${XP}`}
         </div>
       </div>
       {next && (
         <a className="btn primary big play-btn" href={next.href}>
-          ▶ {tr('Продолжить', 'Continue')}
+          ▶ {tr('Продолжить', 'Continue', '继续')}
           <span className="small">{next.title}</span>
         </a>
       )}
@@ -139,16 +139,16 @@ export function LevelMap() {
                   <div style={{ width: `${(st.done / st.total) * 100}%` }} />
                 </div>
                 {st.passed ? (
-                  <span className="small ok-text">✓ {tr('мир пройден', 'world complete')}</span>
+                  <span className="small ok-text">✓ {tr('мир пройден', 'world complete', '已通关本世界')}</span>
                 ) : !st.open ? (
                   <span className="small muted">
-                    {tr(`откроется после мира ${st.level - 1}`, `opens after world ${st.level - 1}`)}
+                    {tr(`откроется после мира ${st.level - 1}`, `opens after world ${st.level - 1}`, `通过世界 ${st.level - 1} 后解锁`)}
                   </span>
                 ) : null}
               </div>
             </header>
             {!st.open ? (
-              <div className="world-locked-row" aria-label={tr(`${tasks.length} закрытых уровней`, `${tasks.length} locked levels`)}>
+              <div className="world-locked-row" aria-label={tr(`${tasks.length} закрытых уровней`, `${tasks.length} locked levels`, `${tasks.length} 个未解锁关卡`)}>
                 {tasks.map((t) => (
                   <span key={t.key} className="mini-lock" title={t.title}>
                     🔒
@@ -186,7 +186,7 @@ export function LevelMap() {
                         {t.area} · {TASK_XP[t.level]} {XP}
                       </span>
                     </span>
-                    {isNext && <span className="node-play">▶ {tr('Играть', 'Play')}</span>}
+                    {isNext && <span className="node-play">▶ {tr('Играть', 'Play', '开始')}</span>}
                   </>
                 )
                 return open ? (
@@ -208,8 +208,9 @@ export function LevelMap() {
         {tr(
           'Мир открывается, когда пройдены все уровни предыдущего. Звёзды — оценка решения: чем ближе к эталону и бюджету, тем больше звёзд и опыта.',
           'A world opens once every level of the previous one is complete. Stars rate your solution: the closer to the reference and the budget, the more stars and XP.',
+          '上一个世界的所有关卡都完成后，下一个世界才会解锁。星代表对解法的评分：越接近参考答案、越符合预算，获得的星和 XP 就越多。',
         )}{' '}
-        <a href={href('profile')}>{tr('Мой уровень →', 'My level →')}</a>
+        <a href={href('profile')}>{tr('Мой уровень →', 'My level →', '我的等级 →')}</a>
       </p>
     </div>
   )

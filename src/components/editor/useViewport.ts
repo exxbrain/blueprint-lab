@@ -287,6 +287,7 @@ export function useViewport(o: ViewportOptions) {
     touches.current.clear()
     pointers.current.clear()
     gesture.current = null
+    panMoved.current = false
     setPanning(false)
   }
 

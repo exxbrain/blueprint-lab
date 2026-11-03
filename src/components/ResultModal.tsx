@@ -21,7 +21,7 @@ export function ResultButton({ solved, onClick }: { solved: boolean; onClick: ()
   // до решения кнопка невидима, но место занимает — поэтому при решении ничего не сдвигается
   return (
     <button className={'result-btn' + (solved ? '' : ' reserved')} onClick={onClick} aria-hidden={!solved} tabIndex={solved ? 0 : -1} disabled={!solved}>
-      🏆 {tr('Результат и разбор', 'Result and debrief')}
+      🏆 {tr('Результат и разбор', 'Result and debrief', '结果与解析')}
     </button>
   )
 }
@@ -66,19 +66,19 @@ export function ResultModal({
   const best = progress.stars?.[progressKey] ?? 0
   return (
     <div className="ref-overlay result-overlay" onClick={onClose}>
-      <div className="ref-modal panel result-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={tr('Результат', 'Result')}>
+      <div className="ref-modal panel result-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={tr('Результат', 'Result', '结果')}>
         <div className="result-hero">
-          <div className="result-stars" aria-label={tr(`${stars} из 3`, `${stars} of 3`)}>
+          <div className="result-stars" aria-label={tr(`${stars} из 3`, `${stars} of 3`, `${stars} / 3 星`)}>
             {[1, 2, 3].map((i) => (
               <span key={i} className={i <= stars ? 'on' : ''} style={{ animationDelay: `${i * 0.15}s` }}>
                 ★
               </span>
             ))}
           </div>
-          <h2>{title ?? tr('Уровень пройден!', 'Level complete!')}</h2>
+          <h2>{title ?? tr('Уровень пройден!', 'Level complete!', '关卡完成！')}</h2>
           {best > stars && (
             <div className="small muted">
-              {tr(`За задачу засчитан ваш лучший результат: ${'★'.repeat(best)}`, `Your best result for this task counts: ${'★'.repeat(best)}`)}
+              {tr(`За задачу засчитан ваш лучший результат: ${'★'.repeat(best)}`, `Your best result for this task counts: ${'★'.repeat(best)}`, `这个任务按你的最好成绩计算：${'★'.repeat(best)}`)}
             </div>
           )}
           {xp > 0 && (
@@ -86,7 +86,7 @@ export function ResultModal({
               +{xp} {XP}
             </div>
           )}
-          <button className="icon result-close" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+          <button className="icon result-close" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
             ✕
           </button>
         </div>
@@ -105,12 +105,12 @@ export function ResultModal({
           )}
           {!custom && next && (
             <a className="btn primary" href={next.href} onClick={(e) => go(e, next.href)}>
-              ▶ {tr('Следующее задание', 'Next task')}: {next.title}
+              ▶ {tr('Следующее задание', 'Next task', '下一个任务')}: {next.title}
             </a>
           )}
-          <button onClick={onClose}>{tr('Остаться и улучшить', 'Stay and improve')}</button>
+          <button onClick={onClose}>{tr('Остаться и улучшить', 'Stay and improve', '留下继续优化')}</button>
           <a className="btn" href="#/" onClick={(e) => go(e, '#/')}>
-            🗺️ {tr('К карте', 'To the map')}
+            🗺️ {tr('К карте', 'To the map', '返回关卡地图')}
           </a>
         </div>
       </div>

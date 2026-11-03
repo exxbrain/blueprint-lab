@@ -46,6 +46,7 @@ const code = () => Math.random().toString(36).slice(2, 7)
 const WORDS = tr(
   ['наушники', 'кофемашина', 'кроссовки', 'iphone 15', 'диван', 'велосипед', 'погода', 'пицца рядом'],
   ['headphones', 'coffee machine', 'sneakers', 'iphone 15', 'sofa', 'bicycle', 'weather', 'pizza near me'],
+  ['蓝牙耳机', '咖啡机', '运动鞋', 'iphone 15', '沙发', '自行车', '天气', '附近的披萨'],
 )
 
 type Domain =
@@ -69,31 +70,31 @@ interface Ctx {
 
 const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
 
-/** Что именно делает клиент: определяется профилем нагрузки и названием блока */
+/** Что именно делает клиент: определяется профилем нагрузки и названием блока (на любом из трёх языков) */
 function domainOf(client: BNode, w: Workload): Domain {
   const l = client.label
   if (w === 'oltp') {
-    if (has(l, /заказ|order|брон|book/)) return 'order'
-    if (has(l, /покупат|shopper/)) return 'product'
-    if (has(l, /профил|profile/)) return 'profile'
-    if (has(l, /публик|post/)) return 'post'
-    if (has(l, /регистр|sign/)) return 'signup'
-    if (has(l, /карточ|card/)) return 'card'
+    if (has(l, /заказ|order|брон|book|订单|预订/)) return 'order'
+    if (has(l, /покупат|shopper|顾客/)) return 'product'
+    if (has(l, /профил|profile|资料/)) return 'profile'
+    if (has(l, /публик|post|发布|帖子/)) return 'post'
+    if (has(l, /регистр|sign|注册/)) return 'signup'
+    if (has(l, /карточ|card|卡片/)) return 'card'
     return rnd() < 0.15 ? 'order' : 'product'
   }
   if (w === 'kv') {
-    if (has(l, /создан|creat/)) return 'newlink'
-    if (has(l, /переход|redirect|ссылк|link/)) return 'link'
-    if (has(l, /датчик|sensor/)) return 'sensor'
-    if (has(l, /лент|feed/)) return 'feed'
-    if (has(l, /отправ|notif|sender/)) return 'notify'
+    if (has(l, /создан|creat|创建/)) return 'newlink'
+    if (has(l, /переход|redirect|ссылк|link|跳转|链接/)) return 'link'
+    if (has(l, /датчик|sensor|传感器/)) return 'sensor'
+    if (has(l, /лент|feed|信息流/)) return 'feed'
+    if (has(l, /отправ|notif|sender|发送|通知/)) return 'notify'
     return 'kv'
   }
-  if (w === 'search') return has(l, /подсказ|suggest/) ? 'suggest' : 'search'
-  if (w === 'analytics') return has(l, /тренд|trend/) ? 'trends' : 'analytics'
-  if (has(l, /загруз|upload/)) return 'upload'
-  if (has(l, /просмотр|view|видео|video/)) return 'video'
-  if (has(l, /файл|file|скан|scan|док|doc/)) return rnd() < 0.3 ? 'upload' : 'doc'
+  if (w === 'search') return has(l, /подсказ|suggest|补全|建议/) ? 'suggest' : 'search'
+  if (w === 'analytics') return has(l, /тренд|trend|趋势/) ? 'trends' : 'analytics'
+  if (has(l, /загруз|upload|上传/)) return 'upload'
+  if (has(l, /просмотр|view|видео|video|观看|视频/)) return 'video'
+  if (has(l, /файл|file|скан|scan|док|doc|文件|扫描|文档/)) return rnd() < 0.3 ? 'upload' : 'doc'
   return 'image'
 }
 
@@ -231,12 +232,12 @@ function opFor(n: BNode, c: Ctx, phase?: Phase): string {
     case 'client':
       return c.request.split('  ')[0]
     case 'lb':
-      return tr(`проксирует → экземпляр #${int(1, Math.max(1, n.instances * 2))}`, `proxy → instance #${int(1, Math.max(1, n.instances * 2))}`)
+      return tr(`проксирует → экземпляр #${int(1, Math.max(1, n.instances * 2))}`, `proxy → instance #${int(1, Math.max(1, n.instances * 2))}`, `代理 → 实例 #${int(1, Math.max(1, n.instances * 2))}`)
     case 'gateway':
-      return tr(`маршрут, проверка JWT, лимиты`, `route, JWT check, rate limits`)
+      return tr(`маршрут, проверка JWT, лимиты`, `route, JWT check, rate limits`, `路由、JWT 校验、限流`)
     case 'service':
-      if (phase === 'consume') return `consume ${topicFor(c)} → ${tr('обработка', 'handle')} (${tr('под', 'pod')} #${int(1, n.instances)})`
-      return `${c.request.split('  ')[0]} (${tr('под', 'pod')} #${int(1, n.instances)})`
+      if (phase === 'consume') return `consume ${topicFor(c)} → ${tr('обработка', 'handle', '处理')} (${tr('под', 'pod', 'Pod')} #${int(1, n.instances)})`
+      return `${c.request.split('  ')[0]} (${tr('под', 'pod', 'Pod')} #${int(1, n.instances)})`
     case 'cache':
       if (phase === 'del') return `DEL ${cacheKey(c)}`
       if (phase === 'set') return `SET ${cacheKey(c)} EX 60`
@@ -248,7 +249,7 @@ function opFor(n: BNode, c: Ctx, phase?: Phase): string {
     case 'postgres':
       return sqlFor(c, 'pg') + whereRuns(n, c)
     case 'cassandra':
-      if (c.fanout) return tr(`BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout} — пост в ленту каждого подписчика`, `BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout}: the post into every follower’s feed`)
+      if (c.fanout) return tr(`BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout} — пост в ленту каждого подписчика`, `BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout}: the post into every follower’s feed`, `BATCH INSERT INTO feed (user_id, post_id, ts) … ×${c.fanout}：把帖子写进每位关注者的信息流`)
       return sqlFor(c, 'cql')
     case 'mongo':
       return (c.write ? `db.${TABLE[c.domain]}.insertOne({ … })` : `db.${TABLE[c.domain]}.find({ _id: ${c.id} })`) + whereRuns(n, c)
@@ -276,14 +277,14 @@ function opFor(n: BNode, c: Ctx, phase?: Phase): string {
 function errorFor(n: BNode, reason: 'overload' | 'unsupported' | 'deadend'): string {
   if (reason === 'deadend')
     return n.kind === 'cache'
-      ? tr('MISS, а дальше идти некуда: 502 no upstream', 'MISS and nowhere to go next: 502 no upstream')
+      ? tr('MISS, а дальше идти некуда: 502 no upstream', 'MISS and nowhere to go next: 502 no upstream', 'MISS，而且后面无处可去：502 no upstream')
       : '502 Bad Gateway: no healthy upstream'
   if (reason === 'unsupported') {
     if (n.kind === 'cassandra') return 'InvalidRequest: cross-partition transactions and JOINs are not supported'
-    if (n.kind === 's3') return tr('S3 — не база данных: нет запросов по полям и транзакций', 'S3 is not a database: no field queries or transactions')
+    if (n.kind === 's3') return tr('S3 — не база данных: нет запросов по полям и транзакций', 'S3 is not a database: no field queries or transactions', 'S3 不是数据库：不支持按字段查询，也不支持事务')
     if (n.kind === 'clickhouse') return 'Code: 48. DB::Exception: point updates are not supported efficiently (MergeTree)'
-    if (n.kind === 'elastic') return tr('Elasticsearch не источник истины: транзакции не поддерживаются', 'Elasticsearch is not a source of truth: transactions are not supported')
-    return tr(`${KINDS[n.kind].title} не умеет такие запросы`, `${KINDS[n.kind].title} cannot handle this request`)
+    if (n.kind === 'elastic') return tr('Elasticsearch не источник истины: транзакции не поддерживаются', 'Elasticsearch is not a source of truth: transactions are not supported', 'Elasticsearch 不是可信数据源（source of truth）：不支持事务')
+    return tr(`${KINDS[n.kind].title} не умеет такие запросы`, `${KINDS[n.kind].title} cannot handle this request`, `${KINDS[n.kind].title} 处理不了这种请求`)
   }
   switch (n.kind) {
     case 'postgres':
@@ -351,6 +352,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       detail = tr(
         `загрузка ${Math.round(util * 100)}%: обработчики не успевают, сообщения копятся в очереди`,
         `${Math.round(util * 100)}% utilization: consumers cannot keep up, messages pile up in the queue`,
+        `负载 ${Math.round(util * 100)}%：消费者处理不过来，消息在队列中堆积`,
       )
     } else if (util > 1 && rnd() > 1 / util) {
       status = 'error'
@@ -358,7 +360,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       ms = n.kind === 'service' ? 3000 : ms * 4
     } else if (util > 0.85) {
       status = async ? 'async' : 'slow'
-      detail = tr(`загрузка ${Math.round(util * 100)}%: запросы ждут в очереди обработчиков`, `${Math.round(util * 100)}% utilization: requests wait in the worker queue`)
+      detail = tr(`загрузка ${Math.round(util * 100)}%: запросы ждут в очереди обработчиков`, `${Math.round(util * 100)}% utilization: requests wait in the worker queue`, `负载 ${Math.round(util * 100)}%：请求在工作线程队列中等待`)
     }
     if (isStorage(n.kind) && fitOf(n.kind, w) === 0) {
       status = 'error'
@@ -368,7 +370,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       detail =
         n.kind === 'postgres' && w === 'search'
           ? `Seq Scan on items (rows=2 400 000) — ${Math.round(ms)} ms`
-          : tr(`неэффективно для этого типа запросов (×${fitOf(n.kind, w)})`, `inefficient for this request type (×${fitOf(n.kind, w)})`)
+          : tr(`неэффективно для этого типа запросов (×${fitOf(n.kind, w)})`, `inefficient for this request type (×${fitOf(n.kind, w)})`, `处理这类请求效率低（×${fitOf(n.kind, w)}）`)
     }
     const span: Span = { nodeId: id, op: opFor(n, c, phase), ms, start, status, depth, detail }
     spans.push(span)
@@ -377,12 +379,13 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       span.status = 'error'
       span.detail =
         n.kind === 'cdn'
-          ? tr('MISS, и origin не подключён: 502 — файлам неоткуда взяться', 'MISS and no origin is connected: 502, the files have nowhere to come from')
+          ? tr('MISS, и origin не подключён: 502 — файлам неоткуда взяться', 'MISS and no origin is connected: 502, the files have nowhere to come from', 'MISS，且没有连接源站（origin）：502，文件无从获取')
           : c.write
-          ? tr('запись некуда сохранить: за кэшем нет базы, а кэш — не хранилище', 'nowhere to persist the write: there is no database behind the cache, and a cache is not a store')
+          ? tr('запись некуда сохранить: за кэшем нет базы, а кэш — не хранилище', 'nowhere to persist the write: there is no database behind the cache, and a cache is not a store', '写入无处持久化：缓存后面没有数据库，而缓存并不是存储')
           : tr(
               `(nil) — кэш пуст: его наполняют из базы, а базы за ним нет`,
               `(nil): the cache is empty; it is filled from a database, and there is none behind it`,
+              `(nil)：缓存是空的——它要从数据库填充，可它后面并没有数据库`,
             )
       if (!async) failed = true
       return ms
@@ -411,7 +414,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       case 'gateway': {
         if (!out.length) {
           span.status = 'error'
-          span.detail = n.kind === 'client' ? tr('connect ECONNREFUSED: клиенту не к кому подключиться', 'connect ECONNREFUSED: the client has nothing to connect to') : errorFor(n, 'deadend')
+          span.detail = n.kind === 'client' ? tr('connect ECONNREFUSED: клиенту не к кому подключиться', 'connect ECONNREFUSED: the client has nothing to connect to', 'connect ECONNREFUSED：客户端没有可连接的对象') : errorFor(n, 'deadend')
           failed = !async
           break
         }
@@ -435,9 +438,9 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
       }
       case 'queue': {
         span.status = async ? 'async' : 'queued'
-        span.op += tr(' (подтверждено, обработка позже)', ' (acked, processed later)')
+        span.op += tr(' (подтверждено, обработка позже)', ' (acked, processed later)', '（已确认，稍后处理）')
         const lag = st?.backlogGrowth ?? 0
-        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`)
+        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`, `consumer lag 每秒增加 ${Math.round(lag)} 条消息`)
         for (const e of out) go(e, t + 5, true, 'consume')
         break
       }
@@ -447,8 +450,8 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         if (st?.deadEnd) {
           span.status = 'error'
           span.detail = c.write
-            ? tr('500: сохранить некуда — к сервису не подключено хранилище', '500: nowhere to save; no storage is connected to the service')
-            : tr('500: данных нет — к сервису не подключено хранилище', '500: no data; no storage is connected to the service')
+            ? tr('500: сохранить некуда — к сервису не подключено хранилище', '500: nowhere to save; no storage is connected to the service', '500：无处保存——服务没有连接任何存储')
+            : tr('500: данных нет — к сервису не подключено хранилище', '500: no data; no storage is connected to the service', '500：没有数据——服务没有连接任何存储')
           failed = !async
           break
         }

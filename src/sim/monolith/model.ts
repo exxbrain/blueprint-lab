@@ -173,12 +173,12 @@ export function plannedMode(s: State, d: Dep): DepMode {
 }
 
 export const MODE_LABEL: Record<DepMode, string> = {
-  sync: tr('синхронный вызов (REST)', 'synchronous call (REST)'),
-  async: tr('сообщение через посредника, без ожидания ответа', 'message via an intermediary, no waiting for a reply'),
-  saga: tr('шаги по событиям с откатом, если шаг не удался', 'steps via events, rolled back if a step fails'),
-  direct: tr('прямой SQL в чужую БД', 'direct SQL into another module\'s DB'),
-  api: tr('запрос в API владельца', 'call the owner\'s API'),
-  replica: tr('своя копия данных, обновляется по событиям', 'own copy of the data, updated by events'),
+  sync: tr('синхронный вызов (REST)', 'synchronous call (REST)', '同步调用（REST）'),
+  async: tr('сообщение через посредника, без ожидания ответа', 'message via an intermediary, no waiting for a reply', '经由中间方发送消息，不等待回复'),
+  saga: tr('шаги по событиям с откатом, если шаг не удался', 'steps via events, rolled back if a step fails', '按事件分步执行，某一步失败就回滚'),
+  direct: tr('прямой SQL в чужую БД', 'direct SQL into another module\'s DB', '用 SQL 直接访问其他模块的数据库'),
+  api: tr('запрос в API владельца', 'call the owner\'s API', '调用数据所有者的 API'),
+  replica: tr('своя копия данных, обновляется по событиям', 'own copy of the data, updated by events', '自有一份数据副本，通过事件更新'),
 }
 
 export interface Problem {
@@ -236,7 +236,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
     const a = p.modules.find((x) => x.id === d.from)!.title
     const b = p.modules.find((x) => x.id === d.to)!.title
     if ((m === 'async' || m === 'saga' || m === 'replica') && !has(s.infra, 'kafka')) {
-      problems.push({ id: `${d.id}-nokafka`, severity: 'broken', text: tr(`${a} → ${b}: выбран обмен событиями, но брокера нет`, `${a} → ${b}: event messaging is selected, but there is no broker`) })
+      problems.push({ id: `${d.id}-nokafka`, severity: 'broken', text: tr(`${a} → ${b}: выбран обмен событиями, но брокера нет`, `${a} → ${b}: event messaging is selected, but there is no broker`, `${a} → ${b}：选择了通过事件通信，但没有 Broker`) })
     }
     if ((m === 'async' || m === 'saga' || m === 'replica') && has(s.infra, 'kafka') && !has(s.infra, 'outbox') && !has(s.infra, 'cdc')) {
       problems.push({
@@ -245,6 +245,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
         text: tr(
           `${a} → ${b}: dual write — запись в БД и публикация события не атомарны, событие может потеряться (нужен Outbox или CDC)`,
           `${a} → ${b}: dual write — the DB write and event publishing are not atomic, so the event may be lost (Outbox or CDC needed)`,
+          `${a} → ${b}：dual write（双写）——写数据库和发布事件不是原子操作，事件可能丢失（需要 Outbox 或 CDC）`,
         ),
       })
     }
@@ -255,6 +256,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
         text: tr(
           `${a} → ${b}: была ACID-транзакция, стали два сетевых вызова. Сбой между ними оставит данные записанными наполовину (${d.label})`,
           `${a} → ${b}: an ACID transaction became two network calls. A failure between them leaves the data half-written (${d.label})`,
+          `${a} → ${b}：原本的 ACID 事务变成了两次网络调用。两次调用之间一旦出错，数据就只写了一半（${d.label}）`,
         ),
       })
     }
@@ -266,6 +268,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
           text: tr(
             `${a} → ${b}: таблицы «${b}» переехали в отдельную БД, прямой SQL больше не работает (${d.label})`,
             `${a} → ${b}: the “${b}” tables moved to a separate database, so direct SQL no longer works (${d.label})`,
+            `${a} → ${b}：“${b}”的表已迁到独立的数据库，直接 SQL 不再可用（${d.label}）`,
           ),
         })
       } else {
@@ -275,6 +278,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
           text: tr(
             `${a} → ${b}: читает чужие таблицы напрямую — схему «${b}» нельзя менять без согласования`,
             `${a} → ${b}: reads another module's tables directly — the “${b}” schema cannot change without coordination`,
+            `${a} → ${b}：直接读取其他模块的表——“${b}”的表结构不经协调就无法修改`,
           ),
         })
       }
@@ -288,6 +292,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
         text: tr(
           `${m.title}: отдельный сервис, но общая БД с монолитом — распределённый монолит`,
           `${m.title}: a separate service, but a shared database with the monolith — a distributed monolith`,
+          `${m.title}：已是独立服务，却和单体共用数据库——这是分布式单体`,
         ),
       })
     }
@@ -299,6 +304,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
       text: tr(
         'Клиенты ходят напрямую в монолит: запросы к вынесенным модулям уходят в никуда. Нужен strangler-фасад',
         'Clients call the monolith directly: requests to extracted modules go nowhere. A strangler facade is needed',
+        '客户端直接调用单体：发往已拆出模块的请求无处可去。需要 strangler 门面（绞杀者模式）',
       ),
     })
   }
@@ -309,6 +315,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
       text: tr(
         'Сервисов много, трассировки нет: поиск причины инцидента займёт часы',
         'Many services and no tracing: finding the root cause of an incident will take hours',
+        '服务很多却没有链路追踪：排查事故根因要花上好几个小时',
       ),
     })
   }
@@ -403,7 +410,7 @@ export function computeMetrics(p: Project, s: State): Metrics {
     fail: t.fail,
   }))
   for (const e of excessPatterns(s.infra, ctx)) {
-    problems.push({ id: `excess-${e.id}`, severity: 'excess', text: tr(`Лишний паттерн «${PATTERN_TITLE(e.id)}»: ${e.reason}`, `Unnecessary pattern “${PATTERN_TITLE(e.id)}”: ${e.reason}`) })
+    problems.push({ id: `excess-${e.id}`, severity: 'excess', text: tr(`Лишний паттерн «${PATTERN_TITLE(e.id)}»: ${e.reason}`, `Unnecessary pattern “${PATTERN_TITLE(e.id)}”: ${e.reason}`, `多余的模式“${PATTERN_TITLE(e.id)}”：${e.reason}`) })
   }
 
   return {

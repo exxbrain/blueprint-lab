@@ -8,21 +8,21 @@ export function RefBody({ e }: { e: RefEntry }) {
     <div className="ref-body">
       <p className="ref-summary">{e.summary}</p>
       <dl>
-        <dt>{tr('Проблема', 'Problem')}</dt>
+        <dt>{tr('Проблема', 'Problem', '问题')}</dt>
         <dd>{e.problem}</dd>
-        <dt>{tr('Как работает', 'How it works')}</dt>
+        <dt>{tr('Как работает', 'How it works', '工作原理')}</dt>
         <dd>{e.solution}</dd>
-        <dt>{tr('Когда применять', 'When to use')}</dt>
+        <dt>{tr('Когда применять', 'When to use', '适用场景')}</dt>
         <dd>{e.when}</dd>
         {e.avoid !== '—' && (
           <>
-            <dt>{tr('Когда не стоит', 'When not to')}</dt>
+            <dt>{tr('Когда не стоит', 'When not to', '不适用场景')}</dt>
             <dd>{e.avoid}</dd>
           </>
         )}
         {e.tools !== '—' && (
           <>
-            <dt>{tr('Чем реализуют', 'Tools')}</dt>
+            <dt>{tr('Чем реализуют', 'Tools', '实现工具')}</dt>
             <dd className="ref-tools">{e.tools}</dd>
           </>
         )}
@@ -47,7 +47,7 @@ export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
           <h3>
             {e.icon} {e.title} <span className="badge ok">{e.category}</span>
           </h3>
-          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
             ✕
           </button>
         </div>
@@ -62,7 +62,7 @@ export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
             onClose()
           }}
         >
-          {tr('Весь справочник →', 'Full reference →')}
+          {tr('Весь справочник →', 'Full reference →', '完整参考手册 →')}
         </a>
       </div>
     </div>

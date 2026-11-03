@@ -97,10 +97,12 @@ export default function MonolithPage({ projectId, stepId }: { projectId?: string
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Распил монолита', 'Breaking up the monolith')} / {project.title}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / {tr('Распил монолита', 'Breaking up the monolith', '拆分单体')} / {project.title}
       </div>
       <h1>
-        🪓 {project.title}: {title} <TaskLevelTag taskKey={stepKey(project, step)} full />
+        🪓 {project.title}
+        {tr(': ', ': ', '：')}
+        {title} <TaskLevelTag taskKey={stepKey(project, step)} full />
       </h1>
       {stage ? (
         <TaskGate taskKey={stepKey(project, stage.id)}>
@@ -111,8 +113,8 @@ export default function MonolithPage({ projectId, stepId }: { projectId?: string
             onNext={nextStep ? () => (window.location.hash = href('monolith', project.id, nextStep)) : undefined}
             nextLabel={
               (DDD_STAGES[project.id] ?? []).some((t) => t.id === nextStep)
-                ? tr('Дальше: карта контекстов', 'Next: context map')
-                : tr('Дальше: распил', 'Next: the split')
+                ? tr('Дальше: карта контекстов', 'Next: context map', '下一步：上下文映射图')
+                : tr('Дальше: распил', 'Next: the split', '下一步：拆分')
             }
           />
         </TaskGate>
@@ -140,7 +142,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const traffic = useMonoTraffic(project, state, metrics)
   const goals = [
     ...mission.goals.map((g) => ({ text: g.text, ok: g.check(metrics) })),
-    { text: tr(`Уложиться в бюджет ${mission.budget} млн ₽`, `Stay within the ${mission.budget} M ₽ budget`), ok: spent <= mission.budget },
+    { text: tr(`Уложиться в бюджет ${mission.budget} млн ₽`, `Stay within the ${mission.budget} M ₽ budget`, `不超出 ${mission.budget} M ₽ 的预算`), ok: spent <= mission.budget },
   ]
   const t = project.targets
   const solved = goals.every((g) => g.ok)
@@ -260,10 +262,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             {tr(
               'Каждое действие — это спринт и стоит денег: вынос модуля, миграция данных, внедрение паттерна, переделка связи. Передумали — деньги уже потрачены; «Отменить» откатывает шаг целиком. Наведите курсор на связь, чтобы узнать, откуда она взялась.',
               'Every action is a sprint and costs money: extracting a module, migrating data, introducing a pattern, reworking a link. Change your mind and the money is already spent; “Undo” rolls back a whole step. Hover over a link to see where it comes from.',
+              '每个动作都是一个冲刺（sprint），都要花钱：拆出模块、迁移数据、引入模式、改造连接。改了主意，钱也已经花出去了；“撤销”会把整步回滚。把鼠标悬停在连接上，就能看到它从何而来。',
             )}
           </p>
           <details className="solution">
-            <summary>{tr('Показать эталонное решение', 'Show reference solution')}</summary>
+            <summary>{tr('Показать эталонное решение', 'Show reference solution', '查看参考答案')}</summary>
             <ol className="small">
               {mission.solutionSteps.map((st) => (
                 <li key={st}>{st}</li>
@@ -271,7 +274,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             </ol>
             <details className="solution">
               <summary>
-                {tr('Рекомендуемый порядок по спринтам', 'Recommended sprint order')} ({recommended.length})
+                {tr('Рекомендуемый порядок по спринтам', 'Recommended sprint order', '推荐的冲刺顺序')} ({recommended.length})
               </summary>
               <ol className="small">
                 {recommended.map((st) => (
@@ -282,7 +285,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </details>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? tr('✅ Миссия выполнена!', '✅ Mission complete!') : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? tr('✅ Миссия выполнена!', '✅ Mission complete!', '✅ 任务完成！') : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}</h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>
@@ -303,9 +306,12 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             <>
               👁 You are viewing the <b>reference solution</b> — it does not count toward your progress.
             </>,
+            <>
+              👁 你正在查看<b>参考答案</b>——它不计入你的进度。
+            </>,
           )}
           <button className="primary" onClick={toggleReference}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution')}
+            ↩ {tr('Вернуть моё решение', 'Back to my solution', '回到我的方案')}
           </button>
         </div>
       )}
@@ -316,10 +322,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           <ResultButton solved onClick={() => result$.setOpen(true)} />
         ) : (
           <button onClick={() => setShowReview(!showReview)}>
-            📋 {showReview ? tr('Скрыть оценку', 'Hide assessment') : tr('Оценить решение', 'Assess solution')}
+            📋 {showReview ? tr('Скрыть оценку', 'Hide assessment', '隐藏评估') : tr('Оценить решение', 'Assess solution', '评估方案')}
           </button>
         )}
-        {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
+        {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas', '在图上查看参考答案')}</button>}
       </div>
     </>
   const resultEl = <>
@@ -328,18 +334,18 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         onClose={() => result$.setOpen(false)}
         progressKey={`monolith/${project.id}/${mission.id}`}
         stars={stars ?? 1}
-        title={tr('Миссия выполнена!', 'Mission complete!')}
+        title={tr('Миссия выполнена!', 'Mission complete!', '任务完成！')}
       >
         {review && order && (
           <div className="review-pair">
-            <ReviewPanel review={review} title={tr('Итоговая архитектура', 'Final architecture')} />
-            <ReviewPanel review={order.review} title={tr('Порядок распила', 'Decomposition order')}>
+            <ReviewPanel review={review} title={tr('Итоговая архитектура', 'Final architecture', '最终架构')} />
+            <ReviewPanel review={order.review} title={tr('Порядок распила', 'Decomposition order', '拆分顺序')}>
               <Timeline marks={order.timeline} />
             </ReviewPanel>
           </div>
         )}
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           {mission.debrief.map((para) => (
             <p key={para}>{para}</p>
           ))}
@@ -349,8 +355,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const reviewEl = <>
       {review && order && showReview && !(solved && !viewingRef) && (
         <div className="review-pair">
-          <ReviewPanel review={review} title={viewingRef ? tr('Итог эталона', 'Reference solution result') : tr('Итоговая архитектура', 'Final architecture')} />
-          <ReviewPanel review={order.review} title={viewingRef ? tr('Рекомендуемый порядок', 'Recommended order') : tr('Порядок распила', 'Decomposition order')}>
+          <ReviewPanel review={review} title={viewingRef ? tr('Итог эталона', 'Reference solution result', '参考答案的结果') : tr('Итоговая архитектура', 'Final architecture', '最终架构')} />
+          <ReviewPanel review={order.review} title={viewingRef ? tr('Рекомендуемый порядок', 'Recommended order', '推荐顺序') : tr('Порядок распила', 'Decomposition order', '拆分顺序')}>
             <Timeline marks={order.timeline} />
           </ReviewPanel>
         </div>
@@ -362,44 +368,45 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           <div className="metric-value">
             {spent} / {mission.budget}
           </div>
-          <div className="metric-label">{tr('потрачено, млн ₽', 'spent, M ₽')}</div>
+          <div className="metric-label">{tr('потрачено, млн ₽', 'spent, M ₽', '已花费，M ₽')}</div>
           <div className="progressbar">
             <div style={{ width: `${Math.min(100, (spent / mission.budget) * 100)}%` }} />
           </div>
         </div>
-        <Metric label={tr('независимых релизов', 'independent releases')} value={`${metrics.independent.length} / ${project.modules.length}`} tone={metrics.independent.length >= 5 ? 'ok' : undefined} />
+        <Metric label={tr('независимых релизов', 'independent releases', '独立发布')} value={`${metrics.independent.length} / ${project.modules.length}`} tone={metrics.independent.length >= 5 ? 'ok' : undefined} />
         <Metric
           label={project.entryLabel}
-          value={tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`)}
+          value={tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`, `${metrics.flowLatency} ms`)}
           tone={metrics.flowLatency <= t.latency ? 'ok' : 'bad'}
         />
         <Metric
-          label={tr(`доступность: ${project.entryLabel}`, `availability: ${project.entryLabel}`)}
+          label={tr(`доступность: ${project.entryLabel}`, `availability: ${project.entryLabel}`, `可用性：${project.entryLabel}`)}
           value={`${(metrics.flowAvailability * 100).toFixed(2)}%`}
           tone={metrics.flowAvailability >= t.availability ? 'ok' : 'bad'}
         />
         <Metric
-          label={tr('радиус поражения', 'blast radius')}
+          label={tr('радиус поражения', 'blast radius', '爆炸半径')}
           value={`${Math.round(metrics.blastRadius * 100)}%`}
           tone={metrics.blastRadius > 0.6 ? 'warn' : 'ok'}
           title={tr(
             'Какая доля функций в среднем ломается при падении одного компонента',
             'The average share of features that break when a single component fails',
+            '单个组件故障时，平均有多大比例的功能会随之失效',
           )}
         />
-        <Metric label={tr('сервисов / БД', 'services / DBs')} value={`${metrics.services} / ${metrics.databases}`} />
-        <Metric label={tr('сложность', 'complexity')} value={metrics.complexity} tone={metrics.complexity <= t.complexity ? 'ok' : 'bad'} />
+        <Metric label={tr('сервисов / БД', 'services / DBs', '服务 / 数据库')} value={`${metrics.services} / ${metrics.databases}`} />
+        <Metric label={tr('сложность', 'complexity', '复杂度')} value={metrics.complexity} tone={metrics.complexity <= t.complexity ? 'ok' : 'bad'} />
         <div className="row">
           <button onClick={undo} disabled={!history.length}>
-            ↶ {tr('Отменить', 'Undo')}
+            ↶ {tr('Отменить', 'Undo', '撤销')}
           </button>
-          <button onClick={reset}>↺ {tr('Заново', 'Start over')}</button>
+          <button onClick={reset}>↺ {tr('Заново', 'Start over', '重新开始')}</button>
         </div>
       </div>
     </>
   const helpEl = <>
       <details className="metrics-help">
-        <summary>{tr('Как считаются метрики', 'How metrics are calculated')}</summary>
+        <summary>{tr('Как считаются метрики', 'How metrics are calculated', '指标是如何计算的')}</summary>
         <ul className="small">
           {tr(
             <>
@@ -449,6 +456,23 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
               </li>
               <li>
                 <b>Operational complexity</b> — 2 per process, 1 per database, plus the cost of the patterns in use.
+              </li>
+            </>,
+            <>
+              <li>
+                <b>爆炸半径</b>——单个组件故障时，平均有多大比例的功能会停止工作。我们依次“搞垮”单体和每个服务：随之失效的有它的模块，以及所有同步依赖它的组件（REST、API、直接 SQL），沿调用链一路传递。事件、Saga 和副本不会传递故障，circuit breaker 会在非关键连接上切断这条链。单体的爆炸半径是 100%：进程一挂，全部瘫痪。
+              </li>
+              <li>
+                关键场景的<b>可用性</b>是它同步触及的所有进程和数据库的可用性之积（每个 99.9%）。路径上每多一个同步服务，可用性就会下降；重试可以挽回一部分。
+              </li>
+              <li>
+                <b>延迟</b>——基础 80 ms，路径上每个同步网络调用再加 15 ms，另外还要加上网关、BFF 和 mesh 的 sidecar。
+              </li>
+              <li>
+                <b>独立发布</b>——模块已经拆出，拥有自己的数据库，没有人直接读取它的表，并且它不参与任何没有 Saga 的分布式事务。
+              </li>
+              <li>
+                <b>运维复杂度</b>——每个进程计 2，每个数据库计 1，再加上已采用模式的成本。
               </li>
             </>,
           )}
@@ -518,9 +542,9 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       <div className="mono-bottom">
         <section className="panel">
           <h4>
-            {tr('Проблемы', 'Problems')} ({metrics.problems.length})
+            {tr('Проблемы', 'Problems', '问题')} ({metrics.problems.length})
           </h4>
-          {metrics.problems.length === 0 && <p className="small ok-text">{tr('Всё чисто', 'All clear')}</p>}
+          {metrics.problems.length === 0 && <p className="small ok-text">{tr('Всё чисто', 'All clear', '一切正常')}</p>}
           <ul className="problems">
             {metrics.problems.map((p) => (
               <li key={p.id} className={p.severity}>
@@ -531,16 +555,16 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </section>
         <StressPanel metrics={metrics} />
         <section className="panel events">
-          <h4>{tr('Журнал спринтов', 'Sprint log')}</h4>
+          <h4>{tr('Журнал спринтов', 'Sprint log', '冲刺日志')}</h4>
           <ul>
-            {log.length === 0 && <li className="muted">{tr('Спринт 0: монолит работает, все страдают', 'Sprint 0: the monolith works, everyone suffers')}</li>}
+            {log.length === 0 && <li className="muted">{tr('Спринт 0: монолит работает, все страдают', 'Sprint 0: the monolith works, everyone suffers', '冲刺 0：单体照常运行，所有人都很痛苦')}</li>}
             {log.map((e) => (
               <li key={e.sprint} className={e.tone === 'bad' ? 'error' : e.tone === 'warn' ? 'warn' : 'ok'}>
                 <b>
-                  {tr('Спринт', 'Sprint')} {e.sprint}:
+                  {tr('Спринт', 'Sprint', '冲刺')} {e.sprint}:
                 </b>{' '}
                 {e.action}
-                {e.cost > 0 && <span className="cost"> −{e.cost} {tr('млн ₽', 'M ₽')}</span>}
+                {e.cost > 0 && <span className="cost"> −{e.cost} {tr('млн ₽', 'M ₽', 'M ₽')}</span>}
                 {e.notes.map((n) => (
                   <div key={n} className="small">
                     {n}
@@ -573,9 +597,9 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           metrics={
             <>
               <span className={spent > mission.budget ? 'bad-text' : ''}>
-                {spent}/{mission.budget} {tr('млн', 'M')}
+                {spent}/{mission.budget} {tr('млн', 'M', 'M')}
               </span>
-              <span className={metrics.flowLatency <= t.latency ? '' : 'bad-text'}>{tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`)}</span>
+              <span className={metrics.flowLatency <= t.latency ? '' : 'bad-text'}>{tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`, `${metrics.flowLatency} ms`)}</span>
               <span className={metrics.flowAvailability >= t.availability ? '' : 'bad-text'}>{(metrics.flowAvailability * 100).toFixed(2)}%</span>
               <span>{goals.filter((g) => g.ok).length}/{goals.length} 🎯</span>
             </>
@@ -583,11 +607,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           right={
             <>
               <ZoomMenu vp={vp} />
-              <button className="icon ws-btn" onClick={undo} disabled={!history.length} title={tr('Отменить', 'Undo')} aria-label={tr('Отменить', 'Undo')}>
+              <button className="icon ws-btn" onClick={undo} disabled={!history.length} title={tr('Отменить', 'Undo', '撤销')} aria-label={tr('Отменить', 'Undo', '撤销')}>
                 ↶
               </button>
               {solved && !viewingRef && (
-                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result', '结果')} aria-label={tr('Результат', 'Result', '结果')}>
                   ★
                 </button>
               )}
@@ -595,9 +619,9 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           }
           bottom={
             <>
-              <Tool icon="🧩" label={tr('Паттерны', 'Patterns')} on={sheet === 'patterns'} onClick={() => setSheet(sheet === 'patterns' ? null : 'patterns')} />
-              <Tool icon="⚠️" label={tr('Проблемы', 'Problems')} on={sheet === 'problems'} onClick={() => setSheet(sheet === 'problems' ? null : 'problems')} badge={metrics.problems.length || undefined} />
-              <Tool icon="📡" label={tr('Трафик', 'Traffic')} on={sheet === 'traffic'} onClick={() => setSheet(sheet === 'traffic' ? null : 'traffic')} />
+              <Tool icon="🧩" label={tr('Паттерны', 'Patterns', '模式')} on={sheet === 'patterns'} onClick={() => setSheet(sheet === 'patterns' ? null : 'patterns')} />
+              <Tool icon="⚠️" label={tr('Проблемы', 'Problems', '问题')} on={sheet === 'problems'} onClick={() => setSheet(sheet === 'problems' ? null : 'problems')} badge={metrics.problems.length || undefined} />
+              <Tool icon="📡" label={tr('Трафик', 'Traffic', '流量')} on={sheet === 'traffic'} onClick={() => setSheet(sheet === 'traffic' ? null : 'traffic')} />
             </>
           }
         >
@@ -605,17 +629,17 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           {refEl}
         </Workspace>
         {sheet === 'patterns' && (
-          <Sheet title={tr('Паттерны', 'Patterns')} onClose={() => setSheet(null)}>
+          <Sheet title={tr('Паттерны', 'Patterns', '模式')} onClose={() => setSheet(null)}>
             {patternsEl}
           </Sheet>
         )}
         {sheet === 'problems' && (
-          <Sheet title={tr('Проблемы и спринты', 'Problems and sprints')} onClose={() => setSheet(null)}>
+          <Sheet title={tr('Проблемы и спринты', 'Problems and sprints', '问题与冲刺')} onClose={() => setSheet(null)}>
             {bottomEl}
           </Sheet>
         )}
         {sheet === 'traffic' && (
-          <Sheet title={tr('Живой трафик', 'Live traffic')} onClose={() => setSheet(null)}>
+          <Sheet title={tr('Живой трафик', 'Live traffic', '实时流量')} onClose={() => setSheet(null)}>
             {trafficEl}
           </Sheet>
         )}
@@ -655,12 +679,13 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 function diff(project: Project, a: Metrics, b: Metrics): { notes: string[]; tone: LogEntry['tone'] } {
   const notes: string[] = []
   if (b.flowLatency !== a.flowLatency)
-    notes.push(tr(`${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} мс`, `${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} ms`))
+    notes.push(tr(`${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} мс`, `${project.entryLabel}: ${a.flowLatency} → ${b.flowLatency} ms`, `${project.entryLabel}：${a.flowLatency} → ${b.flowLatency} ms`))
   if (Math.abs(b.flowAvailability - a.flowAvailability) > 1e-6)
     notes.push(
       tr(
         `доступность: ${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
         `availability: ${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
+        `可用性：${(a.flowAvailability * 100).toFixed(2)}% → ${(b.flowAvailability * 100).toFixed(2)}%`,
       ),
     )
   if (b.independent.length !== a.independent.length)
@@ -668,21 +693,22 @@ function diff(project: Project, a: Metrics, b: Metrics): { notes: string[]; tone
       tr(
         `независимых релизов: ${a.independent.length} → ${b.independent.length}`,
         `independent releases: ${a.independent.length} → ${b.independent.length}`,
+        `独立发布：${a.independent.length} → ${b.independent.length}`,
       ),
     )
   const old = new Set(a.problems.map((p) => p.id))
   const fresh = b.problems.filter((p) => !old.has(p.id))
   const fixed = a.problems.length - b.problems.filter((p) => old.has(p.id)).length
   for (const p of fresh) {
-    if (p.severity === 'broken') notes.push(tr('⛔ Инцидент: ', '⛔ Incident: ') + p.text)
-    else if (p.severity === 'risk') notes.push(tr('💥 Через неделю на проде: ', '💥 A week later in production: ') + p.text)
-    else if (p.severity === 'excess') notes.push(tr('🧰 Оверинжиниринг: ', '🧰 Over-engineering: ') + p.text)
+    if (p.severity === 'broken') notes.push(tr('⛔ Инцидент: ', '⛔ Incident: ', '⛔ 事故：') + p.text)
+    else if (p.severity === 'risk') notes.push(tr('💥 Через неделю на проде: ', '💥 A week later in production: ', '💥 一周后在生产环境：') + p.text)
+    else if (p.severity === 'excess') notes.push(tr('🧰 Оверинжиниринг: ', '🧰 Over-engineering: ', '🧰 过度设计：') + p.text)
   }
   const passedBefore = new Set(a.stress.filter((t) => t.applies && t.ok).map((t) => t.id))
   for (const t of b.stress) {
-    if (t.applies && t.ok && !passedBefore.has(t.id)) notes.push(tr(`🔥 Учения «${t.title}» теперь проходят`, `🔥 Drill “${t.title}” now passes`))
+    if (t.applies && t.ok && !passedBefore.has(t.id)) notes.push(tr(`🔥 Учения «${t.title}» теперь проходят`, `🔥 Drill “${t.title}” now passes`, `🔥 演练“${t.title}”现在能通过了`))
   }
-  if (fixed > 0) notes.push(tr(`✓ устранено проблем: ${fixed}`, `✓ problems fixed: ${fixed}`))
+  if (fixed > 0) notes.push(tr(`✓ устранено проблем: ${fixed}`, `✓ problems fixed: ${fixed}`, `✓ 已解决的问题：${fixed}`))
   const tone = fresh.some((p) => p.severity === 'broken' || p.severity === 'risk')
     ? 'bad'
     : fresh.length
@@ -714,13 +740,14 @@ function Timeline({ marks }: { marks: SprintMark[] }) {
           title={tr(
             `Спринт ${m.sprint}: ${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`,
             `Sprint ${m.sprint}: ${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`,
+            `冲刺 ${m.sprint}：${m.action}${m.problems.length ? '\n' + m.problems.join('\n') : ''}`,
           )}
         />
       ))}
       <span className="small muted tl-legend">
-        {marks.length} {tr('спр.', 'spr.')} · <span className="ok-text">●</span> {tr('работает', 'healthy')} ·{' '}
-        <span className="warn-text">●</span> {tr('риск', 'at risk')} · <span className="bad-text">●</span>{' '}
-        {tr('сломано', 'broken')}
+        {marks.length} {tr('спр.', 'spr.', '个冲刺')} · <span className="ok-text">●</span> {tr('работает', 'healthy', '正常')} ·{' '}
+        <span className="warn-text">●</span> {tr('риск', 'at risk', '有风险')} · <span className="bad-text">●</span>{' '}
+        {tr('сломано', 'broken', '故障')}
       </span>
     </div>
   )
@@ -741,9 +768,9 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
     <section className="panel patterns-panel">
       {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="card-head">
-        <h4>{tr('Паттерны', 'Patterns')}</h4>
+        <h4>{tr('Паттерны', 'Patterns', '模式')}</h4>
         <span className="small muted">
-          {tr('включено', 'enabled')} {enabled.length} · {tr('сложность', 'complexity')} +
+          {tr('включено', 'enabled', '已启用')} {enabled.length} · {tr('сложность', 'complexity', '复杂度')} +
           {enabled.reduce((s, k) => s + PATTERNS[k].cost, 0)}
         </span>
       </div>
@@ -768,8 +795,8 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
                       apply(
                         { ...state, infra: { ...state.infra, [k]: e.target.checked } },
                         e.target.checked
-                          ? tr(`внедрили «${info.title}»`, `introduced “${info.title}”`)
-                          : tr(`убрали «${info.title}»`, `removed “${info.title}”`),
+                          ? tr(`внедрили «${info.title}»`, `introduced “${info.title}”`, `引入了“${info.title}”`)
+                          : tr(`убрали «${info.title}»`, `removed “${info.title}”`, `移除了“${info.title}”`),
                       )
                     }
                   />
@@ -779,7 +806,7 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
                   <button
                     type="button"
                     className="icon info-btn"
-                    title={tr('Что это и когда применять', 'What it is and when to use it')}
+                    title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，什么时候该用')}
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -788,14 +815,14 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
                   >
                     ⓘ
                   </button>
-                  {implied && <span className="badge ok">{tr('покрыт', 'covered')}</span>}
-                  {excess.has(k) && <span className="badge bad">{tr('лишний', 'unnecessary')}</span>}
+                  {implied && <span className="badge ok">{tr('покрыт', 'covered', '已覆盖')}</span>}
+                  {excess.has(k) && <span className="badge bad">{tr('лишний', 'unnecessary', '多余')}</span>}
                   <span className="small muted">+{info.cost}</span>
                 </label>
               )
             })}
             {g.elsewhere?.map((e) => (
-              <div key={e.title} className="pattern elsewhere" title={tr(`Настраивается: ${e.where}`, `Configured via: ${e.where}`)}>
+              <div key={e.title} className="pattern elsewhere" title={tr(`Настраивается: ${e.where}`, `Configured via: ${e.where}`, `在此配置：${e.where}`)}>
                 <span className="pattern-name">↪ {e.title}</span>
                 <span className="small muted">{e.where}</span>
               </div>
@@ -813,18 +840,18 @@ function StressPanel({ metrics }: { metrics: Metrics }) {
   return (
     <section className="panel">
       <h4>
-        🔥 {tr('Стресс-тесты', 'Stress tests')} {passed} / {relevant.length}
+        🔥 {tr('Стресс-тесты', 'Stress tests', '压力测试')} {passed} / {relevant.length}
       </h4>
       <ul className="stress">
         {metrics.stress.map((t) => (
           <li key={t.id} className={!t.applies ? 'na' : t.ok ? 'ok' : 'fail'}>
             <div>
               {!t.applies ? '·' : t.ok ? '✓' : '✗'} <b>{t.title}</b>
-              {!t.applies && <span className="small muted">{tr(' — пока не актуально', ' — not relevant yet')}</span>}
+              {!t.applies && <span className="small muted">{tr(' — пока не актуально', ' — not relevant yet', '——暂不适用')}</span>}
             </div>
             {t.applies && !t.ok && (
               <div className="small">
-                {t.fail}. <b>{tr('Что нужно решить:', 'What the system must do:')}</b> {t.need}
+                {t.fail}. <b>{tr('Что нужно решить:', 'What the system must do:', '系统需要做到：')}</b> {t.need}
               </div>
             )}
           </li>
@@ -844,7 +871,7 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
         {m.icon} {m.title}
       </h4>
       <p className="small muted">
-        {m.desc} · {tr(<>команда «{m.team}»</>, <>team “{m.team}”</>)}
+        {m.desc} · {tr(<>команда «{m.team}»</>, <>team “{m.team}”</>, <>团队“{m.team}”</>)}
       </p>
       <div className="row">
         <button
@@ -857,14 +884,14 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
                 ownDb: { ...state.ownDb, [id]: false },
               },
               ext
-                ? tr(`вернули «${m.title}» в монолит`, `moved “${m.title}” back into the monolith`)
-                : tr(`вынесли «${m.title}» в отдельный сервис`, `extracted “${m.title}” into a separate service`),
+                ? tr(`вернули «${m.title}» в монолит`, `moved “${m.title}” back into the monolith`, `把“${m.title}”移回了单体`)
+                : tr(`вынесли «${m.title}» в отдельный сервис`, `extracted “${m.title}” into a separate service`, `把“${m.title}”拆成了独立服务`),
             )
           }
         >
           {ext
-            ? tr('↩ Вернуть в монолит', '↩ Move back into the monolith')
-            : tr(`🪓 Вынести в сервис · ${effortOf(m)} млн`, `🪓 Extract into a service · ${effortOf(m)} M`)}
+            ? tr('↩ Вернуть в монолит', '↩ Move back into the monolith', '↩ 移回单体')
+            : tr(`🪓 Вынести в сервис · ${effortOf(m)} млн`, `🪓 Extract into a service · ${effortOf(m)} M`, `🪓 拆成服务 · ${effortOf(m)} M`)}
         </button>
         {ext && (
           <button
@@ -873,18 +900,18 @@ function ModulePanel({ project, id, state, apply }: { project: Project; id: Modu
               apply(
                 { ...state, ownDb: { ...state.ownDb, [id]: !state.ownDb[id] } },
                 state.ownDb[id]
-                  ? tr(`вернули таблицы «${m.title}» в общую БД`, `moved the “${m.title}” tables back into the shared database`)
-                  : tr(`выделили «${m.title}» собственную БД`, `gave “${m.title}” its own database`),
+                  ? tr(`вернули таблицы «${m.title}» в общую БД`, `moved the “${m.title}” tables back into the shared database`, `把“${m.title}”的表移回了共享数据库`)
+                  : tr(`выделили «${m.title}» собственную БД`, `gave “${m.title}” its own database`, `为“${m.title}”分出了独立的数据库`),
               )
             }
           >
             {state.ownDb[id]
-              ? tr('Вернуть в общую БД', 'Back to the shared database')
-              : tr(`🗄️ Своя БД · ${effortOf(m)} млн`, `🗄️ Own database · ${effortOf(m)} M`)}
+              ? tr('Вернуть в общую БД', 'Back to the shared database', '移回共享数据库')
+              : tr(`🗄️ Своя БД · ${effortOf(m)} млн`, `🗄️ Own database · ${effortOf(m)} M`, `🗄️ 独立数据库 · ${effortOf(m)} M`)}
           </button>
         )}
       </div>
-      <h4 style={{ marginTop: 14 }}>{tr('Связи', 'Links')}</h4>
+      <h4 style={{ marginTop: 14 }}>{tr('Связи', 'Links', '连接')}</h4>
       {deps.map((d) => (
         <DepRow key={d.id} project={project} d={d} state={state} apply={apply} />
       ))}
@@ -901,12 +928,12 @@ function DepRow({ project, d, state, apply }: { project: Project; d: Dep; state:
     <div className="dep" title={d.why}>
       <div className="small">
         {from.icon} {from.title} → {to.icon} {to.title}: <b>{d.label}</b>
-        {d.critical && <span className="badge warn" style={{ marginLeft: 6 }}>{tr('критично', 'critical')}</span>}
+        {d.critical && <span className="badge warn" style={{ marginLeft: 6 }}>{tr('критично', 'critical', '关键')}</span>}
       </div>
       {mode === null && options.length > 1 ? (
         <>
           <div className="small muted">
-            {tr('в одном процессе · можно заранее подготовить развязку:', 'in one process · you can prepare decoupling in advance:')}
+            {tr('в одном процессе · можно заранее подготовить развязку:', 'in one process · you can prepare decoupling in advance:', '在同一进程内 · 可以提前做好解耦：')}
           </div>
           <select
             value={plannedMode(state, d)}
@@ -916,20 +943,21 @@ function DepRow({ project, d, state, apply }: { project: Project; d: Dep; state:
                 tr(
                   `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[e.target.value as DepMode]}`,
                   `prepared inside the monolith ${from.title} → ${to.title}: ${MODE_LABEL[e.target.value as DepMode]}`,
+                  `在单体内提前准备 ${from.title} → ${to.title}：${MODE_LABEL[e.target.value as DepMode]}`,
                 ),
               )
             }
           >
             {options.map((o) => (
               <option key={o} value={o}>
-                {o === defaultMode(d) ? tr('оставить как есть', 'leave as is') : MODE_LABEL[o]}
-                {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`) : ''}
+                {o === defaultMode(d) ? tr('оставить как есть', 'leave as is', '保持原样') : MODE_LABEL[o]}
+                {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`, ` · ${MODE_COST[o]} M`) : ''}
               </option>
             ))}
           </select>
         </>
       ) : mode === null ? (
-        <div className="small muted">{tr('в одном процессе: обычный вызов', 'in one process: a plain call')}</div>
+        <div className="small muted">{tr('в одном процессе: обычный вызов', 'in one process: a plain call', '在同一进程内：普通调用')}</div>
       ) : options.length > 1 ? (
         <select
           value={mode}
@@ -943,7 +971,7 @@ function DepRow({ project, d, state, apply }: { project: Project; d: Dep; state:
           {options.map((o) => (
             <option key={o} value={o}>
               {MODE_LABEL[o]}
-              {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`) : ''}
+              {MODE_COST[o] ? tr(` · ${MODE_COST[o]} млн`, ` · ${MODE_COST[o]} M`, ` · ${MODE_COST[o]} M`) : ''}
             </option>
           ))}
         </select>
@@ -986,7 +1014,7 @@ function DepPopover({
         <b>
           {from.icon} {from.title} → {to.icon} {to.title}
         </b>
-        <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
+        <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
           ✕
         </button>
       </div>
@@ -994,7 +1022,7 @@ function DepPopover({
         <b>{d.label}</b> · {KIND_SHORT[d.kind]}
         {d.critical && (
           <span className="badge warn" style={{ marginLeft: 6 }}>
-            {tr('критично', 'critical')}
+            {tr('критично', 'critical', '关键')}
           </span>
         )}
       </div>
@@ -1002,13 +1030,14 @@ function DepPopover({
       {mode === null ? (
         <>
           <p className="small">
-            {tr('Сейчас это вызов внутри одного процесса.', 'Right now this is a call within a single process.')}
+            {tr('Сейчас это вызов внутри одного процесса.', 'Right now this is a call within a single process.', '目前这是同一进程内的调用。')}
             {options.length > 1
               ? tr(
                   ' Развязку можно подготовить заранее, ещё в монолите — тогда вынос модуля пройдёт без инцидентов:',
                   ' You can prepare decoupling in advance, while still in the monolith — then extracting the module will go without incidents:',
+                  '可以趁还在单体里时提前做好解耦——这样拆出模块时就不会出事故：',
                 )
-              : tr(' Вынесите один из модулей, чтобы выбрать способ связи.', ' Extract one of the modules to choose how they communicate.')}
+              : tr(' Вынесите один из модулей, чтобы выбрать способ связи.', ' Extract one of the modules to choose how they communicate.', '先拆出其中一个模块，才能选择它们的通信方式。')}
           </p>
           {options.length > 1 && (
             <div className="mode-options">
@@ -1025,12 +1054,13 @@ function DepPopover({
                           tr(
                             `подготовили в монолите ${from.title} → ${to.title}: ${MODE_LABEL[o]}`,
                             `prepared inside the monolith ${from.title} → ${to.title}: ${MODE_LABEL[o]}`,
+                            `在单体内提前准备 ${from.title} → ${to.title}：${MODE_LABEL[o]}`,
                           ),
                         )
                     }}
                   >
-                    {o === defaultMode(d) ? tr('оставить как есть', 'leave as is') : MODE_LABEL[o]}
-                    {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M')}</span> : null}
+                    {o === defaultMode(d) ? tr('оставить как есть', 'leave as is', '保持原样') : MODE_LABEL[o]}
+                    {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M', 'M')}</span> : null}
                   </button>
                 )
               })}
@@ -1041,7 +1071,7 @@ function DepPopover({
               .filter((m) => !state.extracted[m.id])
               .map((m) => (
                 <button key={m.id} onClick={() => onSelectModule(m.id)}>
-                  {tr(<>Открыть «{m.title}»</>, <>Open “{m.title}”</>)}
+                  {tr(<>Открыть «{m.title}»</>, <>Open “{m.title}”</>, <>打开“{m.title}”</>)}
                 </button>
               ))}
           </div>
@@ -1062,7 +1092,7 @@ function DepPopover({
               }}
             >
               {MODE_LABEL[o]}
-              {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M')}</span> : null}
+              {MODE_COST[o] ? <span className="small muted"> · {MODE_COST[o]} {tr('млн', 'M', 'M')}</span> : null}
             </button>
           ))}
           {options.length === 1 && (
@@ -1070,6 +1100,7 @@ function DepPopover({
               {tr(
                 'Критичный вызов: ответ нужен до продолжения операции, поэтому только синхронно.',
                 'Critical call: the response is needed before the operation can continue, so only synchronous.',
+                '关键调用：必须拿到响应，操作才能继续，所以只能同步调用。',
               )}
             </p>
           )}
@@ -1203,7 +1234,7 @@ function MonolithCanvas({
       <g>
         <rect x={50} y={20} width={140} height={44} rx={8} className="mono-client" />
         <text x={120} y={47} className="mono-label" textAnchor="middle">
-          📱 {tr('Клиенты', 'Clients')}
+          📱 {tr('Клиенты', 'Clients', '客户端')}
         </text>
       </g>
       {state.infra.gateway && (
@@ -1211,7 +1242,7 @@ function MonolithCanvas({
           <line x1={190} y1={42} x2={260} y2={92} className="mflow mflow-sync" />
           <rect x={260} y={72} width={160} height={40} rx={8} className="mono-gw" />
           <text x={340} y={97} className="mono-label" textAnchor="middle">
-            🚪 {tr('Strangler-фасад', 'Strangler facade')}
+            🚪 {tr('Strangler-фасад', 'Strangler facade', 'Strangler 门面')}
           </text>
         </g>
       )}
@@ -1266,9 +1297,9 @@ function MonolithCanvas({
         className={'mono-box' + (anyExtracted ? ' shrinking' : '')}
       />
       <text x={MONO.x + 16} y={MONO.y + 24} className="mono-title">
-        🏛 {tr('Монолит', 'Monolith')}
+        🏛 {tr('Монолит', 'Monolith', '单体')}
       </text>
-      <Cylinder x={MONO_DB.x} y={MONO_DB.y} w={MONO_DB.w} h={MONO_DB.h} label={tr('Общая БД', 'Shared database')} />
+      <Cylinder x={MONO_DB.x} y={MONO_DB.y} w={MONO_DB.w} h={MONO_DB.h} label={tr('Общая БД', 'Shared database', '共享数据库')} />
 
       {state.infra.kafka && (
         <g className="appear">
@@ -1283,14 +1314,14 @@ function MonolithCanvas({
           d={`M${MONO_DB.x + MONO_DB.w},${MONO_DB.y + MONO_DB.h / 2} Q${MONO_DB.x + MONO_DB.w + 200},${MONO_DB.y + 20} 560,${H - 26}`}
           className="mflow mflow-async"
         >
-          <title>{tr('CDC: изменения из журнала транзакций БД уходят в брокер', 'CDC: changes from the database transaction log go to the broker')}</title>
+          <title>{tr('CDC: изменения из журнала транзакций БД уходят в брокер', 'CDC: changes from the database transaction log go to the broker', 'CDC：数据库事务日志中的变更被发送到 Broker')}</title>
         </path>
       )}
       {state.infra.sagaOrchestrator && (
         <g className="appear">
           <rect x={560} y={H - 80} width={190} height={30} rx={6} className="mono-gw" />
           <text x={655} y={H - 60} className="mono-label small-label" textAnchor="middle">
-            🎼 {tr('Оркестратор саг', 'Saga orchestrator')}
+            🎼 {tr('Оркестратор саг', 'Saga orchestrator', 'Saga 编排器')}
           </text>
         </g>
       )}
@@ -1308,7 +1339,7 @@ function MonolithCanvas({
           <path d={path} className={cls}>
             <title>
               {d.label}: {d.why}
-              {mode ? tr(` Сейчас: ${MODE_LABEL[mode]}.`, ` Now: ${MODE_LABEL[mode]}.`) : ''}
+              {mode ? tr(` Сейчас: ${MODE_LABEL[mode]}.`, ` Now: ${MODE_LABEL[mode]}.`, ` 当前：${MODE_LABEL[mode]}。`) : ''}
             </title>
           </path>
           {isBroken && (
@@ -1339,15 +1370,15 @@ function MonolithCanvas({
             <text x={12} y={44} className="bnode-sub">
               {ext
                 ? indep
-                  ? tr('🚀 независимый релиз', '🚀 independent release')
-                  : tr('сервис', 'service')
-                : tr('модуль монолита', 'monolith module')}
+                  ? tr('🚀 независимый релиз', '🚀 independent release', '🚀 独立发布')
+                  : tr('сервис', 'service', '服务')
+                : tr('модуль монолита', 'monolith module', '单体模块')}
             </text>
             {ext && state.ownDb[m.id] && <Cylinder x={BOX_W + 14} y={6} w={52} h={44} label="" small />}
             {ext && state.infra.mesh && (
               <g className="appear sidecar">
                 <rect x={BOX_W - 8} y={-8} width={16} height={16} rx={4} />
-                <title>{tr('Sidecar-прокси service mesh', 'Service mesh sidecar proxy')}</title>
+                <title>{tr('Sidecar-прокси service mesh', 'Service mesh sidecar proxy', 'Service mesh 的 sidecar 代理')}</title>
               </g>
             )}
             {ext && state.infra.containers && (
@@ -1461,15 +1492,15 @@ const RAIL: PatternId[] = [
 const MODE_SHORT: Record<DepMode, string> = {
   sync: 'REST',
   api: 'API',
-  async: tr('событие', 'event'),
-  saga: tr('сага', 'saga'),
-  replica: tr('реплика', 'replica'),
-  direct: tr('SQL в чужую БД', 'SQL into another DB'),
+  async: tr('событие', 'event', '事件'),
+  saga: tr('сага', 'saga', 'Saga'),
+  replica: tr('реплика', 'replica', '副本'),
+  direct: tr('SQL в чужую БД', 'SQL into another DB', '用 SQL 访问他人数据库'),
 }
 
 const KIND_SHORT: Record<Dep['kind'], string> = {
-  call: tr('вызов', 'call'),
-  tx: tr('общая транзакция', 'shared transaction'),
+  call: tr('вызов', 'call', '调用'),
+  tx: tr('общая транзакция', 'shared transaction', '共享事务'),
   read: 'JOIN',
 }
 
@@ -1530,13 +1561,13 @@ function useMonoTraffic(project: Project, state: State, metrics: Metrics) {
 function describeNode(project: Project, id: string): { icon: string; label: string } | undefined {
   const m = project.modules.find((x) => x.id === id)
   if (m) return { icon: m.icon, label: m.title }
-  if (id === MONO_DB) return { icon: '🗄', label: tr('Общая БД', 'Shared DB') }
+  if (id === MONO_DB) return { icon: '🗄', label: tr('Общая БД', 'Shared DB', '共享数据库') }
   if (id === KAFKA) return { icon: '📜', label: 'Kafka' }
-  if (id === GATEWAY) return { icon: '🚪', label: tr('Strangler-фасад', 'Strangler facade') }
-  if (id === CLIENT) return { icon: '📱', label: tr('Клиенты', 'Clients') }
+  if (id === GATEWAY) return { icon: '🚪', label: tr('Strangler-фасад', 'Strangler facade', 'Strangler 门面') }
+  if (id === CLIENT) return { icon: '📱', label: tr('Клиенты', 'Clients', '客户端') }
   if (id.endsWith('-db')) {
     const owner = project.modules.find((x) => x.id === id.slice(0, -3))
-    return { icon: '🗄', label: tr(`БД «${owner?.title ?? id}»`, `“${owner?.title ?? id}” DB`) }
+    return { icon: '🗄', label: tr(`БД «${owner?.title ?? id}»`, `“${owner?.title ?? id}” DB`, `“${owner?.title ?? id}”的数据库`) }
   }
   return undefined
 }
@@ -1584,7 +1615,7 @@ function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId:
       const text =
         h.status === 'error' ? (t.httpStatus ? String(t.httpStatus) : 'ERR')
         : h.status === 'miss' ? 'fallback'
-        : h.status === 'queued' ? tr('событие', 'event')
+        : h.status === 'queued' ? tr('событие', 'event', '事件')
         : ''
       if (text && age >= 0 && age < 1400)
         marks.push(
@@ -1617,7 +1648,7 @@ function ModulePopover({ wrap, id, label, onClose, children }: { wrap: HTMLDivEl
       keep=".mmod, .mdep, .dep-chip, .dep-popover, .access-row, .wf-name"
       rootProps={{ onClick: (e) => e.stopPropagation() }}
     >
-      <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
+      <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')} aria-label={tr('Закрыть', 'Close', '关闭')}>
         ✕
       </button>
       {children}

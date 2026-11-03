@@ -49,22 +49,24 @@ export const HOP_MS = 520
 /** Почему блок — тупик: коротко на схеме и подробно во всплывающей подсказке */
 const DEAD_END: Partial<Record<BNode['kind'], [string, string]>> = {
   service: [
-    tr('нет хранилища: данных неоткуда взять', 'no storage: no data to serve'),
+    tr('нет хранилища: данных неоткуда взять', 'no storage: no data to serve', '没有存储：无数据可提供'),
     tr(
       'Сервис сам по себе данных не хранит: товары, заказы, профили лежат в базе. Подключите хранилище. Без него сервис работает, только если это внешний API (профиль «Внешний API»).',
       'A service does not keep data by itself: products, orders and profiles live in a database. Connect a storage. Without one, a service works only if it is an external API (the "External API" profile).',
+      '服务本身不保存数据：商品、订单和用户资料都存放在数据库里。请连接一个存储。没有存储时，只有当服务本身是外部 API（“外部 API”配置）时才能正常工作。',
     ),
   ],
   cache: [
-    tr('кэш пуст: нет источника данных', 'empty cache: no source of data'),
+    tr('кэш пуст: нет источника данных', 'empty cache: no source of data', '缓存为空：没有数据源'),
     tr(
       'Кэш хранит копии того, что уже прочитали из базы. Нет базы — нечего копировать, попаданий не бывает. Подключите базу к кэшу (read-through) или к сервису рядом с кэшем (cache-aside).',
       'A cache keeps copies of what was already read from a database. No database, nothing to copy, so there are no hits. Connect a database to the cache (read-through) or to the service next to the cache (cache-aside).',
+      '缓存保存的是已经从数据库读取过的数据副本。没有数据库，就没有可复制的内容，也就不会有命中。请把数据库连接到缓存（read-through），或者连接到缓存旁边的服务（cache-aside）。',
     ),
   ],
   cdn: [
-    tr('нет origin: файлам неоткуда взяться', 'no origin: files have nowhere to come from'),
-    tr('CDN раздаёт копии файлов из origin-хранилища. Подключите хранилище файлов за CDN.', 'A CDN serves copies of files from an origin store. Connect a file storage behind the CDN.'),
+    tr('нет origin: файлам неоткуда взяться', 'no origin: files have nowhere to come from', '没有 origin：文件无从获取'),
+    tr('CDN раздаёт копии файлов из origin-хранилища. Подключите хранилище файлов за CDN.', 'A CDN serves copies of files from an origin store. Connect a file storage behind the CDN.', 'CDN 分发的是来自 origin 存储的文件副本。请在 CDN 后面连接一个文件存储。'),
   ],
 }
 
@@ -338,10 +340,10 @@ export function BuilderCanvas({
               {n.kind === 'client' && !hideLoad && (
                 <title>
                   {clientMood(st?.success ?? 1, st?.latency ?? 0) === 'happy'
-                    ? tr('Пользователи довольны', 'Users are happy')
+                    ? tr('Пользователи довольны', 'Users are happy', '用户很满意')
                     : clientMood(st?.success ?? 1, st?.latency ?? 0) === 'meh'
-                      ? tr('Пользователи недовольны: ошибки или медленные ответы', 'Users are unhappy: errors or slow responses')
-                      : tr('Пользователи злятся: много ошибок или очень долго', 'Users are angry: many errors or very slow')}
+                      ? tr('Пользователи недовольны: ошибки или медленные ответы', 'Users are unhappy: errors or slow responses', '用户不太满意：出现错误或响应缓慢')
+                      : tr('Пользователи злятся: много ошибок или очень долго', 'Users are angry: many errors or very slow', '用户很生气：错误很多或响应非常慢')}
                 </title>
               )}
             </text>
@@ -356,7 +358,7 @@ export function BuilderCanvas({
             )}
             {n.kind === 'client' ? (
               <text x={12} y={64} className="bnode-sub" style={{ fill: color }}>
-                ✓ {((st?.success ?? 1) * 100).toFixed(1)}% · {Math.round(st?.latency ?? 0)} {tr('мс', 'ms')}
+                ✓ {((st?.success ?? 1) * 100).toFixed(1)}% · {Math.round(st?.latency ?? 0)} {tr('мс', 'ms', 'ms')}
               </text>
             ) : (
               <>
@@ -374,14 +376,14 @@ export function BuilderCanvas({
             )}
             {st?.deadEnd && (
               <text x={0} y={-6} className="bnode-warn">
-                ⚠ {DEAD_END[n.kind]?.[0] ?? tr('тупик: запросам некуда идти', 'dead end: requests have nowhere to go')}
-                <title>{DEAD_END[n.kind]?.[1] ?? tr('Подключите к этому блоку то, что обработает запросы дальше', 'Connect something to this block to handle requests further')}</title>
+                ⚠ {DEAD_END[n.kind]?.[0] ?? tr('тупик: запросам некуда идти', 'dead end: requests have nowhere to go', '死胡同：请求无处可去')}
+                <title>{DEAD_END[n.kind]?.[1] ?? tr('Подключите к этому блоку то, что обработает запросы дальше', 'Connect something to this block to handle requests further', '请给这个组件接上能继续处理请求的下一环')}</title>
               </text>
             )}
             {(st?.unsupported ?? 0) > 0 && (
               <text x={NODE_W} y={-6} textAnchor="end" className="bnode-warn">
-                ⚠ {tr('не умеет', 'unsupported')} {Math.round((st?.unsupported ?? 0) * 100)}%
-                <title>{tr('Это хранилище не подходит для части запросов: они падают', 'This storage cannot handle some of the requests: they fail')}</title>
+                ⚠ {tr('не умеет', 'unsupported', '不支持')} {Math.round((st?.unsupported ?? 0) * 100)}%
+                <title>{tr('Это хранилище не подходит для части запросов: они падают', 'This storage cannot handle some of the requests: they fail', '这个存储无法处理部分请求：这些请求会失败')}</title>
               </text>
             )}
             {!isStorage(n.kind) && (
@@ -399,7 +401,7 @@ export function BuilderCanvas({
                   capture(e.pointerId)
                 }}
               >
-                <title>{tr('Потяните, чтобы связать', 'Drag to connect')}</title>
+                <title>{tr('Потяните, чтобы связать', 'Drag to connect', '拖动以连接')}</title>
               </circle>
             )}
           </g>
@@ -510,7 +512,7 @@ export function schedule(t: LiveTrace, nodes: Record<string, BNode>, edges: BEdg
       h.status === 'error' ? (t.httpStatus ? String(t.httpStatus) : 'ERR')
       : h.status === 'hit' ? 'HIT'
       : h.status === 'miss' ? 'MISS'
-      : h.status === 'slow' ? tr('медленно', 'slow')
+      : h.status === 'slow' ? tr('медленно', 'slow', '慢')
       : h.status === 'queued' ? 'ack'
       : ''
     if (text) marks.push({ key: `${t.id}-m${i}`, node: nodes[e.to], at: arrive, text, status: h.status })

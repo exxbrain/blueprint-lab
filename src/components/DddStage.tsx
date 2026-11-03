@@ -37,7 +37,7 @@ export function DddStage({ task, progressKey, onNext, nextLabel }: { task: DddTa
 }
 
 let gid = 0
-const newGroup = (n: number) => ({ id: `u${++gid}`, name: tr(`Контекст ${n}`, `Context ${n}`) })
+const newGroup = (n: number) => ({ id: `u${++gid}`, name: tr(`Контекст ${n}`, `Context ${n}`, `上下文 ${n}`) })
 
 function Hints({ hints, used, take }: { hints: string[]; used: number; take: () => void }) {
   return (
@@ -51,7 +51,7 @@ function Hints({ hints, used, take }: { hints: string[]; used: number; take: () 
       )}
       {used < hints.length && (
         <button onClick={take}>
-          💡 {tr('Подсказка', 'Hint')} ({Math.min(used, hints.length)}/{hints.length})
+          💡 {tr('Подсказка', 'Hint', '提示')} ({Math.min(used, hints.length)}/{hints.length})
         </button>
       )}
     </>
@@ -156,17 +156,17 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           <Hints hints={task.hints} used={hints} take={hintState.take} />
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? tr('✅ Границы найдены!', '✅ Boundaries found!') : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? tr('✅ Границы найдены!', '✅ Boundaries found!', '✅ 边界找到了！') : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}</h4>
           <ul className="goal-list">
             <li className={pool.length === 0 ? 'ok-text' : ''}>
-              {pool.length === 0 ? '✓' : '○'} {tr(`Все карточки разложены (${task.cards.length - pool.length}/${task.cards.length})`, `All cards placed (${task.cards.length - pool.length}/${task.cards.length})`)}
+              {pool.length === 0 ? '✓' : '○'} {tr(`Все карточки разложены (${task.cards.length - pool.length}/${task.cards.length})`, `All cards placed (${task.cards.length - pool.length}/${task.cards.length})`, `所有卡片都已归类（${task.cards.length - pool.length}/${task.cards.length}）`)}
             </li>
             <li className={solved ? 'ok-text' : ''}>
-              {solved ? '✓' : '○'} {tr('Границы совпадают с эталоном хотя бы на 80%', 'Boundaries match the reference by at least 80%')}
+              {solved ? '✓' : '○'} {tr('Границы совпадают с эталоном хотя бы на 80%', 'Boundaries match the reference by at least 80%', '边界与参考答案的吻合度至少达到 80%')}
             </li>
           </ul>
           <div className="small muted">
-            {tr('Кнопка «Проверить» покажет точность и ошибки.', 'The Check button shows the accuracy and mistakes.')}
+            {tr('Кнопка «Проверить» покажет точность и ошибки.', 'The Check button shows the accuracy and mistakes.', '点击“检查”按钮即可查看准确度和错误。')}
           </div>
         </div>
       </div>
@@ -174,9 +174,9 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
   const refEl = <>
       {viewingRef && (
         <div className="ref-banner">
-          {tr('👁 Вы смотрите эталонное разбиение — в зачёт оно не идёт.', '👁 You are viewing the reference split; it does not count toward completion.')}
+          {tr('👁 Вы смотрите эталонное разбиение — в зачёт оно не идёт.', '👁 You are viewing the reference split; it does not count toward completion.', '👁 你正在查看参考答案的划分方式，它不计入完成进度。')}
           <button className="primary" onClick={toggleRef}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution')}
+            ↩ {tr('Вернуть моё решение', 'Back to my solution', '返回我的方案')}
           </button>
         </div>
       )}
@@ -187,15 +187,15 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           <ResultButton solved onClick={() => result$.setOpen(true)} />
         ) : (
           <button className="primary" disabled={pool.length > 0 || viewingRef} onClick={() => setChecked(true)}>
-            ✔ {tr('Проверить', 'Check')}
+            ✔ {tr('Проверить', 'Check', '检查')}
           </button>
         )}
-        {!viewingRef && <button onClick={toggleRef} title={referenceNote()}>👁 {tr('Показать эталон', 'Show reference')}</button>}
-        {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back')}</span>}
+        {!viewingRef && <button onClick={toggleRef} title={referenceNote()}>👁 {tr('Показать эталон', 'Show reference', '查看参考答案')}</button>}
+        {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back', '为卡片选择一个上下文，或点按卡堆把它放回去')}</span>}
       </div>
     </>
   const reviewEl = <>
-      {review && !(solved && !viewingRef) && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
+      {review && !(solved && !viewingRef) && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment', '划分评估')} />}
     </>
   const resultEl = <>
       <ResultModal
@@ -203,21 +203,21 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
         onClose={() => result$.setOpen(false)}
         progressKey={progressKey}
         stars={review ? cappedStars(review.stars, hints) : 1}
-        title={tr('Границы найдены!', 'Boundaries found!')}
-        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next'), onClick: onNext } : undefined}
+        title={tr('Границы найдены!', 'Boundaries found!', '边界找到了！')}
+        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next', '下一步'), onClick: onNext } : undefined}
       >
-        {review && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
+        {review && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment', '划分评估')} />}
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
     </>
   const pickerEl = <>
       {picked && (
-        <div className="ddd-picker" role="dialog" aria-label={tr('Куда положить стикер', 'Where to put the sticky')}>
+        <div className="ddd-picker" role="dialog" aria-label={tr('Куда положить стикер', 'Where to put the sticky', '把便签放到哪里')}>
           <div className="small">
-            <b>{task.cards.find((c) => c.id === picked)?.name}</b> → {tr('в контекст:', 'to context:')}
+            <b>{task.cards.find((c) => c.id === picked)?.name}</b> → {tr('в контекст:', 'to context:', '放入上下文：')}
           </div>
           <div className="ddd-picker-row">
             {state.groups.map((g) => (
@@ -225,9 +225,9 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                 {g.name}
               </button>
             ))}
-            <button onClick={addGroup}>＋ {tr('Новый', 'New')}</button>
-            {state.place[picked] && <button onClick={() => placeCard(picked, null)}>↩ {tr('В стопку', 'Back to pile')}</button>}
-            <button className="icon" onClick={() => setPicked(null)} title={tr('Отмена', 'Cancel')}>
+            <button onClick={addGroup}>＋ {tr('Новый', 'New', '新建')}</button>
+            {state.place[picked] && <button onClick={() => placeCard(picked, null)}>↩ {tr('В стопку', 'Back to pile', '放回卡堆')}</button>}
+            <button className="icon" onClick={() => setPicked(null)} title={tr('Отмена', 'Cancel', '取消')}>
               ✕
             </button>
           </div>
@@ -245,7 +245,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                     value={g.name}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => setState({ ...state, groups: state.groups.map((x) => (x.id === g.id ? { ...x, name: e.target.value } : x)) })}
-                    aria-label={tr('Название контекста', 'Context name')}
+                    aria-label={tr('Название контекста', 'Context name', '上下文名称')}
                   />
                   <span className="small muted">{cards.length}</span>
                   {!cards.length && (
@@ -255,7 +255,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                         e.stopPropagation()
                         removeGroup(g.id)
                       }}
-                      title={tr('Удалить пустой контекст', 'Delete empty context')}
+                      title={tr('Удалить пустой контекст', 'Delete empty context', '删除空的上下文')}
                     >
                       ✕
                     </button>
@@ -265,13 +265,13 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                   {cards.map((c) => (
                     <Card key={c.id} c={c} selected={picked === c.id} wrong={wrongIds.has(c.id)} onClick={() => setPicked(picked === c.id ? null : c.id)} />
                   ))}
-                  {!cards.length && <p className="small muted">{tr('Перетащите сюда стикеры или выберите стикер и нажмите на контекст', 'Drag stickies here, or select a sticky and tap the context')}</p>}
+                  {!cards.length && <p className="small muted">{tr('Перетащите сюда стикеры или выберите стикер и нажмите на контекст', 'Drag stickies here, or select a sticky and tap the context', '把便签拖到这里，或先选中便签再点按这个上下文')}</p>}
                 </div>
               </div>
             )
           })}
           <button className="ddd-add" onClick={addGroup}>
-            ＋ {picked ? tr('Новый контекст с этим стикером', 'New context with this sticky') : tr('Новый контекст', 'New context')}
+            ＋ {picked ? tr('Новый контекст с этим стикером', 'New context with this sticky', '用这张便签新建上下文') : tr('Новый контекст', 'New context', '新建上下文')}
           </button>
         </div>
     </>
@@ -292,12 +292,12 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
               {reviewEl}
             </>
           }
-          metrics={<span>{tr(`разложено ${task.cards.length - pool.length}/${task.cards.length}`, `placed ${task.cards.length - pool.length}/${task.cards.length}`)}</span>}
+          metrics={<span>{tr(`разложено ${task.cards.length - pool.length}/${task.cards.length}`, `placed ${task.cards.length - pool.length}/${task.cards.length}`, `已归类 ${task.cards.length - pool.length}/${task.cards.length}`)}</span>}
           right={
             <>
               <HintDock hints={task.hints} used={hints} take={hintState.take} compact />
               {solved && !viewingRef ? (
-                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result', '结果')} aria-label={tr('Результат', 'Result', '结果')}>
                   ★
                 </button>
               ) : (
@@ -310,7 +310,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                     if (!partitionSolved(task, state)) setPanelOpen(true)
                   }}
                 >
-                  ✔ {tr('Проверить', 'Check')}
+                  ✔ {tr('Проверить', 'Check', '检查')}
                 </button>
               )}
             </>
@@ -318,19 +318,19 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           bottom={
             <div className={'ddd-tray' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)}>
               <span className="ddd-tray-count">
-                {tr('Стикеры', 'Stickies')} {pool.length}
+                {tr('Стикеры', 'Stickies', '便签')} {pool.length}
               </span>
               {pool.map((c) => (
                 <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
               ))}
-              {!pool.length && <span className="small muted">{tr('Все разложены — проверьте', 'All placed: check now')}</span>}
+              {!pool.length && <span className="small muted">{tr('Все разложены — проверьте', 'All placed: check now', '已全部归类，快来检查吧')}</span>}
             </div>
           }
         >
           {refEl}
           {checked && review && !(solved && !viewingRef) && (
             <button className="ws-review-chip" onClick={() => setPanelOpen(true)}>
-              📋 {tr('Оценка готова — открыть', 'Assessment ready: open')}
+              📋 {tr('Оценка готова — открыть', 'Assessment ready: open', '评估已就绪，点击查看')}
             </button>
           )}
           {groupsEl}
@@ -351,7 +351,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
       <div className="ddd-board">
         <div className={'panel ddd-pool' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)} {...dropProps(null)}>
           <h4>
-            {tr('Стикеры', 'Stickies')} <span className="small muted">{pool.length}</span>
+            {tr('Стикеры', 'Stickies', '便签')} <span className="small muted">{pool.length}</span>
           </h4>
           <div className="ddd-legend small">
             {(Object.keys(CARD_KIND) as (keyof typeof CARD_KIND)[]).map((k) => (
@@ -364,7 +364,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
             {pool.map((c) => (
               <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
             ))}
-            {!pool.length && <p className="small muted">{tr('Все стикеры разложены', 'All stickies placed')}</p>}
+            {!pool.length && <p className="small muted">{tr('Все стикеры разложены', 'All stickies placed', '所有便签都已归类')}</p>}
           </div>
         </div>
         {groupsEl}
@@ -408,18 +408,18 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           <Hints hints={task.hints} used={hints} take={hintState.take} />
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? tr('✅ Карта готова!', '✅ Map complete!') : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? tr('✅ Карта готова!', '✅ Map complete!', '✅ 上下文映射图完成！') : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}</h4>
           <ul className="goal-list">
             <li className={allAnswered ? 'ok-text' : ''}>
-              {allAnswered ? '✓' : '○'} {tr('Для каждой связи выбран паттерн', 'A pattern is chosen for every relationship')}
+              {allAnswered ? '✓' : '○'} {tr('Для каждой связи выбран паттерн', 'A pattern is chosen for every relationship', '每条关系都选好了模式')}
             </li>
             <li className={solved ? 'ok-text' : ''}>
-              {solved ? '✓' : '○'} {tr('Все паттерны верные', 'All patterns are correct')}
+              {solved ? '✓' : '○'} {tr('Все паттерны верные', 'All patterns are correct', '所有模式都正确')}
             </li>
           </ul>
           {checked && !solved && (
             <div className="small bad-text">
-              {tr(`Верно ${sc.correct} из ${sc.total}. Ошибок при проверке: ${wrongChecks}`, `${sc.correct} of ${sc.total} correct. Failed checks: ${wrongChecks}`)}
+              {tr(`Верно ${sc.correct} из ${sc.total}. Ошибок при проверке: ${wrongChecks}`, `${sc.correct} of ${sc.total} correct. Failed checks: ${wrongChecks}`, `${sc.total} 个中答对 ${sc.correct} 个。检查未通过次数：${wrongChecks}`)}
             </div>
           )}
           {solved && <div className="review-stars small">{[1, 2, 3].map((i) => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</div>}
@@ -428,7 +428,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
     </>
   const patternsEl = <>
       <details className="panel ddd-patterns">
-        <summary>{tr('Паттерны Context Map', 'Context Map patterns')}</summary>
+        <summary>{tr('Паттерны Context Map', 'Context Map patterns', '上下文映射图（Context Map）的模式')}</summary>
         <ul className="small">
           {(Object.keys(MAP_PATTERNS) as MapPattern[]).map((p) => (
             <li key={p}>
@@ -444,7 +444,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           <ResultButton solved onClick={() => result$.setOpen(true)} />
         ) : (
           <button className="primary" disabled={!allAnswered || showRef} onClick={check}>
-            ✔ {tr('Проверить', 'Check')}
+            ✔ {tr('Проверить', 'Check', '检查')}
           </button>
         )}
         <button
@@ -454,7 +454,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
             setShowRef(!showRef)
           }}
         >
-          {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers') : '👁 ' + tr('Показать ответы', 'Show answers')}
+          {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers', '隐藏答案') : '👁 ' + tr('Показать ответы', 'Show answers', '显示答案')}
         </button>
       </div>
     </>
@@ -464,11 +464,11 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
         onClose={() => result$.setOpen(false)}
         progressKey={progressKey}
         stars={stars}
-        title={tr('Карта готова!', 'Map complete!')}
-        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next'), onClick: onNext } : undefined}
+        title={tr('Карта готова!', 'Map complete!', '上下文映射图完成！')}
+        next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next', '下一步'), onClick: onNext } : undefined}
       >
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
@@ -507,7 +507,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
                 ))}
               </div>
               {(ok || showRef) && <div className="small ok-text">✓ {r.why}</div>}
-              {bad && <div className="small bad-text">✗ {tr('Не тот паттерн — перечитайте, кто на кого может влиять.', 'Wrong pattern: reread who can influence whom.')}</div>}
+              {bad && <div className="small bad-text">✗ {tr('Не тот паттерн — перечитайте, кто на кого может влиять.', 'Wrong pattern: reread who can influence whom.', '模式不对：再读一遍，看看谁能影响谁。')}</div>}
             </div>
           )
         })}
@@ -530,17 +530,17 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
               {actionsEl}
             </>
           }
-          metrics={<span>{tr(`выбрано ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`, `chosen ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`)}</span>}
+          metrics={<span>{tr(`выбрано ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`, `chosen ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`, `已选 ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`)}</span>}
           right={
             <>
               <HintDock hints={task.hints} used={hints} take={hintState.take} compact />
               {solved ? (
-                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result', '结果')} aria-label={tr('Результат', 'Result', '结果')}>
                   ★
                 </button>
               ) : (
                 <button className="primary ws-check" disabled={!allAnswered || showRef} onClick={check}>
-                  ✔ {tr('Проверить', 'Check')}
+                  ✔ {tr('Проверить', 'Check', '检查')}
                 </button>
               )}
             </>
@@ -548,7 +548,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
         >
           {checked && !solved && (
             <div className="panel small bad-text ws-note">
-              {tr(`Верно ${sc.correct} из ${sc.total} — ошибки отмечены ниже`, `${sc.correct} of ${sc.total} correct; mistakes are marked below`)}
+              {tr(`Верно ${sc.correct} из ${sc.total} — ошибки отмечены ниже`, `${sc.correct} of ${sc.total} correct; mistakes are marked below`, `${sc.total} 个中答对 ${sc.correct} 个，错误已在下方标出`)}
             </div>
           )}
           {relationsEl}

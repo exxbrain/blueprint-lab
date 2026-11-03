@@ -55,24 +55,25 @@ export default function ReferencePage({ focus }: { focus?: string }) {
   return (
     <div className="page narrow ref-page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Справочник', 'Reference')}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / {tr('Справочник', 'Reference', '参考手册')}
       </div>
-      <h1>📖 {tr('Справочник', 'Reference')}</h1>
+      <h1>📖 {tr('Справочник', 'Reference', '参考手册')}</h1>
       <p className="muted">
         {tr(
           'Паттерны микросервисов и компоненты конструктора: какую проблему решают, как работают, когда применять и чем реализуют.',
           'Microservice patterns and builder components: what problem they solve, how they work, when to use them and which tools implement them.',
+          '微服务模式与构建器组件：它们解决什么问题、如何工作、何时使用，以及有哪些工具可以实现。',
         )}
       </p>
       <input
         type="text"
         className="ref-search"
-        placeholder={tr('Поиск: retry, кэш, Kafka…', 'Search: retry, cache, Kafka…')}
+        placeholder={tr('Поиск: retry, кэш, Kafka…', 'Search: retry, cache, Kafka…', '搜索：retry、缓存、Kafka…')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
-      {section(tr('Паттерны микросервисов', 'Microservice patterns'), PATTERN_REF)}
-      {section(tr('Компоненты конструктора', 'Builder components'), COMPONENT_REF)}
+      {section(tr('Паттерны микросервисов', 'Microservice patterns', '微服务模式'), PATTERN_REF)}
+      {section(tr('Компоненты конструктора', 'Builder components', '构建器组件'), COMPONENT_REF)}
     </div>
   )
 }

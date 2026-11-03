@@ -97,7 +97,7 @@ export function ElementDialog({
       {title !== undefined && (
         <div className="card-head">
           <b>{title}</b>
-          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
+          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')} aria-label={tr('Закрыть', 'Close', '关闭')}>
             ✕
           </button>
         </div>

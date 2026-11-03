@@ -16,11 +16,11 @@ export function LessonPage({ mod, lessonId }: { mod: Module; lessonId: string })
   return (
     <div className="page" style={{ maxWidth: 1300 }}>
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Урок', 'Lesson')} {idx + 1}
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Урок', 'Lesson', '课程')} {idx + 1}
       </div>
       <h1>{lesson.title}</h1>
       <p className="muted">
-        {lesson.summary} · {lesson.minutes} {tr('мин', 'min')}
+        {lesson.summary} · {lesson.minutes} {tr('мин', 'min', '分钟')}
       </p>
       <lesson.Body />
       <div className="lesson-nav">
@@ -32,8 +32,8 @@ export function LessonPage({ mod, lessonId }: { mod: Module; lessonId: string })
             window.location.hash = next ? href(mod.id, 'lesson', next.id) : href(mod.id)
           }}
         >
-          {done ? tr('✓ Пройдено, ', '✓ Done, ') : tr('Понятно, ', 'Got it, ')}
-          {next ? tr(`дальше: ${next.title} →`, `next: ${next.title} →`) : tr('к модулю', 'back to module')}
+          {done ? tr('✓ Пройдено, ', '✓ Done, ', '✓ 已完成，') : tr('Понятно, ', 'Got it, ', '明白了，')}
+          {next ? tr(`дальше: ${next.title} →`, `next: ${next.title} →`, `下一课：${next.title} →`) : tr('к модулю', 'back to module', '返回模块')}
         </button>
       </div>
     </div>

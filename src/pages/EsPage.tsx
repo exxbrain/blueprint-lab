@@ -14,7 +14,7 @@ export default function EsPage({ id }: { id?: string }) {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Карта', 'Map')}</a> / Event Sourcing
+        <a href="#/">{tr('Карта', 'Map', '地图')}</a> / Event Sourcing
       </div>
       <h1>
         📚 {task.title} <TaskLevelTag taskKey={`data/es/${task.id}`} full />
@@ -27,12 +27,12 @@ export default function EsPage({ id }: { id?: string }) {
 }
 
 const MARK_LABEL: Record<string, string> = {
-  deleted: tr('удалено', 'deleted'),
-  edited: tr('изменено', 'edited'),
+  deleted: tr('удалено', 'deleted', '已删除'),
+  edited: tr('изменено', 'edited', '已修改'),
   new: '',
   upcast: 'upcast',
-  error: tr('ошибка', 'error'),
-  snapshot: tr('снапшот', 'snapshot'),
+  error: tr('ошибка', 'error', '错误'),
+  snapshot: tr('снапшот', 'snapshot', '快照'),
 }
 
 function EsLab({ task }: { task: EsTask }) {
@@ -67,7 +67,7 @@ function EsLab({ task }: { task: EsTask }) {
           <div className="row">
             {hints < task.hints.length && (
               <button onClick={hintState.take}>
-                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
+                💡 {tr('Подсказка', 'Hint', '提示')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -78,7 +78,7 @@ function EsLab({ task }: { task: EsTask }) {
                   setMine(null)
                 }}
               >
-                {tr('↩ Вернуть мой выбор', '↩ Restore my choice')}
+                {tr('↩ Вернуть мой выбор', '↩ Restore my choice', '↩ 恢复我的选择')}
               </button>
             ) : (
               <button
@@ -89,13 +89,13 @@ function EsLab({ task }: { task: EsTask }) {
                   setCfg(task.solution)
                 }}
               >
-                {tr('👁 Показать эталон', '👁 Show reference')}
+                {tr('👁 Показать эталон', '👁 Show reference', '👁 查看参考答案')}
               </button>
             )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution', '👁 参考答案') : tr('✅ Решено!', '✅ Solved!', '✅ 已解决！')) : tr('🎯 Цели', '🎯 Goals', '🎯 目标')}
             {solved && !mine && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= hintStars(hints) ? 'on' : ''}>★</span>)}</span>}
           </h4>
           <ul className="goal-list">
@@ -110,14 +110,14 @@ function EsLab({ task }: { task: EsTask }) {
       </div>
       <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`data/es/${task.id}`} stars={hintStars(hints)}>
         <div className="lesson">
-          <h3>{tr('Разбор', 'Debrief')}</h3>
+          <h3>{tr('Разбор', 'Debrief', '解析')}</h3>
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
 
       <div className="es-grid">
         <aside className="panel">
-          <h4>{tr('Решение', 'Decision')}</h4>
+          <h4>{tr('Решение', 'Decision', '决策')}</h4>
           {task.options.map((o) => (
             <div key={o.key} className="es-option">
               <div className="small muted">{o.label}</div>
@@ -137,7 +137,7 @@ function EsLab({ task }: { task: EsTask }) {
         </aside>
 
         <div className="panel">
-          <h4>{tr('Журнал событий', 'Event log')}</h4>
+          <h4>{tr('Журнал событий', 'Event log', '事件日志')}</h4>
           <ol className="es-log">
             {run.events.map((e) => (
               <li key={`${e.seq}-${e.type}`} className={'es-event ' + (e.mark ?? '')}>
@@ -164,7 +164,7 @@ function EsLab({ task }: { task: EsTask }) {
         </div>
 
         <aside className="panel">
-          <h4>{tr('Состояние', 'State')}</h4>
+          <h4>{tr('Состояние', 'State', '状态')}</h4>
           <table className="cmp small es-facts">
             <tbody>
               {run.facts.map((f) => (

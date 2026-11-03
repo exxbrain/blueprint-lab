@@ -40,20 +40,20 @@ export function Workspace({
       <div className={'wsx-field' + (scroll ? ' scroll' : '')}>{children}</div>
       <div className="wsx-top">
         <div className="ws-pill ws-left">
-          <a className="btn icon ws-btn" href={backHref} title={tr('На карту', 'To the map')} aria-label={tr('На карту', 'To the map')}>
+          <a className="btn icon ws-btn" href={backHref} title={tr('На карту', 'To the map', '返回地图')} aria-label={tr('На карту', 'To the map', '返回地图')}>
             ←
           </a>
           <button className="ws-title" onClick={() => setPanelOpen(true)}>
             {title}
           </button>
-          <button className="icon ws-btn" onClick={() => setPanelOpen(true)} title={tr('Задача и цели', 'Task and goals')} aria-label={tr('Задача и цели', 'Task and goals')}>
+          <button className="icon ws-btn" onClick={() => setPanelOpen(true)} title={tr('Задача и цели', 'Task and goals', '任务与目标')} aria-label={tr('Задача и цели', 'Task and goals', '任务与目标')}>
             ▤
           </button>
         </div>
         {right && <div className="ws-pill ws-right">{right}</div>}
       </div>
       {metrics && (
-        <button className="ws-metrics" onClick={() => setPanelOpen(true)} title={tr('Метрики и цели', 'Metrics and goals')}>
+        <button className="ws-metrics" onClick={() => setPanelOpen(true)} title={tr('Метрики и цели', 'Metrics and goals', '指标与目标')}>
           {metrics}
         </button>
       )}
@@ -66,7 +66,7 @@ export function Workspace({
         <Sheet title={title} onClose={() => setPanelOpen(false)}>
           {panel}
           <button className="primary ws-start" onClick={() => setPanelOpen(false)}>
-            {scroll ? tr('К заданию', 'To the task') : tr('К схеме', 'To the diagram')} →
+            {scroll ? tr('К заданию', 'To the task', '前往任务') : tr('К схеме', 'To the diagram', '前往图表')} →
           </button>
         </Sheet>
       )}
@@ -128,7 +128,7 @@ export function Sheet({ title, onClose, children }: { title: ReactNode; onClose:
       <div className="ws-sheet open" ref={ref} tabIndex={-1} role="dialog" aria-modal aria-label={typeof title === 'string' ? title : undefined}>
         <div className="ws-panel-head">
           <b>{title}</b>
-          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
+          <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')} aria-label={tr('Закрыть', 'Close', '关闭')}>
             ✕
           </button>
         </div>

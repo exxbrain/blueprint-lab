@@ -63,16 +63,16 @@ export default function App() {
   return (
     <>
       <header className="topbar">
-        <a className="logo" href="#/" aria-label={tr('Blueprint Lab — на карту', 'Blueprint Lab: to the map')}>
+        <a className="logo" href="#/" aria-label={tr('Blueprint Lab — на карту', 'Blueprint Lab: to the map', 'Blueprint Lab：返回地图')}>
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
           <span className="logo-text">Blueprint Lab</span>
         </a>
         <nav>
           <a href="#/" className={'nav-home' + (!first ? ' active' : '')} aria-current={!first ? 'page' : undefined}>
-            <span aria-hidden>🗺️</span> {tr('Карта', 'Map')}
+            <span aria-hidden>🗺️</span> {tr('Карта', 'Map', '地图')}
           </a>
           <a href={href('builder')} className={first === 'builder' ? 'active' : ''} aria-current={first === 'builder' ? 'page' : undefined}>
-            {tr('Конструктор', 'Builder')}
+            {tr('Конструктор', 'Builder', '构建器')}
           </a>
           <a href={href('kafka')} className={first === 'kafka' ? 'active' : ''} aria-current={first === 'kafka' ? 'page' : undefined}>
             Kafka
@@ -81,22 +81,22 @@ export default function App() {
             Kubernetes
           </a>
           <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''} aria-current={first === 'microservices' || first === 'monolith' ? 'page' : undefined}>
-            {tr('Микросервисы', 'Microservices')}
+            {tr('Микросервисы', 'Microservices', '微服务')}
           </a>
           <a href={href('data')} className={first === 'data' ? 'active' : ''} aria-current={first === 'data' ? 'page' : undefined}>
-            {tr('Данные', 'Data')}
+            {tr('Данные', 'Data', '数据')}
           </a>
           <a href={href('c4')} className={first === 'c4' ? 'active' : ''} aria-current={first === 'c4' ? 'page' : undefined}>
             C4
           </a>
           <a href={href('reference')} className={first === 'reference' ? 'active' : ''} aria-current={first === 'reference' ? 'page' : undefined}>
-            {tr('Справочник', 'Reference')}
+            {tr('Справочник', 'Reference', '参考手册')}
           </a>
         </nav>
         <LevelBadge active={first === 'profile'} />
         <LangPicker />
       </header>
-      <Suspense fallback={<div className="page muted">{tr('Загрузка…', 'Loading…')}</div>}>
+      <Suspense fallback={<div className="page muted">{tr('Загрузка…', 'Loading…', '加载中…')}</div>}>
         <div key={route.join('/')}>{page}</div>
       </Suspense>
       <LevelToasts />

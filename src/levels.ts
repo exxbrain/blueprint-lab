@@ -17,15 +17,15 @@ import { href } from './router'
 export type TaskLevel = 1 | 2 | 3 | 4
 
 export const TASK_LEVEL: Record<TaskLevel, { name: string; short: string }> = {
-  1: { name: tr('Младший', 'Junior'), short: tr('Мл', 'J') },
-  2: { name: tr('Средний', 'Middle'), short: tr('Ср', 'M') },
-  3: { name: tr('Старший', 'Senior'), short: tr('Ст', 'S') },
-  4: { name: tr('Архитектор', 'Architect'), short: tr('Ар', 'A') },
+  1: { name: tr('Младший', 'Junior', '初级'), short: tr('Мл', 'J', '初') },
+  2: { name: tr('Средний', 'Middle', '中级'), short: tr('Ср', 'M', '中') },
+  3: { name: tr('Старший', 'Senior', '高级'), short: tr('Ст', 'S', '高') },
+  4: { name: tr('Архитектор', 'Architect', '架构师'), short: tr('Ар', 'A', '架') },
 }
 
 /** Опыт за решённую задачу по уровню */
 /** Единица опыта в подписях */
-export const XP = tr('опыта', 'XP')
+export const XP = tr('опыта', 'XP', 'XP')
 
 export const TASK_XP: Record<TaskLevel, number> = { 1: 50, 2: 100, 3: 200, 4: 350 }
 const LESSON_XP = 15
@@ -70,7 +70,7 @@ export const TASKS: Task[] = [
   ...builderChallenges.map((c) => ({
     key: `builder/${c.id}`,
     title: c.title,
-    area: tr('Конструктор', 'Builder'),
+    area: tr('Конструктор', 'Builder', '构建器'),
     level: BUILDER_LEVEL[c.id] ?? 2,
     href: href('builder', c.id),
   })),
@@ -78,7 +78,7 @@ export const TASKS: Task[] = [
     (DDD_STAGES[p.id] ?? []).map((t, i) => ({
       key: `monolith/${p.id}/${t.id}`,
       title: `${p.title}: ${t.title}`,
-      area: tr('Распил монолита', 'Monolith'),
+      area: tr('Распил монолита', 'Monolith', '拆分单体'),
       // поиск границ — на ступень проще миссий проекта, карта контекстов — на уровне проекта
       level: clamp((PROJECT_LEVEL[p.id] ?? 3) - (i === 0 ? 1 : 0)),
       href: href('monolith', p.id, t.id),
@@ -88,7 +88,7 @@ export const TASKS: Task[] = [
     p.missions.map((m, i) => ({
       key: `monolith/${p.id}/${m.id}`,
       title: `${p.title}: ${m.title}`,
-      area: tr('Распил монолита', 'Monolith'),
+      area: tr('Распил монолита', 'Monolith', '拆分单体'),
       level: clamp((PROJECT_LEVEL[p.id] ?? 3) - (i === 0 ? 1 : 0)),
       href: href('monolith', p.id, m.id),
     })),
@@ -193,16 +193,16 @@ export function totalXp(p: Progress): number {
 
 /** Уровни игрока: звание и масштаб систем, которые он умеет проектировать */
 export const RANKS: { xp: number; title: string; scale: string; tier: TaskLevel }[] = [
-  { xp: 0, title: tr('Стажёр', 'Intern'), scale: tr('Hello world на одном сервере', 'Hello world on one server'), tier: 1 },
-  { xp: 100, title: tr('Младший разработчик', 'Junior'), scale: tr('Сервис и база данных', 'A service and a database'), tier: 1 },
-  { xp: 300, title: tr('Разработчик', 'Junior+'), scale: tr('Кэш перед базой', 'A cache in front of the database'), tier: 1 },
-  { xp: 700, title: tr('Опытный разработчик', 'Middle'), scale: tr('Балансировка и реплики', 'Load balancing and replicas'), tier: 2 },
-  { xp: 1300, title: tr('Старший разработчик', 'Middle+'), scale: tr('Очереди и фоновая обработка', 'Queues and background processing'), tier: 2 },
-  { xp: 2100, title: tr('Ведущий разработчик', 'Senior'), scale: tr('Микросервисы и свои базы', 'Microservices with their own databases'), tier: 3 },
-  { xp: 3100, title: tr('Техлид', 'Senior+'), scale: tr('Распределённые данные и согласованность', 'Distributed data and consistency'), tier: 3 },
-  { xp: 4300, title: tr('Главный инженер', 'Staff'), scale: tr('Платформа для многих команд', 'A platform for many teams'), tier: 4 },
-  { xp: 5700, title: tr('Системный архитектор', 'Principal'), scale: tr('Системы на миллионы пользователей', 'Systems for millions of users'), tier: 4 },
-  { xp: 7200, title: tr('Главный архитектор', 'Architect'), scale: tr('Глобальная система', 'A global system'), tier: 4 },
+  { xp: 0, title: tr('Стажёр', 'Intern', '实习生'), scale: tr('Hello world на одном сервере', 'Hello world on one server', '单台服务器上的 Hello world'), tier: 1 },
+  { xp: 100, title: tr('Младший разработчик', 'Junior', '初级工程师'), scale: tr('Сервис и база данных', 'A service and a database', '一个服务加一个数据库'), tier: 1 },
+  { xp: 300, title: tr('Разработчик', 'Junior+', '初级工程师+'), scale: tr('Кэш перед базой', 'A cache in front of the database', '数据库前面加缓存'), tier: 1 },
+  { xp: 700, title: tr('Опытный разработчик', 'Middle', '中级工程师'), scale: tr('Балансировка и реплики', 'Load balancing and replicas', '负载均衡与副本'), tier: 2 },
+  { xp: 1300, title: tr('Старший разработчик', 'Middle+', '中级工程师+'), scale: tr('Очереди и фоновая обработка', 'Queues and background processing', '队列与后台处理'), tier: 2 },
+  { xp: 2100, title: tr('Ведущий разработчик', 'Senior', '高级工程师'), scale: tr('Микросервисы и свои базы', 'Microservices with their own databases', '各自拥有数据库的微服务'), tier: 3 },
+  { xp: 3100, title: tr('Техлид', 'Senior+', '高级工程师+'), scale: tr('Распределённые данные и согласованность', 'Distributed data and consistency', '分布式数据与一致性'), tier: 3 },
+  { xp: 4300, title: tr('Главный инженер', 'Staff', '资深工程师'), scale: tr('Платформа для многих команд', 'A platform for many teams', '服务众多团队的平台'), tier: 4 },
+  { xp: 5700, title: tr('Системный архитектор', 'Principal', '首席工程师'), scale: tr('Системы на миллионы пользователей', 'Systems for millions of users', '面向数百万用户的系统'), tier: 4 },
+  { xp: 7200, title: tr('Главный архитектор', 'Architect', '架构师'), scale: tr('Глобальная система', 'A global system', '全球化系统'), tier: 4 },
 ]
 
 export interface PlayerLevel {

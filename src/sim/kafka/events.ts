@@ -25,8 +25,16 @@ const PRODUCTS = tr(
     ['SKU-5333', 'Book "Designing Data-Intensive Applications"', 3200],
     ['SKU-6012', 'French press', 1890],
   ] as const,
+  [
+    ['SKU-1001', '咖啡豆 1 kg', 1490],
+    ['SKU-2044', '电热水壶', 2990],
+    ['SKU-3107', '陶瓷马克杯', 590],
+    ['SKU-4210', '无线耳机', 7990],
+    ['SKU-5333', '图书《Designing Data-Intensive Applications》', 3200],
+    ['SKU-6012', '法压壶', 1890],
+  ] as const,
 )
-const COURIERS = ['CDEK', 'Boxberry', 'DPD', tr('Почта России', 'Russian Post')]
+const COURIERS = ['CDEK', 'Boxberry', 'DPD', tr('Почта России', 'Russian Post', '俄罗斯邮政')]
 const METHODS = ['card', 'sbp', 'apple_pay']
 const BASE_TIME = Date.UTC(2026, 10, 2, 12, 0, 0)
 

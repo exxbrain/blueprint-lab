@@ -24,7 +24,8 @@ export function Home() {
   // вернулись на карту из задания — карта на месте этого задания; иначе — там, где с неё ушли
   useLayoutEffect(() => {
     const from = lastRoute()
-    const node = from ? document.querySelector(`.page a[href="${CSS.escape(from)}"]`) : null
+    // только узлы карты: кнопка «Продолжить» и плитки разделов ведут на те же адреса, но это не место на карте
+    const node = from ? document.querySelector(`.level-map a.map-node[href="${CSS.escape(from)}"]`) : null
     if (node) node.scrollIntoView({ block: 'center' })
     else window.scrollTo(0, savedScroll('#/') ?? 0)
   }, [])

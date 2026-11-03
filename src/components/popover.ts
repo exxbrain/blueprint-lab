@@ -52,8 +52,13 @@ export function usePhone(): boolean {
   return useSyncExternalStore(
     (cb) => {
       const m = window.matchMedia(PHONE)
+      // и смена медиазапроса, и изменение размера окна: событие медиазапроса браузер иногда придерживает
       m.addEventListener('change', cb)
-      return () => m.removeEventListener('change', cb)
+      window.addEventListener('resize', cb)
+      return () => {
+        m.removeEventListener('change', cb)
+        window.removeEventListener('resize', cb)
+      }
     },
     () => window.matchMedia(PHONE).matches,
   )

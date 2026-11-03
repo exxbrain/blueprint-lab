@@ -48,10 +48,13 @@ export function useViewport(o: ViewportOptions) {
   const { width, height } = o
   const opts = useRef(o)
   opts.current = o
+  const [box, setBox] = useState({ w: 0, h: 0 })
   // холст пересоздаётся при смене раскладки (телефон ↔ компьютер): ref-колбэк, и подписки переходят на новый
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null)
   const bindSvg = useCallback((node: SVGSVGElement | null) => {
+    // новый холст — прежний замер (пропорции другой раскладки) не годится: мерить заново
+    if (node && node !== svgRef.current) setBox({ w: 0, h: 0 })
     svgRef.current = node
     setSvgEl(node)
   }, [])
@@ -59,7 +62,6 @@ export function useViewport(o: ViewportOptions) {
   const [view, setView] = useState<View | null>(null)
   const viewRef = useRef(view)
   viewRef.current = view
-  const [box, setBox] = useState({ w: 0, h: 0 })
   const aspectRef = useRef(height / width)
   aspectRef.current = box.w && box.h ? box.h / box.w : height / width
   const A = () => aspectRef.current
@@ -184,6 +186,8 @@ export function useViewport(o: ViewportOptions) {
   const gesture = useRef<{ view: View; mid: { x: number; y: number }; dist: number; rect: DOMRect } | null>(null)
   const [panning, setPanning] = useState(false)
   const lastPan = useRef(0)
+  /** Текущий жест уже сдвигал схему */
+  const panMoved = useRef(false)
   const startGesture = () => {
     const pts = [...touches.current.values()]
     setPanning(pts.length > 0)
@@ -209,6 +213,7 @@ export function useViewport(o: ViewportOptions) {
     const py = g.view.y + (g.mid.y - g.rect.top) / s0
     const s = g.rect.width / w
     lastPan.current = Date.now()
+    panMoved.current = true
     byHand()
     setView(clampView({ x: px - (mid.x - g.rect.left) / s, y: py - (mid.y - g.rect.top) / s, w }))
   }
@@ -264,6 +269,9 @@ export function useViewport(o: ViewportOptions) {
   const onUp = (e: RPointerEvent) => {
     pointers.current.delete(e.pointerId)
     if (!touches.current.delete(e.pointerId)) return false
+    // отпустили после сдвига (даже если перед этим держали указатель) — щелчок «мимо» за ним не считается
+    if (panMoved.current) lastPan.current = Date.now()
+    if (!touches.current.size) panMoved.current = false
     startGesture()
     return true
   }

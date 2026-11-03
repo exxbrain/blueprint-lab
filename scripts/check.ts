@@ -460,12 +460,7 @@ for (const ch of builderChallenges) {
 }
 console.log('- доля успешных запросов совпадает с моделью во всех задачах')
 
-if (failed) {
-  console.log(`\nНерешаемых или сломанных задач: ${failed}`)
-  process.exit(1)
-}
-console.log('\nВсе задачи решаемы')
-
+// проверки выше пишут ошибки в failed; итог — только после всех, иначе ошибка не остановит сборку
 // вход по логину и паролю на Cloudflare Pages (functions/_middleware.js)
 console.log('\nВход по логину и паролю')
 {
@@ -484,6 +479,12 @@ console.log('\nВход по логину и паролю')
   if (ok.headers.get('X-Robots-Tag') !== 'noindex, nofollow') fail('за паролем нет noindex')
   if (!/^private\b/.test(ok.headers.get('Cache-Control') ?? '')) fail(`за паролем кэш не private: ${ok.headers.get('Cache-Control')}`)
   if ((await call(basic('', ''), { AUTH_USER: '', AUTH_PASSWORD: '' })).status !== 503) fail('без настроек сайт не закрыт')
-  console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек — 503')
+  if ((await call(basic('team', 'guest:x'), { AUTH_USER: 'team:guest', AUTH_PASSWORD: 'x' })).status !== 503) fail('логин с двоеточием не отвергнут как ошибка настройки')
+  console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
 }
 
+if (failed) {
+  console.log(`\nОшибок проверки: ${failed}`)
+  process.exit(1)
+}
+console.log('\nВсе задачи решаемы')

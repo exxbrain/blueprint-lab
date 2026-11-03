@@ -3057,9 +3057,10 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   border-color: var(--accent);
 }
 @media (max-width: 640px) {
-  /* меню компонентов — шторкой снизу, как окно параметров */
+  /* меню компонентов — шторкой снизу, как окно параметров, поверх затемнения */
   .add-menu {
     position: fixed;
+    z-index: 41;
     left: 0;
     right: 0;
     top: auto;
@@ -3098,8 +3099,20 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 /* окно параметров — колонка сбоку от элемента на всю видимую высоту */
 .node-popover { position: fixed; max-height: none; overflow: auto; }
 .popover-x { position: sticky; float: right; top: 0; z-index: 1; }
-/* полоска шторки — только на телефоне */
-.sheet-handle { display: none; }
+/* полоска шторки и затемнение под ней — только на телефоне */
+.sheet-handle,
+.sheet-scrim { display: none; }
+.node-popover:focus { outline: none; }
+/* заголовок окна с крестиком не уезжает при прокрутке */
+.popover-body > .card-head {
+  position: sticky;
+  /* на компьютере окно листается целиком, а у него отступ 12 px: заголовок прижимаем к самому краю */
+  top: -12px;
+  z-index: 1;
+  margin: -12px -12px 6px;
+  padding: 12px 12px 6px;
+  background: #0d2742;
+}
 /* телефон: окно — шторка снизу; растёт при прокрутке и тянется за полоску (useBottomSheet) */
 @media (max-width: 640px) {
   .node-popover,
@@ -3120,7 +3133,19 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
     transition: max-height 0.25s ease, transform 0.2s ease;
     animation: sheet-in 0.22s ease-out;
   }
-  .node-popover.sheet-full { max-height: calc(100dvh - 48px); }
+  /* шторка и затемнение — поверх шапки: модальное окно закрывает весь экран */
+  .node-popover,
+  .module-popover { z-index: 41; }
+  .node-popover.sheet-full { max-height: calc(100dvh - 28px); }
+  .sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(2, 10, 20, 0.5);
+    animation: scrim-in 0.2s ease-out;
+  }
+  .popover-body > .card-head { top: 0; margin: 0 -14px 6px; padding: 2px 14px 6px; }
   .sheet-handle {
     display: block;
     flex: none;
@@ -3149,6 +3174,11 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 @keyframes sheet-in {
   from {
     transform: translateY(100%);
+  }
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
   }
 }
 /* подсказки прямо на поле */

@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODE_LABEL,
@@ -33,7 +32,8 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
-import { sideColumn, useBottomSheet, useCloseOnOutside, usePopoverReflow } from '../components/popover'
+import { sideColumn, usePopoverReflow } from '../components/popover'
+import { PopoverDialog } from '../components/PopoverDialog'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
 import { tr } from '../i18n'
@@ -465,7 +465,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             onPickNode={(id) => project.modules.some((m) => m.id === id) && setSelected(id)}
           />
           {mod && !popover && (
-            <ModulePopover wrap={wrapRef.current} id={mod.id} onClose={() => setSelected(null)}>
+            <ModulePopover wrap={wrapRef.current} id={mod.id} label={mod.title} onClose={() => setSelected(null)}>
               <ModulePanel project={project} id={mod.id} state={state} apply={apply} />
               <NodeLog nodeId={mod.id} log={traffic.log} />
             </ModulePopover>
@@ -1468,25 +1468,24 @@ function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId:
 }
 
 /** Окно модуля — колонка сбоку от него на всю видимую высоту: справа, а если не помещается — слева */
-function ModulePopover({ wrap, id, onClose, children }: { wrap: HTMLDivElement | null; id: ModuleId; onClose: () => void; children: React.ReactNode }) {
+function ModulePopover({ wrap, id, label, onClose, children }: { wrap: HTMLDivElement | null; id: ModuleId; label: string; onClose: () => void; children: React.ReactNode }) {
   usePopoverReflow()
-  const ref = useRef<HTMLDivElement>(null)
-  const body = useRef<HTMLDivElement>(null)
-  useCloseOnOutside(ref, onClose, '.mmod, .mdep, .dep-chip, .dep-popover, .access-row, .wf-name')
-  const sheet = useBottomSheet(ref, body, onClose)
   const el = wrap?.querySelector(`.mmod[data-id="${id}"]`)
   const r = el?.getBoundingClientRect()
   const style: React.CSSProperties = r ? sideColumn(r.left, r.right, 330) : { left: 8, top: 72, bottom: 8 }
-  return createPortal(
-    <div ref={ref} className={'node-popover module-popover' + (sheet.full ? ' sheet-full' : '')} style={style} onClick={(e) => e.stopPropagation()} role="dialog">
-      <div className="sheet-handle" {...sheet.handle} aria-hidden />
-      <div className="popover-body" ref={body}>
-        <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')}>
-          ✕
-        </button>
-        {children}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <PopoverDialog
+      label={label}
+      className="node-popover module-popover"
+      style={style}
+      onClose={onClose}
+      keep=".mmod, .mdep, .dep-chip, .dep-popover, .access-row, .wf-name"
+      rootProps={{ onClick: (e) => e.stopPropagation() }}
+    >
+      <button className="icon popover-x" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
+        ✕
+      </button>
+      {children}
+    </PopoverDialog>
   )
 }

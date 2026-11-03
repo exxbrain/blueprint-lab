@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 
 /** Перерисовка при прокрутке и изменении окна — колонка держится у элемента */
 export function usePopoverReflow() {
@@ -39,6 +39,18 @@ export function useCloseOnOutside(ref: RefObject<HTMLElement | null>, onClose: (
 }
 
 const PHONE = '(max-width: 640px)'
+
+/** Телефонная раскладка (та же граница, что в CSS) */
+export function usePhone(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = window.matchMedia(PHONE)
+      m.addEventListener('change', cb)
+      return () => m.removeEventListener('change', cb)
+    },
+    () => window.matchMedia(PHONE).matches,
+  )
+}
 
 /**
  * На телефоне окно — шторка снизу. Сначала она занимает чуть больше половины экрана;
@@ -97,5 +109,11 @@ export function useBottomSheet(root: RefObject<HTMLElement | null>, body: RefObj
     },
   }
   return { full, handle }
+}
+
+/** Фокус в поле ввода или списке: клавиши достаются ему, а не схеме */
+export function isTyping(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
 }
 

@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
 import {
@@ -31,7 +30,8 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { sideColumn, useBottomSheet, useCloseOnOutside, usePopoverReflow } from '../components/popover'
+import { isTyping, sideColumn, usePopoverReflow } from '../components/popover'
+import { PopoverDialog } from '../components/PopoverDialog'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -208,7 +208,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !(e.target instanceof HTMLInputElement)) remove()
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping(e.target)) remove()
       if (e.key === 'Escape') {
         setSelected(null)
         setAddOpen(false)
@@ -358,6 +358,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               }}
             />
           </div>
+          {addOpen && <div className="sheet-scrim" onClick={() => setAddOpen(false)} aria-hidden />}
           {addOpen && (
             <div className="panel palette add-menu" role="menu">
           {(['Трафик', 'Вычисления', 'Хранилища'] as const).map((group) => (
@@ -478,6 +479,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           />
           {(selNode || selEdge) && !dragging && (
             <ElementPopover
+              label={selNode ? selNode.label : tr('Связь', 'Connection')}
               anchor={anchorOf(selNode, selEdge)}
               wrap={wrapRef.current}
               onClose={closePopover}
@@ -831,20 +833,18 @@ function ElementPopover({
   anchor,
   wrap,
   tone,
+  label,
   onClose,
   children,
 }: {
   anchor: { x: number; y: number; w: number; h: number }
   wrap: HTMLDivElement | null
   tone: Tone
+  label: string
   onClose: () => void
   children: ReactNode
 }) {
   usePopoverReflow()
-  const ref = useRef<HTMLDivElement>(null)
-  const body = useRef<HTMLDivElement>(null)
-  useCloseOnOutside(ref, onClose, '.bnode, .bedge, .access-row, .wf-name, .canvas-zoom')
-  const sheet = useBottomSheet(ref, body, onClose)
   const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
   let style: React.CSSProperties = { left: 8, top: 72, bottom: 8 }
   if (svg) {
@@ -853,15 +853,17 @@ function ElementPopover({
     const k = sr.width / (vb.width || 1000)
     style = sideColumn(sr.left + (anchor.x - vb.x) * k, sr.left + (anchor.x + anchor.w - vb.x) * k, POPOVER_W)
   }
-  // через портал в body: у панелей есть backdrop-filter, и position: fixed внутри них считался бы от панели
-  return createPortal(
-    <div ref={ref} className={'node-popover tone-' + tone + (sheet.full ? ' sheet-full' : '')} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
-      <div className="sheet-handle" {...sheet.handle} aria-hidden />
-      <div className="popover-body" ref={body}>
-        {children}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <PopoverDialog
+      label={label}
+      className={'node-popover tone-' + tone}
+      style={style}
+      onClose={onClose}
+      keep=".bnode, .bedge, .access-row, .wf-name, .canvas-zoom"
+      rootProps={{ onPointerDown: (e) => e.stopPropagation() }}
+    >
+      {children}
+    </PopoverDialog>
   )
 }
 

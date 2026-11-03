@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../i18n'
-import { TASK_LEVEL, blockerOf, isTaskOpen, playerLevel, taskLevel, type TaskLevel } from '../levels'
+import { TASK_LEVEL, XP, blockerOf, isTaskOpen, playerLevel, taskLevel, type TaskLevel } from '../levels'
 import { useProgress } from '../progress'
 import { href } from '../router'
 
@@ -26,7 +26,7 @@ export function LevelBadge({ active }: { active: boolean }) {
     <a
       className={'level-badge' + (active ? ' active' : '')}
       href={href('profile')}
-      title={`${lv.rank.title} · ${lv.rank.scale}\n${lv.xp} XP${lv.next ? tr(` · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp} XP`, ` · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`) : ''}`}
+      title={`${lv.rank.title} · ${lv.rank.scale}\n${lv.xp} ${XP}${lv.next ? tr(` · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, ` · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`) : ''}`}
     >
       <span className="level-num">{lv.level}</span>
       <span className="level-text">
@@ -51,7 +51,7 @@ export function LevelToasts() {
     const gained = lv.xp - before.xp
     if (gained <= 0) return
     const id = Date.now()
-    const items: { id: number; text: string; big?: boolean }[] = [{ id, text: `+${gained} XP` }]
+    const items: { id: number; text: string; big?: boolean }[] = [{ id, text: `+${gained} ${XP}` }]
     if (lv.level > before.level)
       items.push({
         id: id + 1,

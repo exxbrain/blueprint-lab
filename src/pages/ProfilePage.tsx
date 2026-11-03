@@ -1,6 +1,6 @@
 import { tr } from '../i18n'
 import { LevelTag } from '../components/Level'
-import { RANKS, TASKS, TASK_LEVEL, TASK_XP, levelStatus, playerLevel, recommended, taskXp, type TaskLevel } from '../levels'
+import { RANKS, TASKS, TASK_LEVEL, TASK_XP, XP, levelStatus, playerLevel, recommended, taskXp, type TaskLevel } from '../levels'
 import { resetProgress, useProgress } from '../progress'
 
 export default function ProfilePage() {
@@ -24,10 +24,10 @@ export default function ProfilePage() {
           <div className="small muted">
             {lv.next
               ? tr(
-                  `${lv.xp} XP · до уровня ${lv.level + 1} «${lv.next.title}» осталось ${lv.next.xp - lv.xp} XP`,
+                  `${lv.xp} опыта · до уровня ${lv.level + 1} «${lv.next.title}» осталось ${lv.next.xp - lv.xp}`,
                   `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1} "${lv.next.title}"`,
                 )
-              : tr(`${lv.xp} XP · высший уровень`, `${lv.xp} XP · top level`)}
+              : tr(`${lv.xp} опыта · высший уровень`, `${lv.xp} XP · top level`)}
           </div>
         </div>
       </section>
@@ -42,7 +42,7 @@ export default function ProfilePage() {
                 <span>
                   <b>{r.title}</b> <span className="muted">· {r.scale}</span>
                 </span>
-                <span className="small muted">{r.xp} XP</span>
+                <span className="small muted">{r.xp} {XP}</span>
               </li>
             ))}
           </ol>
@@ -50,10 +50,10 @@ export default function ProfilePage() {
           <ul className="small">
             <li>
               {tr('Задача: ', 'Challenge: ')}
-              {([1, 2, 3, 4] as TaskLevel[]).map((l) => `${TASK_LEVEL[l].name} ${TASK_XP[l]}`).join(' · ')} XP
+              {([1, 2, 3, 4] as TaskLevel[]).map((l) => `${TASK_LEVEL[l].name} ${TASK_XP[l]}`).join(' · ')} {XP}
             </li>
             <li>{tr('Каждая звезда оценки сверх первой — ещё +25%', 'Each assessment star beyond the first adds +25%')}</li>
-            <li>{tr('Урок — 15 XP, тест — до 40 XP по лучшему результату', 'Lesson: 15 XP; quiz: up to 40 XP for your best score')}</li>
+            <li>{tr('Урок — 15 опыта, тест — до 40 по лучшему результату', 'Lesson: 15 XP; quiz: up to 40 XP for your best score')}</li>
           </ul>
         </section>
 
@@ -66,7 +66,7 @@ export default function ProfilePage() {
                   <LevelTag level={t.level} />
                   <a href={t.href}>{t.title}</a>
                   <span className="small muted">
-                    {t.area} · {TASK_XP[t.level]} XP
+                    {t.area} · {TASK_XP[t.level]} {XP}
                   </span>
                 </li>
               ))}
@@ -108,7 +108,7 @@ export default function ProfilePage() {
                       <span>{solved ? '✅' : '○'}</span>
                       <a href={t.href}>{t.title}</a>
                       <span className="small muted">
-                        {solved ? (stars ? '★'.repeat(stars) + ' · ' : '') + `${taskXp(t, p)} XP` : t.area}
+                        {solved ? (stars ? '★'.repeat(stars) + ' · ' : '') + `${taskXp(t, p)} ${XP}` : t.area}
                       </span>
                     </li>
                   )

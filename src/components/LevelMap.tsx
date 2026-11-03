@@ -1,13 +1,13 @@
 import { tr } from '../i18n'
-import { TASKS, TASK_LEVEL, TASK_XP, levelStatus, playerLevel, type Task, type TaskLevel } from '../levels'
+import { TASKS, TASK_LEVEL, TASK_XP, XP, levelStatus, playerLevel, type Task, type TaskLevel } from '../levels'
 import { useProgress, type Progress } from '../progress'
 import { href } from '../router'
 
 /** Миры карты: по одному на уровень задач */
 const WORLDS: Record<TaskLevel, { title: string; scale: string; icon: string }> = {
-  1: { title: tr('Мир 1 · Junior', 'World 1 · Junior'), scale: tr('Сервис, база и первый кэш', 'A service, a database and a first cache'), icon: '🌱' },
-  2: { title: tr('Мир 2 · Middle', 'World 2 · Middle'), scale: tr('Реплики, очереди, правильные хранилища', 'Replicas, queues, the right storage'), icon: '⚙️' },
-  3: { title: tr('Мир 3 · Senior', 'World 3 · Senior'), scale: tr('Микросервисы и распределённые данные', 'Microservices and distributed data'), icon: '🛰️' },
+  1: { title: tr('Мир 1 · Младший', 'World 1 · Junior'), scale: tr('Сервис, база и первый кэш', 'A service, a database and a first cache'), icon: '🌱' },
+  2: { title: tr('Мир 2 · Средний', 'World 2 · Middle'), scale: tr('Реплики, очереди, правильные хранилища', 'Replicas, queues, the right storage'), icon: '⚙️' },
+  3: { title: tr('Мир 3 · Старший', 'World 3 · Senior'), scale: tr('Микросервисы и распределённые данные', 'Microservices and distributed data'), icon: '🛰️' },
   4: { title: tr('Мир 4 · Архитектор', 'World 4 · Architect'), scale: tr('Системы на миллионы пользователей', 'Systems for millions of users'), icon: '🏛️' },
 }
 
@@ -61,8 +61,8 @@ export function PlayerCard() {
         </div>
         <div className="small muted">
           {lv.next
-            ? tr(`${lv.xp} XP · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp} XP`, `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`)
-            : `${lv.xp} XP`}
+            ? tr(`${lv.xp} опыта · до уровня ${lv.level + 1}: ${lv.next.xp - lv.xp}`, `${lv.xp} XP · ${lv.next.xp - lv.xp} XP to level ${lv.level + 1}`)
+            : `${lv.xp} ${XP}`}
         </div>
       </div>
       {next && (
@@ -155,7 +155,7 @@ export function LevelMap() {
                     <span className={'node-label' + (labelRight ? ' right' : ' left')}>
                       <b>{t.title}</b>
                       <span className="small muted">
-                        {t.area} · {TASK_XP[t.level]} XP
+                        {t.area} · {TASK_XP[t.level]} {XP}
                       </span>
                     </span>
                     {isNext && <span className="node-play">▶ {tr('Играть', 'Play')}</span>}

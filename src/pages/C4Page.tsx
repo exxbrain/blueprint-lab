@@ -371,7 +371,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
               pointersDown.current.add(e.pointerId)
               const t = e.target as Element
               // свойства — только по касанию самого элемента или связи: не по пустому месту, подписи границы или точке связи
-              const onItem = !!t.closest?.('.c4-el, .c4-rel') && !t.closest?.('.bnode-port')
+              const onItem =
+                e.button === 0 && !(e.pointerType === 'mouse' && e.ctrlKey) && !!t.closest?.('.c4-el, .c4-rel') && !t.closest?.('.bnode-port')
               tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, n: pointersDown.current.size, onItem }
             }}
             onPointerUpCapture={(e) => {

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { tr } from '../i18n'
 import { TASKS, TASK_LEVEL, TASK_XP, XP, levelStatus, playerLevel, type Task, type TaskLevel } from '../levels'
 import { useProgress, type Progress } from '../progress'
@@ -162,11 +163,11 @@ export function LevelMap() {
                   </>
                 )
                 return open ? (
-                  <a key={t.key} className={cls} href={t.href} style={{ left: `${left}%`, top: pts[i].y }} title={`${TASK_LEVEL[t.level].name}: ${t.title}`}>
+                  <a key={t.key} className={cls} href={t.href} style={{ left: `${left}%`, top: pts[i].y, '--x': left } as CSSProperties} title={`${TASK_LEVEL[t.level].name}: ${t.title}`}>
                     {body}
                   </a>
                 ) : (
-                  <div key={t.key} className={cls} style={{ left: `${left}%`, top: pts[i].y }}>
+                  <div key={t.key} className={cls} style={{ left: `${left}%`, top: pts[i].y, '--x': left } as CSSProperties}>
                     {body}
                   </div>
                 )

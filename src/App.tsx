@@ -46,7 +46,7 @@ export default function App() {
       <header className="topbar">
         <a className="logo" href="#/">
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
-          Blueprint Lab
+          <span className="logo-text">Blueprint Lab</span>
         </a>
         <nav>
           <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>

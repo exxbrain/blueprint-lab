@@ -522,6 +522,7 @@ table.cmp th {
 
 .ksim {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .ksim-toolbar {
@@ -2007,7 +2008,7 @@ tr.muted td {
 @media (max-width: 1100px) {
   .cap-grid,
   .es-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2326,7 +2327,7 @@ tr.muted td {
   align-items: center;
 }
 @media (max-width: 1000px) {
-  .hub-hero { grid-template-columns: 1fr; }
+  .hub-hero { grid-template-columns: minmax(0, 1fr); }
 }
 .hub-hero .row { align-items: center; gap: 10px; flex-wrap: wrap; }
 a.btn.big { padding: 9px 18px; font-size: 1rem; }
@@ -2643,3 +2644,99 @@ a.map-node:active .node-circle { transform: translateY(3px); box-shadow: 0 2px 0
 .reset-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 24px; }
 button.danger { background: var(--bad); border-color: var(--bad); color: #2a0006; font-weight: 600; }
 button.danger:hover:not(:disabled) { background: #ff8a96; }
+
+/* ---------- телефон ---------- */
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 8px 12px;
+  }
+  .logo { font-size: 1rem; }
+  .level-badge { margin-left: auto; margin-right: 0; }
+  .level-text { min-width: 0; }
+  .level-title { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar nav {
+    order: 3;
+    width: 100%;
+    gap: 16px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .page { padding: 16px 12px; }
+  h1 { font-size: 1.5rem; }
+
+  /* карта: кружки по левому краю, подписи справа */
+  .world { padding: 12px 10px 4px; border-radius: 16px; }
+  .world-head { flex-wrap: wrap; gap: 10px; }
+  .world-head h2 { font-size: 1.2rem; }
+  .world-icon { width: 42px; height: 42px; font-size: 1.4rem; }
+  .world-progress { margin-left: 0; width: 100%; text-align: left; }
+  .path-line { display: none; }
+  .world-path::before {
+    content: '';
+    position: absolute;
+    left: 44px;
+    top: 40px;
+    bottom: 40px;
+    border-left: 5px dotted color-mix(in srgb, var(--world) 55%, transparent);
+  }
+  .map-node { left: calc(46px + (var(--x) - 50) * 0.5px) !important; }
+  .node-circle { width: 56px; height: 56px; }
+  .node-icon { font-size: 1.4rem; }
+  .node-label,
+  .node-label.left,
+  .node-label.right {
+    left: 70px;
+    right: auto;
+    text-align: left;
+    width: calc(100vw - 150px);
+    top: 8px;
+  }
+  .node-play { top: -28px; }
+  .player-card { gap: 12px; }
+  .player-card .level-big { width: 56px; height: 56px; font-size: 1.6rem; }
+  a.btn.play-btn { max-width: none; width: 100%; }
+}
+@media (max-width: 640px) {
+  .cap-dcs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+  .cap-dc { padding: 6px; }
+}
+@media (max-width: 640px) {
+  .logo span, .logo { gap: 6px; }
+  .logo-text { display: none; }
+  .lang-switch button { padding: 3px 8px; font-size: 0.8rem; }
+  .world-path { margin-top: 40px; }
+}
+@media (max-width: 640px) {
+  /* вкладки задач — одна прокручиваемая строка на группу, а не экран кнопок */
+  .row.tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+  .row.tabs::-webkit-scrollbar { display: none; }
+  .row.tabs > * { flex: none; white-space: nowrap; }
+  /* холст: читаемый масштаб, листается вбок; блоки тащатся пальцем, пустое место листает */
+  .canvas-wrap { overflow-x: auto; padding: 6px; }
+  .builder-canvas { min-width: 760px; touch-action: pan-x pan-y; }
+  .bnode, .bnode-port, .bedge { touch-action: none; }
+  .palette > p { display: none; }
+  .palette-row { display: inline-flex; align-items: center; }
+  .builder-stats .metric { padding: 6px 8px; }
+  .wf-row { grid-template-columns: 110px 1fr 50px; }
+}
+@media (max-width: 640px) {
+  .builder-stats { gap: 6px; }
+  .builder-stats .metric-value { font-size: 1rem; }
+  .builder-stats .metric.budget { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .hub-demo .builder-canvas { min-width: 0; }
+  .hub-demo-head { flex-wrap: wrap; gap: 6px; }
+}

@@ -28,7 +28,7 @@ export function Home() {
           <h1>{tr('Blueprint Lab: путь архитектора', 'Blueprint Lab: the architect\'s path')}</h1>
           <p className="muted">
             {tr(
-              'Проходите уровни от Junior до Архитектора: собирайте системы, пускайте в них трафик и чините то, что падает.',
+              'Проходите уровни от Младшего до Архитектора: собирайте системы, пускайте в них трафик и чините то, что падает.',
               'Go from Junior to Architect: build systems, send traffic through them and fix what breaks.',
             )}
           </p>

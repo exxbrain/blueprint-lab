@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
-import { markScenario, useProgress } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
@@ -48,8 +48,11 @@ function EsLab({ task }: { task: EsTask }) {
   const solved = goals.every((g) => g.ok)
 
   useEffect(() => {
-    if (solved && !mine) markScenario(`data/es/${task.id}`)
-  }, [solved, mine, task.id])
+    if (solved && !mine) {
+      markScenario(`data/es/${task.id}`)
+      recordStars(`data/es/${task.id}`, hintStars(hints))
+    }
+  }, [solved, mine, task.id, hints])
 
   return (
     <>
@@ -92,7 +95,9 @@ function EsLab({ task }: { task: EsTask }) {
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}
+            {solved && !mine && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= hintStars(hints) ? 'on' : ''}>★</span>)}</span>}
+          </h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>

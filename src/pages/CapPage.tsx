@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
-import { markScenario, useProgress } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
@@ -50,8 +50,11 @@ function CapLab({ task }: { task: CapTask }) {
   const solved = goals.every((g) => g.ok)
 
   useEffect(() => {
-    if (solved && !mine) markScenario(`data/cap/${task.id}`)
-  }, [solved, mine, task.id])
+    if (solved && !mine) {
+      markScenario(`data/cap/${task.id}`)
+      recordStars(`data/cap/${task.id}`, hintStars(hints))
+    }
+  }, [solved, mine, task.id, hints])
 
   useEffect(() => {
     if (!playing) return
@@ -120,7 +123,9 @@ function CapLab({ task }: { task: CapTask }) {
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference solution') : tr('✅ Решено!', '✅ Solved!')) : tr('🎯 Цели', '🎯 Goals')}
+            {solved && !mine && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= hintStars(hints) ? 'on' : ''}>★</span>)}</span>}
+          </h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>

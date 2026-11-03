@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from '../components/Rich'
 import { TaskGate, TaskMarks } from '../components/Level'
-import { markScenario, recordStars, useProgress } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { href } from '../router'
 import { K8S_TASKS, runTask, type K8sConfig, type K8sTask } from '../sim/k8s/tasks'
 import type { Frame, KEvent, Phase, PodView } from '../sim/k8s/engine'
@@ -52,7 +52,7 @@ function Lab({ task }: { task: K8sTask }) {
   const run = useMemo(() => runTask(task, cfg), [task, cfg])
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run.totals, cfg) }))
   const solved = goals.every((g) => g.ok)
-  const stars = hints === 0 ? 3 : hints === 1 ? 2 : 1
+  const stars = hintStars(hints)
 
   useEffect(() => {
     if (solved && !mine) {
@@ -125,7 +125,9 @@ function Lab({ task }: { task: K8sTask }) {
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
-          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference') : tr('✅ Инцидент закрыт!', '✅ Incident closed!')) : tr('🎯 Цели', '🎯 Goals')}</h4>
+          <h4>{solved ? (mine ? tr('👁 Эталон', '👁 Reference') : tr('✅ Инцидент закрыт!', '✅ Incident closed!')) : tr('🎯 Цели', '🎯 Goals')}
+            {solved && !mine && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</span>}
+          </h4>
           <ul className="goal-list">
             {goals.map((g) => (
               <li key={g.text} className={g.ok ? 'ok-text' : ''}>

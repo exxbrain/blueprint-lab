@@ -2899,3 +2899,5 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .ev-row { display: grid; grid-template-columns: 84px 70px 170px 210px minmax(300px, 1fr); gap: 8px; padding: 2px 0; min-width: 820px; }
 .ev-row.ev-head { color: var(--muted); font-weight: 700; }
 .ev-row.warn span:nth-child(2), .ev-row.warn span:nth-child(3) { color: var(--warn); }
+.goal-stars { margin-left: 8px; letter-spacing: 1px; color: rgba(255, 255, 255, 0.2); }
+.goal-stars .on { color: #ffd166; text-shadow: 0 0 6px rgba(255, 209, 102, 0.6); }

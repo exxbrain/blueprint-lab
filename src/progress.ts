@@ -47,6 +47,11 @@ export function markScenario(id: string) {
   if (!state.scenarios[id]) save({ ...state, scenarios: { ...state.scenarios, [id]: true } })
 }
 
+/** Звёзды для задач без отдельной оценки решения: решил без подсказок — три, с одной — две */
+export function hintStars(hints: number): 1 | 2 | 3 {
+  return hints === 0 ? 3 : hints === 1 ? 2 : 1
+}
+
 export function recordStars(id: string, stars: number) {
   if ((state.stars[id] ?? 0) < stars) save({ ...state, stars: { ...state.stars, [id]: stars } })
 }

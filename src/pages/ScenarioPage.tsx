@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import type { Module } from '../content/types'
 import { KafkaSimulator } from '../sim/kafka/KafkaSimulator'
 import type { KafkaSim } from '../sim/kafka/engine'
-import { markScenario, useProgress } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress } from '../progress'
 import { TaskGate } from '../components/Level'
 import { href } from '../router'
 import { NotFound } from './NotFound'
@@ -45,7 +45,10 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
     else holdStart.current = null
     const p = holdStart.current === null ? 0 : Math.min(1, (sim.now - holdStart.current) / g.holdSeconds)
     const solved = p >= 1
-    if (solved) markScenario(key)
+    if (solved) {
+      markScenario(key)
+      recordStars(key, hintStars(hints))
+    }
     setGoal({ progress: p, status: (armed ? '' : tr('ждём аварию · ', 'waiting for the failure · ')) + g.status(sim), solved })
   }
 
@@ -74,7 +77,10 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
           )}
         </div>
         <div className={'panel goal' + (goal.solved ? ' success' : '')}>
-          <h4>{goal.solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цель', '🎯 Goal')}</h4>
+          <h4>
+            {goal.solved ? tr('✅ Решено!', '✅ Solved!') : tr('🎯 Цель', '🎯 Goal')}
+            {goal.solved && <span className="goal-stars">{[1, 2, 3].map((i) => <span key={i} className={i <= hintStars(hints) ? 'on' : ''}>★</span>)}</span>}
+          </h4>
           <div>{scenario.goal.text}</div>
           <div className="progressbar">
             <div style={{ width: `${goal.progress * 100}%` }} />

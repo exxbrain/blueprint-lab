@@ -7,6 +7,8 @@ import { c4Lessons } from './c4/lessons'
 import { c4Quiz } from './c4/quiz'
 import { dataLessons } from './data/lessons'
 import { dataQuiz } from './data/quiz'
+import { k8sLessons } from './k8s/lessons'
+import { k8sQuiz } from './k8s/quiz'
 
 export const modules: Module[] = [
   {
@@ -97,12 +99,19 @@ export const modules: Module[] = [
     id: 'kubernetes',
     title: 'Kubernetes',
     icon: '☸️',
-    summary: tr('Поды, Deployment, Service, автоскейлинг, rolling update', 'Pods, Deployment, Service, autoscaling, rolling update'),
-    status: 'soon',
-    lessons: [],
-    quiz: [],
+    summary: tr('Ресурсы, пробы, выкатка, автоскейлинг, отказы нод и зон — 12 инцидентов', 'Resources, probes, rollouts, autoscaling, node and zone failures: 12 incidents'),
+    status: 'ready',
+    lessons: k8sLessons,
+    quiz: k8sQuiz,
     scenarios: [],
-    extras: [],
+    extras: [
+      {
+        title: tr('Kubernetes: инциденты', 'Kubernetes: incidents'),
+        desc: tr('Правьте манифест и смотрите, как кластер планирует, перезапускает и выкатывает поды', 'Edit the manifest and watch the cluster schedule, restart and roll out pods'),
+        href: '#/kubernetes/lab',
+        icon: '☸️',
+      },
+    ],
   },
 ]
 

@@ -7,6 +7,7 @@ import { modules } from './content/modules'
 import { builderChallenges } from './sim/builder/challenges'
 import { PROJECTS } from './sim/monolith/projects'
 import { DDD_STAGES } from './sim/ddd/tasks'
+import { K8S_TASKS } from './sim/k8s/tasks'
 import { C4_EXERCISES } from './sim/c4/exercises'
 import { CAP_TASKS } from './sim/cap/model'
 import { ES_TASKS } from './sim/es/model'
@@ -101,6 +102,13 @@ export const TASKS: Task[] = [
       href: href(mod.id, 'scenario', s.id),
     })),
   ),
+  ...K8S_TASKS.map((t) => ({
+    key: `kubernetes/lab/${t.id}`,
+    title: t.title,
+    area: 'Kubernetes',
+    level: t.level,
+    href: href('kubernetes', 'lab', t.id),
+  })),
   ...C4_EXERCISES.map((ex, i) => ({
     key: `c4/${ex.id}`,
     title: ex.title,

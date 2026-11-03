@@ -2824,3 +2824,78 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   .ddd-board { padding-bottom: 120px; }
 }
 .tmark.big { font-size: 16px; }
+
+/* ---------- Kubernetes ---------- */
+.k8s-grid { display: grid; grid-template-columns: minmax(260px, 0.7fr) minmax(0, 2fr); gap: 12px; align-items: start; }
+@media (max-width: 900px) { .k8s-grid { grid-template-columns: minmax(0, 1fr); } }
+.k8s-totals { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.yaml {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  white-space: pre-wrap;
+  margin: 0 0 8px;
+  overflow-x: auto;
+}
+.yaml-line { display: block; margin: 4px 0; }
+.yaml-key { color: #9ad1ff; }
+.yaml select { font-family: var(--mono); font-size: 0.82rem; padding: 2px 4px; color: var(--accent-2); background: #0b1d33; border: 1px solid var(--line); border-radius: 5px; }
+.k8s-player { align-items: center; gap: 10px; margin-bottom: 8px; }
+.k8s-player input[type='range'] { flex: 1; min-width: 120px; }
+.k8s-traffic { margin-bottom: 10px; }
+.k8s-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; font-family: var(--mono); font-size: 0.85rem; margin-bottom: 4px; }
+.k8s-chart { width: 100%; height: 60px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; }
+.k8s-chart path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-rps { stroke: var(--accent); }
+.chart-err { stroke: var(--bad); }
+.chart-now { stroke: #fff; stroke-width: 1; opacity: 0.5; vector-effect: non-scaling-stroke; }
+.legend.rps { color: var(--accent); }
+.legend.err { color: var(--bad); }
+.k8s-nodes { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.k8s-node { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: rgba(10, 31, 54, 0.6); min-height: 120px; }
+.k8s-node.down { border-color: var(--bad); background: rgba(255, 107, 122, 0.08); }
+.k8s-node.cordoned { border-style: dashed; border-color: var(--warn); }
+.k8s-node.pending-lane { border-style: dashed; border-color: var(--muted); }
+.k8s-node-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.k8s-bar { height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; margin: 6px 0 2px; overflow: hidden; }
+.k8s-bar div { height: 100%; background: var(--accent); }
+.k8s-pods { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.k8s-pod {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 4px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border-left: 4px solid var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 0.2s;
+}
+.k8s-pod .pod-ver { font-weight: 800; color: var(--accent-2); }
+.k8s-pod .pod-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.k8s-pod .pod-phase { grid-column: 1 / -1; font-weight: 700; }
+.k8s-pod .pod-restarts { color: var(--bad); }
+.k8s-pod .pod-svc { color: var(--ok); }
+.k8s-pod.ready { border-left-color: var(--ok); }
+.k8s-pod.ready .pod-phase { color: var(--ok); }
+.k8s-pod.running, .k8s-pod.creating { border-left-color: var(--warn); }
+.k8s-pod.running .pod-phase, .k8s-pod.creating .pod-phase { color: var(--warn); }
+.k8s-pod.crash { border-left-color: var(--bad); background: rgba(255, 107, 122, 0.12); }
+.k8s-pod.crash .pod-phase { color: var(--bad); }
+.k8s-pod.hung { border-left-color: var(--bad); }
+.k8s-pod.hung .pod-phase { color: var(--bad); }
+.k8s-pod.terminating { opacity: 0.45; }
+.k8s-pod.unknown { border-left-color: #c9a0ff; }
+.k8s-pod.unknown .pod-phase { color: #c9a0ff; }
+.k8s-pod.pending { border-left-color: var(--muted); }
+.k8s-events { margin-top: 12px; }
+.k8s-events h4 { font-family: var(--mono); text-transform: none; letter-spacing: 0; }
+.k8s-events-table { overflow-x: auto; }
+.ev-row { display: grid; grid-template-columns: 84px 70px 170px 210px minmax(300px, 1fr); gap: 8px; padding: 2px 0; min-width: 820px; }
+.ev-row.ev-head { color: var(--muted); font-weight: 700; }
+.ev-row.warn span:nth-child(2), .ev-row.warn span:nth-child(3) { color: var(--warn); }

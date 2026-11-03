@@ -21,6 +21,10 @@ npm run dev
   section are spread across four worlds (Junior → Middle → Senior → Architect, `src/levels.ts`); a world opens once
   every challenge of the previous one is solved. Challenges award XP (assessment stars add a bonus), and the player
   levels up from Intern to Architect.
+- **Kubernetes** (`#/kubernetes`, `#/kubernetes/lab/<id>`): a lesson, a quiz and 12 incidents across all four worlds.
+  Edit manifest fields and watch a second-by-second cluster model (`src/sim/k8s/engine.ts`): scheduler, probes,
+  RollingUpdate / Recreate / canary, HPA, node and zone failures, drain with a PodDisruptionBudget, CPU contention, plus
+  `kubectl get events`.
 - **Architecture Builder** (`#/builder`): a graph of clients, load balancers, CDN, services, queues, cache and storages
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Traffic carries a workload profile and every storage
   handles it with its own efficiency (`src/sim/builder/model.ts`). Sandbox mode, classic tasks, tool drills and

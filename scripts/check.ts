@@ -18,6 +18,7 @@ import { ES_TASKS } from '../src/sim/es/model'
 import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
 import { emulateMono } from '../src/sim/monolith/emulate'
+import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
 
 let failed = 0
@@ -309,6 +310,24 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
       console.log(`- ${project?.title}: карта контекстов, ${t.relations.length} связей`)
     }
   }
+}
+
+// Kubernetes: эталон решает, исходная конфигурация — нет; перебор всех комбинаций полей манифеста
+console.log('\nKubernetes')
+for (const t of K8S_TASKS) {
+  const ok = (cfg: Record<string, string>) => {
+    const r = runTask(t, cfg)
+    return t.goals.every((g) => g.check(r.totals, cfg))
+  }
+  const combos = t.options.reduce<Record<string, string>[]>(
+    (acc, o) => acc.flatMap((c) => o.choices.map((ch) => ({ ...c, [o.key]: ch.value }))),
+    [{}],
+  )
+  const solving = combos.filter(ok)
+  console.log(`- ${t.title}: решают ${solving.length} из ${combos.length} вариантов`)
+  if (!ok(t.solution)) fail('эталон не выполняет цели')
+  if (ok(t.start)) fail('задача решена уже в исходном состоянии')
+  if (solving.length > combos.length / 2) fail('слишком много решений — задача не учит выбору')
 }
 
 // живой трафик распила: монолит без изменений работает без ошибок, эталоны миссий — почти без ошибок

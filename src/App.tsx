@@ -18,6 +18,7 @@ const CapPage = lazy(() => import('./pages/CapPage'))
 const EsPage = lazy(() => import('./pages/EsPage'))
 const ReferencePage = lazy(() => import('./pages/ReferencePage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const K8sPage = lazy(() => import('./pages/K8sPage'))
 
 export default function App() {
   const route = useRoute()
@@ -32,6 +33,7 @@ export default function App() {
   else if (first === 'data' && second === 'cap') page = <CapPage />
   else if (first === 'data' && second === 'es') page = <EsPage />
   else if (first === 'profile') page = <ProfilePage />
+  else if (first === 'kubernetes' && second === 'lab') page = <K8sPage id={third} />
   else if (first === 'reference') page = <ReferencePage focus={second} />
   else if (!mod) page = <NotFound />
   else if (!second) page = <ModulePage mod={mod} />
@@ -54,6 +56,9 @@ export default function App() {
           </a>
           <a href={href('kafka')} className={first === 'kafka' ? 'active' : ''}>
             Kafka
+          </a>
+          <a href={href('kubernetes')} className={first === 'kubernetes' ? 'active' : ''}>
+            Kubernetes
           </a>
           <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''}>
             {tr('Микросервисы', 'Microservices')}

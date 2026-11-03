@@ -18,6 +18,7 @@ function areaIcon(t: Task): string {
   if (/^monolith\/[^/]+\/(contexts|context-map)$/.test(t.key)) return '🧭'
   if (t.key.startsWith('monolith/')) return '🧩'
   if (t.key.startsWith('c4/')) return '🗺️'
+  if (t.key.startsWith('kubernetes/')) return '☸️'
   if (t.key.startsWith('data/cap/')) return '⚖️'
   if (t.key.startsWith('data/es/')) return '📜'
   return '📨'

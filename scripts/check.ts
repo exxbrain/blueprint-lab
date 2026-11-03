@@ -190,7 +190,19 @@ console.log('\nМодель конструктора: тупиковые бло�
   const lb = leaf('lb')
   if (lb.clientSuccess !== 0) fail(`балансировщик без потомков отвечает ${lb.clientSuccess}`)
   const cache = leaf('cache', { hitRatio: 0.8 })
-  if (Math.abs(cache.clientSuccess - 0.8) > 1e-9) fail(`кэш без источника отвечает ${cache.clientSuccess}, а не долей попаданий`)
+  // кэш наполняется только из источника данных: без источника он пуст
+  if (cache.clientSuccess !== 0) fail(`кэш без источника данных отвечает ${cache.clientSuccess}`)
+  const svc = (extra: object) => ({ id: 's', kind: 'service' as const, label: 's', x: 200, y: 0, instances: 1, ...extra })
+  const noDb = simulate([client, svc({ capacity: 300, latency: 20 })], [{ id: 'e', from: 'c', to: 's' }])
+  if (noDb.clientSuccess !== 0) fail(`сервис без хранилища отвечает ${noDb.clientSuccess}`)
+  const ext = simulate([client, svc({ capacity: 100, latency: 300 })], [{ id: 'e', from: 'c', to: 's' }])
+  if (ext.clientSuccess !== 1) fail(`внешний API отвечает ${ext.clientSuccess}, а не 1`)
+  const onlyRedis = simulate(
+    [client, svc({ capacity: 300, latency: 20 }), { id: 'k', kind: 'cache', label: 'k', x: 400, y: 0, instances: 1, hitRatio: 0.8 }],
+    [{ id: 'e1', from: 'c', to: 's' }, { id: 'e2', from: 's', to: 'k' }],
+  )
+  if (onlyRedis.clientSuccess !== 0) fail(`сервис только с кэшем, без БД, отвечает ${onlyRedis.clientSuccess}`)
+  console.log(`- без базы: сервис ${noDb.clientSuccess}, сервис + кэш ${onlyRedis.clientSuccess}; внешний API ${ext.clientSuccess}`)
   const q = leaf('queue')
   if (q.backlogGrowth < 99) fail(`очередь без потребителей не копит сообщения: ${q.backlogGrowth}`)
   // cache-aside: сервис → Redis и сервис → БД; в БД доходят только промахи

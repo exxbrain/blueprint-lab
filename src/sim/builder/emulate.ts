@@ -329,6 +329,21 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
     }
     const span: Span = { nodeId: id, op: opFor(n, c, phase), ms, start, status, depth, detail }
     spans.push(span)
+    if ((n.kind === 'cache' || n.kind === 'cdn') && st?.deadEnd) {
+      // источника данных нет: кэш никто не наполнял
+      span.status = 'error'
+      span.detail =
+        n.kind === 'cdn'
+          ? tr('MISS, и origin не подключён: 502 — файлам неоткуда взяться', 'MISS and no origin is connected: 502, the files have nowhere to come from')
+          : c.write
+          ? tr('запись некуда сохранить: за кэшем нет базы, а кэш — не хранилище', 'nowhere to persist the write: there is no database behind the cache, and a cache is not a store')
+          : tr(
+              `(nil) — кэш пуст: его наполняют из базы, а базы за ним нет`,
+              `(nil): the cache is empty; it is filled from a database, and there is none behind it`,
+            )
+      if (!async) failed = true
+      return ms
+    }
     if (status === 'error') {
       if (!async) failed = true
       return ms
@@ -384,6 +399,14 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         break
       }
       case 'service': {
+        if (st?.deadEnd) {
+          span.status = 'error'
+          span.detail = c.write
+            ? tr('500: сохранить некуда — к сервису не подключено хранилище', '500: nowhere to save; no storage is connected to the service')
+            : tr('500: данных нет — к сервису не подключено хранилище', '500: no data; no storage is connected to the service')
+          failed = !async
+          break
+        }
         const children = out.map((e) => ({ e, n: byId[e.to] }))
         const stores = children.filter((x) => isStorage(x.n.kind))
         const best = Math.max(0, ...stores.map((x) => fitOf(x.n.kind, w)))
@@ -429,6 +452,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
     ? c.write ? 201 : 200
     : errDetail.startsWith('connect') ? 0
     : errDetail.includes('502') ? 502
+    : errDetail.startsWith('500') ? 500
     : /Timeout|timeout/.test(errDetail) ? 504
     : 503
   return {

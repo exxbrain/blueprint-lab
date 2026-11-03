@@ -31,6 +31,28 @@ export type LiveTrace = Trace & { born: number }
 /** Время одного перехода точки по связи, мс */
 export const HOP_MS = 520
 
+/** Почему блок — тупик: коротко на схеме и подробно во всплывающей подсказке */
+const DEAD_END: Partial<Record<BNode['kind'], [string, string]>> = {
+  service: [
+    tr('нет хранилища: данных неоткуда взять', 'no storage: no data to serve'),
+    tr(
+      'Сервис сам по себе данных не хранит: товары, заказы, профили лежат в базе. Подключите хранилище. Без него сервис работает, только если это внешний API (профиль «Внешний API»).',
+      'A service does not keep data by itself: products, orders and profiles live in a database. Connect a storage. Without one, a service works only if it is an external API (the "External API" profile).',
+    ),
+  ],
+  cache: [
+    tr('кэш пуст: нет источника данных', 'empty cache: no source of data'),
+    tr(
+      'Кэш хранит копии того, что уже прочитали из базы. Нет базы — нечего копировать, попаданий не бывает. Подключите базу к кэшу (read-through) или к сервису рядом с кэшем (cache-aside).',
+      'A cache keeps copies of what was already read from a database. No database, nothing to copy, so there are no hits. Connect a database to the cache (read-through) or to the service next to the cache (cache-aside).',
+    ),
+  ],
+  cdn: [
+    tr('нет origin: файлам неоткуда взяться', 'no origin: files have nowhere to come from'),
+    tr('CDN раздаёт копии файлов из origin-хранилища. Подключите хранилище файлов за CDN.', 'A CDN serves copies of files from an origin store. Connect a file storage behind the CDN.'),
+  ],
+}
+
 export function utilColor(util: number, success: number): string {
   if (success < 0.99 || util >= 1) return 'var(--bad)'
   if (util >= 0.8) return 'var(--warn)'
@@ -236,8 +258,8 @@ export function BuilderCanvas({
             )}
             {st?.deadEnd && (
               <text x={0} y={-6} className="bnode-warn">
-                ⚠ {tr('тупик: запросам некуда идти', 'dead end: requests have nowhere to go')}
-                <title>{tr('Подключите к этому блоку то, что обработает запросы дальше', 'Connect something to this block to handle requests further')}</title>
+                ⚠ {DEAD_END[n.kind]?.[0] ?? tr('тупик: запросам некуда идти', 'dead end: requests have nowhere to go')}
+                <title>{DEAD_END[n.kind]?.[1] ?? tr('Подключите к этому блоку то, что обработает запросы дальше', 'Connect something to this block to handle requests further')}</title>
               </text>
             )}
             {(st?.unsupported ?? 0) > 0 && (

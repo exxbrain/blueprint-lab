@@ -275,6 +275,12 @@ export function baseLatency(n: BNode): number {
   return n.kind === 'service' ? (n.latency ?? KINDS.service.latency) : KINDS[n.kind].latency
 }
 
+/** Профиль «внешний API» (платёжный шлюз, почтовый провайдер): данные у него свои, хранилище ему не нужно */
+export const EXTERNAL_API = { capacity: 100, latency: 300 }
+export function isExternalApi(n: BNode): boolean {
+  return n.kind === 'service' && n.capacity === EXTERNAL_API.capacity && n.latency === EXTERNAL_API.latency
+}
+
 export function costOf(nodes: BNode[]): number {
   return nodes.reduce((s, n) => s + KINDS[n.kind].cost * n.instances, 0)
 }
@@ -466,13 +472,18 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
             parents.length > 0 &&
             parents.every((pn) => pn.kind === 'service' && children(pn.id).some((e) => isStorage(byId[e.to].kind)))
           if (aside) break
-          // отвечают только попадания, промахам идти некуда
-          const hit = n.hitRatio ?? (n.kind === 'cdn' ? 0.9 : 0.8)
-          const served = n.kind === 'cdn' ? v.blob * hit : WL.reduce((s, w) => s + (CACHEABLE.includes(w) ? v[w] * hit : 0), 0)
-          success *= served / inp
+          // кэш наполняется только из источника данных; источника нет — кэш пуст, попаданий не бывает
+          success = 0
           deadEnd = true
           break
         }
+        case 'service':
+          // сервису неоткуда взять данные и некуда их сохранить (кроме внешнего API со своими данными)
+          if (!isExternalApi(n)) {
+            success = 0
+            deadEnd = true
+          }
+          break
         case 'queue':
           // никто не читает — всё принятое копится
           backlog = admitted

@@ -1,4 +1,4 @@
-import type { BEdge, BNode, Result } from './model'
+import { EXTERNAL_API, type BEdge, type BNode, type Result } from './model'
 import { tr } from '../../i18n'
 
 export interface Estimate {
@@ -46,7 +46,7 @@ export const SERVICE_PROFILES = [
   { id: 'fast', title: tr('Обычный: 300 rps, 20 мс', 'Standard: 300 rps, 20 ms'), capacity: 300, latency: 20 },
   { id: 'light', title: tr('Лёгкий stateless: 1000 rps, 5 мс', 'Light stateless: 1000 rps, 5 ms'), capacity: 1000, latency: 5 },
   { id: 'heavy', title: tr('Тяжёлый: 100 rps, 120 мс', 'Heavy: 100 rps, 120 ms'), capacity: 100, latency: 120 },
-  { id: 'external', title: tr('Внешний API: 100 rps, 300 мс', 'External API: 100 rps, 300 ms'), capacity: 100, latency: 300 },
+  { id: 'external', title: tr('Внешний API: 100 rps, 300 мс', 'External API: 100 rps, 300 ms'), ...EXTERNAL_API },
 ]
 
 /** Допуск прикидки: ±25% */

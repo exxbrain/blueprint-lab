@@ -53,6 +53,15 @@ const DEAD_END: Partial<Record<BNode['kind'], [string, string]>> = {
   ],
 }
 
+/** Настроение клиентов: довольны, так себе, недовольны */
+export type Mood = 'happy' | 'meh' | 'angry'
+export const MOOD_FACE: Record<Mood, string> = { happy: '😀', meh: '😐', angry: '😡' }
+export function clientMood(success: number, latency: number): Mood {
+  if (success >= 0.995 && latency <= 300) return 'happy'
+  if (success >= 0.95 && latency <= 1000) return 'meh'
+  return 'angry'
+}
+
 export function utilColor(util: number, success: number): string {
   if (success < 0.99 || util >= 1) return 'var(--bad)'
   if (util >= 0.8) return 'var(--warn)'
@@ -227,7 +236,21 @@ export function BuilderCanvas({
           >
             <rect width={NODE_W} height={NODE_H} rx={10} className="bnode-box" style={{ stroke: color }} />
             <text x={12} y={24} className="bnode-title">
-              {spec.icon} {n.label}
+              {n.kind === 'client' && !hideLoad ? (
+                <tspan className={'bnode-mood ' + clientMood(st?.success ?? 1, st?.latency ?? 0)}>{MOOD_FACE[clientMood(st?.success ?? 1, st?.latency ?? 0)]}</tspan>
+              ) : (
+                spec.icon
+              )}{' '}
+              {n.label}
+              {n.kind === 'client' && !hideLoad && (
+                <title>
+                  {clientMood(st?.success ?? 1, st?.latency ?? 0) === 'happy'
+                    ? tr('Пользователи довольны', 'Users are happy')
+                    : clientMood(st?.success ?? 1, st?.latency ?? 0) === 'meh'
+                      ? tr('Пользователи недовольны: ошибки или медленные ответы', 'Users are unhappy: errors or slow responses')
+                      : tr('Пользователи злятся: много ошибок или очень долго', 'Users are angry: many errors or very slow')}
+                </title>
+              )}
             </text>
             {n.kind === 'client' ? (
               <text x={12} y={46} className="bnode-sub">

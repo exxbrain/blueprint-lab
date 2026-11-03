@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BuilderCanvas, NODE_H, NODE_W, PALETTE_MIME, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
+import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
   WORKLOADS,
@@ -405,7 +405,11 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             traces={traffic.inFlight}
           />
           {(selNode || selEdge) && (
-            <ElementPopover anchor={anchorOf(selNode, selEdge)} wrap={wrapRef.current}>
+            <ElementPopover
+              anchor={anchorOf(selNode, selEdge)}
+              wrap={wrapRef.current}
+              tone={selNode ? nodeStatus(selNode, result.nodes[selNode.id], !estimated).tone : edgeStatus(selEdge!, result, nodes, !estimated).tone}
+            >
               {selEdge && (
                 <>
                   <div className="card-head">
@@ -416,6 +420,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                       ✕
                     </button>
                   </div>
+                  <StatusBadge {...edgeStatus(selEdge, result, nodes, !estimated)} />
                   <p className="small muted">{estimated ? `${fmt(result.edges[selEdge.id]?.rps ?? 0)} rps` : '? rps'}{result.edges[selEdge.id]?.async ? ' · async' : ''}</p>
                   <button onClick={remove}>{tr('Удалить связь', 'Delete connection')}</button>
                 </>
@@ -430,6 +435,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                       ✕
                     </button>
                   </div>
+                  <StatusBadge {...nodeStatus(selNode, result.nodes[selNode.id], !estimated)} />
                   <NodeProps
                     node={selNode}
                     hideLoad={!estimated}
@@ -744,10 +750,12 @@ const POPOVER_W = 320
 function ElementPopover({
   anchor,
   wrap,
+  tone,
   children,
 }: {
   anchor: { x: number; y: number; w: number; h: number }
   wrap: HTMLDivElement | null
+  tone: Tone
   children: ReactNode
 }) {
   // перерисовываемся при изменении размеров окна, чтобы окно держалось у элемента
@@ -774,8 +782,84 @@ function ElementPopover({
     style = { left: x, top: Math.max(8, top - 8) }
   }
   return (
-    <div className="node-popover" style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
+    <div className={'node-popover tone-' + tone} style={style} onPointerDown={(e) => e.stopPropagation()} role="dialog">
       {children}
+    </div>
+  )
+}
+
+type Tone = 'ok' | 'warn' | 'bad' | 'idle'
+interface Status {
+  tone: Tone
+  label: string
+  detail: string
+  /** Лицо пользователя — для клиентов */
+  face?: string
+}
+
+const pctOf = (x: number) => `${Math.round(x * 100)}%`
+
+/** Состояние блока — по тем же правилам, что и цвет его рамки на холсте */
+function nodeStatus(n: BNode, st: ReturnType<typeof simulate>['nodes'][string] | undefined, hidden: boolean): Status {
+  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden'), detail: tr('Сначала сделайте прикидку нагрузки', 'Make the load estimate first') }
+  if (!st) return { tone: 'idle', label: tr('Нет данных', 'No data'), detail: '' }
+  if (n.kind === 'client') {
+    const mood = clientMood(st.success, st.latency)
+    const tone: Tone = mood === 'happy' ? 'ok' : mood === 'meh' ? 'warn' : 'bad'
+    const label =
+      mood === 'happy'
+        ? tr('Пользователи довольны', 'Users are happy')
+        : mood === 'meh'
+          ? tr('Пользователи недовольны', 'Users are unhappy')
+          : tr('Пользователи злятся', 'Users are angry')
+    const why =
+      st.success < 0.95
+        ? tr('много ошибок', 'many errors')
+        : st.success < 0.995
+          ? tr('часть запросов падает', 'some requests fail')
+          : st.latency > 300
+            ? tr('ответы медленные', 'responses are slow')
+            : tr('всё быстро и без ошибок', 'fast and error-free')
+    return {
+      tone,
+      face: MOOD_FACE[mood],
+      label,
+      detail: tr(`${why}: успешных ${(st.success * 100).toFixed(1)}%, ответ за ${Math.round(st.latency)} мс`, `${why}: ${(st.success * 100).toFixed(1)}% successful, ${Math.round(st.latency)} ms response`),
+    }
+  }
+  if (st.deadEnd) return { tone: 'bad', label: tr('Тупик', 'Dead end'), detail: tr('Запросам некуда идти дальше — подключите следующий блок', 'Requests have nowhere to go next; connect the next block') }
+  if (st.unsupported > 0)
+    return { tone: 'bad', label: tr('Не подходит для запросов', 'Unsuitable for these requests'), detail: tr(`не умеет обрабатывать ${pctOf(st.unsupported)} запросов`, `cannot handle ${pctOf(st.unsupported)} of requests`) }
+  if (st.in <= 0) return { tone: 'idle', label: tr('Простаивает', 'Idle'), detail: tr('Сюда не приходят запросы', 'No requests reach this block') }
+  if (st.util >= 1 || st.success < 0.99)
+    return {
+      tone: 'bad',
+      label: tr('Перегружен', 'Overloaded'),
+      detail: tr(`загрузка ${pctOf(st.util)}, отказывает ${pctOf(1 - st.success)} запросов`, `${pctOf(st.util)} utilization, rejects ${pctOf(1 - st.success)} of requests`),
+    }
+  if (st.util >= 0.8) return { tone: 'warn', label: tr('На пределе', 'Near the limit'), detail: tr(`загрузка ${pctOf(st.util)} — задержки растут, запаса почти нет`, `${pctOf(st.util)} utilization: latency grows, little headroom left`) }
+  return { tone: 'ok', label: tr('В норме', 'Healthy'), detail: tr(`загрузка ${pctOf(st.util)}, ответ за ${Math.round(st.latency)} мс`, `${pctOf(st.util)} utilization, ${Math.round(st.latency)} ms response`) }
+}
+
+/** Связь: асинхронная — жёлтая, в проблемный блок — красная, иначе зелёная */
+function edgeStatus(e: BEdge, r: ReturnType<typeof simulate>, nodes: BNode[], hidden: boolean): Status {
+  if (hidden) return { tone: 'idle', label: tr('Нагрузка скрыта', 'Load hidden'), detail: '' }
+  const st = r.edges[e.id]
+  const target = r.nodes[e.to]
+  const to = nodes.find((n) => n.id === e.to)
+  if (!st || st.rps <= 0) return { tone: 'idle', label: tr('Без трафика', 'No traffic'), detail: tr('По этой связи сейчас ничего не идёт', 'Nothing flows along this connection now') }
+  if (target && (target.success < 0.99 || target.deadEnd))
+    return { tone: 'bad', label: tr('Ведёт в проблемный блок', 'Leads to a failing block'), detail: tr(`«${to?.label}» отвечает успешно только на ${(target.success * 100).toFixed(1)}%`, `“${to?.label}” succeeds only ${(target.success * 100).toFixed(1)}% of the time`) }
+  if (st.async) return { tone: 'warn', label: tr('Асинхронно', 'Asynchronous'), detail: tr('Сообщения ждут в очереди, ответ клиенту не задерживается', 'Messages wait in the queue; the client response is not delayed') }
+  return { tone: 'ok', label: tr('В норме', 'Healthy'), detail: `${fmt(st.rps)} rps` }
+}
+
+function StatusBadge({ tone, label, detail, face }: Status) {
+  return (
+    <div className={'status-badge ' + tone}>
+      {face ? <span className="status-face">{face}</span> : <span className="status-dot" />}
+      <b>{label}</b>
+      {detail && <span className="small">{detail}</span>}
     </div>
   )
 }

@@ -2930,3 +2930,27 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
     max-height: 60vh;
   }
 }
+.status-badge {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 8px 10px;
+  margin: 4px 0 10px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.status-badge .small { grid-column: 2; color: var(--text); opacity: 0.85; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.status-badge.ok { color: var(--ok); }
+.status-badge.warn { color: var(--warn); }
+.status-badge.bad { color: var(--bad); }
+.status-badge.bad .status-dot { animation: blink 1s steps(2) infinite; }
+.status-badge.idle { color: var(--muted); }
+.node-popover.tone-ok { border-color: var(--ok); }
+.node-popover.tone-warn { border-color: var(--warn); }
+.node-popover.tone-bad { border-color: var(--bad); }
+.node-popover.tone-idle { border-color: var(--line); }
+.status-face { font-size: 1.8rem; line-height: 1; grid-row: span 2; }
+.bnode-mood { font-size: 16px; }

@@ -169,6 +169,8 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
             transform={`translate(${p.x},${p.y})`}
             onPointerDown={(e) => {
               e.stopPropagation()
+              // правая кнопка и Ctrl+щелчок на Mac — меню браузера, а не перетаскивание
+              if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
               const pt = toSvg(e)
               drag.current = { card: p.card, dx: pt.x - p.x, dy: pt.y - p.y }
               onSelect(p.card)
@@ -192,6 +194,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
               className="bnode-port"
               onPointerDown={(e) => {
                 e.stopPropagation()
+                if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
                 const pt = toSvg(e)
                 setLink({ from: p.card, x: pt.x, y: pt.y })
               }}

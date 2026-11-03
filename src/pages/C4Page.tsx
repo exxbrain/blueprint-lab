@@ -69,20 +69,19 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const pz = usePanZoom(CANVAS.w, CANVAS.h, { interactive: '.c4-el, .c4-rel, .bnode-port' })
   // свойства на телефоне — шторкой по касанию элемента (без сдвига); при нажатии и перетаскивании — нет
   const [propsOpen, setPropsOpen] = useState(false)
-  const tapStart = useRef<{ id: number; x: number; y: number; n: number } | null>(null)
+  const tapStart = useRef<{ id: number; x: number; y: number; n: number; onItem: boolean } | null>(null)
   const pointersDown = useRef(new Set<number>())
   useEffect(() => {
     // отпустили за пределами поля (над панелью, за окном) или меню браузера забрало указатель — забыть его
     const forget = (e: PointerEvent) => pointersDown.current.delete(e.pointerId)
     const clear = () => pointersDown.current.clear()
+    // контекстное меню не чистим: на Android оно приходит при долгом касании, пока палец ещё прижат
     window.addEventListener('pointerup', forget, true)
     window.addEventListener('pointercancel', forget, true)
-    window.addEventListener('contextmenu', clear, true)
     window.addEventListener('blur', clear)
     return () => {
       window.removeEventListener('pointerup', forget, true)
       window.removeEventListener('pointercancel', forget, true)
-      window.removeEventListener('contextmenu', clear, true)
       window.removeEventListener('blur', clear)
     }
   }, [])
@@ -370,13 +369,16 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             className="ws-tap"
             onPointerDownCapture={(e) => {
               pointersDown.current.add(e.pointerId)
-              tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, n: pointersDown.current.size }
+              const t = e.target as Element
+              // свойства — только по касанию самого элемента или связи: не по пустому месту, подписи границы или точке связи
+              const onItem = !!t.closest?.('.c4-el, .c4-rel') && !t.closest?.('.bnode-port')
+              tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, n: pointersDown.current.size, onItem }
             }}
             onPointerUpCapture={(e) => {
               const t = tapStart.current
               tapStart.current = null
               // касание одним пальцем почти без сдвига, и элемент выбран — открыть его свойства
-              if (t && t.id === e.pointerId && t.n === 1 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
+              if (t && t.onItem && t.id === e.pointerId && t.n === 1 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
                 // выбор уже обновлён: нажатие — отдельное событие, React отрисовал его до отпускания
                 selectedNow.current && setPropsOpen(true)
             }}

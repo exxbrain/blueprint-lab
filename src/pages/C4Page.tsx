@@ -69,6 +69,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   // условие при входе — модальным окном (на телефоне)
   const [panelOpen, setPanelOpen] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
+  /** Тянут элемент или связь: окно свойств на это время прячется — не загораживает путь */
+  const [dragging, setDragging] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   // масштаб и сдвиг — общие для всех редакторов; на телефоне при входе схема вписывается в экран
   const vp = useViewport({
@@ -146,6 +148,11 @@ function Exercise({ ex }: { ex: C4Exercise }) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement
       if ((e.key === 'Delete' || e.key === 'Backspace') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) remove()
+      if (e.key === 'Escape') {
+        setSelected(null)
+        setAddOpen(false)
+        setPropsOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -260,7 +267,9 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             }}
             onDropCard={(cardId, x, y) => {
               if (!d.placed.some((p) => p.card === cardId)) place(cardId, { x, y })
+              setAddOpen(false)
             }}
+            onDragging={setDragging}
             vp={vp}
           />
     </>
@@ -501,13 +510,13 @@ function Exercise({ ex }: { ex: C4Exercise }) {
         <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
           {canvasEl}
         </div>
-        {(selEl || selRel) && selected && (
+        {(selEl || selRel) && selected && !dragging && (
           <ElementDialog
             wrap={wrapRef.current}
             id={selected}
             label={selEl ? card(selEl.card).name : tr('Связь', 'Relationship')}
             title={tr('Свойства', 'Properties')}
-            keep=".c4-el, .c4-rel"
+            keep=".c4-el, .c4-rel, .zoom-tool"
             onClose={() => setSelected(null)}
           >
             {propsEl}

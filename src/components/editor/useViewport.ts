@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 
 /** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от «весь холст» до 400% */
 export const MAX_SCALE = 4
@@ -48,7 +48,13 @@ export function useViewport(o: ViewportOptions) {
   const { width, height } = o
   const opts = useRef(o)
   opts.current = o
-  const svgRef = useRef<SVGSVGElement>(null)
+  // холст пересоздаётся при смене раскладки (телефон ↔ компьютер): ref-колбэк, и подписки переходят на новый
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null)
+  const bindSvg = useCallback((node: SVGSVGElement | null) => {
+    svgRef.current = node
+    setSvgEl(node)
+  }, [])
 
   const [view, setView] = useState<View | null>(null)
   const viewRef = useRef(view)
@@ -76,7 +82,7 @@ export function useViewport(o: ViewportOptions) {
 
   // размер svg на экране; сменил форму (растянулся на экран, повернули телефон) — видимая часть держит центр
   useEffect(() => {
-    const svg = svgRef.current
+    const svg = svgEl
     if (!svg || o.disabled) return
     const ro = new ResizeObserver(() => {
       const w = svg.clientWidth
@@ -91,7 +97,7 @@ export function useViewport(o: ViewportOptions) {
     return () => ro.disconnect()
     // clampView читает пропорции через ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [o.disabled])
+  }, [svgEl, o.disabled])
   // окна у элементов (параметры, свойства) пересчитывают место, когда схема сдвинулась
   useEffect(() => {
     window.dispatchEvent(new Event('canvas-view'))
@@ -177,6 +183,7 @@ export function useViewport(o: ViewportOptions) {
   const touches = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<{ view: View; mid: { x: number; y: number }; dist: number; rect: DOMRect } | null>(null)
   const [panning, setPanning] = useState(false)
+  const lastPan = useRef(0)
   const startGesture = () => {
     const pts = [...touches.current.values()]
     setPanning(pts.length > 0)
@@ -201,6 +208,7 @@ export function useViewport(o: ViewportOptions) {
     const px = g.view.x + (g.mid.x - g.rect.left) / s0
     const py = g.view.y + (g.mid.y - g.rect.top) / s0
     const s = g.rect.width / w
+    lastPan.current = Date.now()
     byHand()
     setView(clampView({ x: px - (mid.x - g.rect.left) / s, y: py - (mid.y - g.rect.top) / s, w }))
   }
@@ -276,7 +284,7 @@ export function useViewport(o: ViewportOptions) {
 
   // колесо: Ctrl/⌘ или щипок на тачпаде — масштаб у курсора; без них — сдвиг приближенной схемы (Shift — вбок)
   useEffect(() => {
-    const svg = svgRef.current
+    const svg = svgEl
     if (!svg || o.disabled) return
     const onWheel = (e: WheelEvent) => {
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1
@@ -303,7 +311,7 @@ export function useViewport(o: ViewportOptions) {
     return () => svg.removeEventListener('wheel', onWheel)
     // всё нужное читается через ref и setView с функцией
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [o.disabled])
+  }, [svgEl, o.disabled])
 
   // клавиши: Shift+1 — вписать, Shift+2 — к выбранному, Shift+0 — 100%, +/− — масштаб, пробел — рука.
   // Ctrl/⌘ + = и − перехватываем, только пока мышь над схемой
@@ -353,8 +361,12 @@ export function useViewport(o: ViewportOptions) {
     }
   }, [o.disabled])
 
+  /** Последний сдвиг пальцем или мышью был только что: щелчок «по пустому месту» после него — не щелчок */
+  const recentlyPanned = () => Date.now() - lastPan.current < 350
   return {
     svgRef,
+    bindSvg,
+    recentlyPanned,
     viewBox: `${cur.x} ${cur.y} ${cur.w} ${cur.w * A()}`,
     zoomed: !!view,
     scale,

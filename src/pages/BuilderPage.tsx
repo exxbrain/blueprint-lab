@@ -261,19 +261,6 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   }, [revealId])
   const [dragging, setDragging] = useState(false)
   const closePopover = useCallback(() => setSelected(null), [])
-  const addRef = useRef<HTMLDivElement>(null)
-  // меню «Добавить компонент» закрывается от любого клика мимо него — как обычное выпадающее меню
-  useEffect(() => {
-    if (!addOpen) return
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Element
-      // кнопка «Компонент» на панели телефона сама открывает и закрывает меню
-      if (!addRef.current?.contains(t) && !t.closest?.('.ws-add')) setAddOpen(false)
-    }
-    // в фазе погружения: блоки на холсте останавливают всплытие, а меню должно закрыться и от щелчка по ним
-    document.addEventListener('pointerdown', onDown, true)
-    return () => document.removeEventListener('pointerdown', onDown, true)
-  }, [addOpen])
   const patch = (id: string, p: Partial<BNode>) => setNodes(nodes.map((n) => (n.id === id ? { ...n, ...p } : n)))
 
   const statsEl = (

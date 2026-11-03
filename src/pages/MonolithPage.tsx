@@ -1182,11 +1182,12 @@ function MonolithCanvas({
 
   return (
     <svg
-      ref={vp.svgRef}
+      ref={vp.bindSvg}
       className={'builder-canvas mono-canvas' + (vp.zoomed ? ' zoomed' : '')}
       viewBox={vp.viewBox}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onBackground()
+        // щелчок после сдвига схемы (пробел, средняя кнопка, палец) — не «мимо»: окно модуля остаётся
+        if (e.target === e.currentTarget && !vp.recentlyPanned()) onBackground()
       }}
       onPointerDownCapture={vp.onPointerDownCapture}
       onPointerDown={(e) => {

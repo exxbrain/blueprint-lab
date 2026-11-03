@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect } from 'react'
 import { href, useRoute } from './router'
 import { findModule } from './content/modules'
 import { lang, setLang, tr } from './i18n'
@@ -31,6 +31,10 @@ export default function App() {
     ro.observe(bar)
     return () => ro.disconnect()
   }, [])
+  // новая страница — с начала; карта сама прокручивается к заданию, откуда пришли (Home)
+  useLayoutEffect(() => {
+    if (first) window.scrollTo(0, 0)
+  }, [route.join('/')])
   // строка меню прокручивается вбок, если не помещается: активный пункт всегда в видимой части
   useEffect(() => {
     document.querySelector('.topbar nav a.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })

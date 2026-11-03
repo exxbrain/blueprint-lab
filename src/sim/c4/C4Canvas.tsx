@@ -16,6 +16,8 @@ interface Props {
   onDropCard: (card: string, x: number, y: number) => void
   /** Масштаб и сдвиг — общие для всех редакторов схем (useViewport на странице) */
   vp: Viewport
+  /** Начали или закончили тянуть элемент или связь — окно свойств на это время прячется */
+  onDragging?: (active: boolean) => void
 }
 
 /** Точка на границе прямоугольника элемента в направлении к точке (tx, ty) */
@@ -31,8 +33,7 @@ function edgePoint(p: Placed, tx: number, ty: number) {
   return { x: cx + dx * s, y: cy + dy * s }
 }
 
-export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, onDropCard, vp }: Props) {
-  const svgRef = vp.svgRef
+export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, onDropCard, vp, onDragging }: Props) {
   const drag = useRef<{ card: string; dx: number; dy: number; ox: number; oy: number; moved: boolean } | null>(null)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
   const cardOf = (id: string) => ex.cards.find((c) => c.id === id)!
@@ -43,6 +44,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
   const cancelDrag = () => {
     const d = drag.current
     if (d?.moved) onMove(d.card, d.ox, d.oy)
+    if (d?.moved || link) onDragging?.(false)
     drag.current = null
     setLink(null)
   }
@@ -56,6 +58,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
     if (vp.onMove(e)) return
     const p = toSvg(e)
     if (drag.current) {
+      if (!drag.current.moved) onDragging?.(true)
       drag.current.moved = true
       const x = Math.max(0, Math.min(CANVAS.w - EL_W, p.x - drag.current.dx))
       const y = Math.max(0, Math.min(CANVAS.h - EL_H, p.y - drag.current.dy))
@@ -64,6 +67,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
   }
   const onPointerUp = (e: RPointerEvent) => {
     if (vp.onUp(e)) return
+    if (drag.current?.moved || link) onDragging?.(false)
     if (link) {
       const p = toSvg(e)
       const target = at(p.x, p.y)
@@ -75,7 +79,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
 
   return (
     <svg
-      ref={svgRef}
+      ref={vp.bindSvg}
       className={'builder-canvas c4-canvas' + (vp.zoomed ? ' zoomed' : '')}
       viewBox={vp.viewBox}
       onPointerMove={onPointerMove}
@@ -219,6 +223,9 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
                 if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
                 const pt = toSvg(e)
                 setLink({ from: p.card, x: pt.x, y: pt.y })
+                // указатель — холсту: связь тянется, даже если по пути окажется окно
+                vp.capture(e.pointerId)
+                onDragging?.(true)
               }}
             >
               <title>{tr('Потяните к другому элементу, чтобы провести связь', 'Drag to another element to draw a relationship')}</title>

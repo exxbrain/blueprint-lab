@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { tr } from '../i18n'
 import { builderChallenges } from '../sim/builder/challenges'
 import { BuilderCanvas } from '../sim/builder/BuilderCanvas'
@@ -7,7 +7,7 @@ import { ms, useCalm, useLiveTraffic } from '../sim/builder/TrafficPanel'
 import { modules } from '../content/modules'
 import type { Module } from '../content/types'
 import { useProgress, type Progress } from '../progress'
-import { href } from '../router'
+import { href, lastRoute, savedScroll } from '../router'
 import { LevelMap, PlayerCard } from '../components/LevelMap'
 
 export function moduleProgress(m: Module, p: Progress): { done: number; total: number } {
@@ -21,6 +21,13 @@ export function moduleProgress(m: Module, p: Progress): { done: number; total: n
 
 export function Home() {
   const progress = useProgress()
+  // вернулись на карту из задания — карта на месте этого задания; иначе — там, где с неё ушли
+  useLayoutEffect(() => {
+    const from = lastRoute()
+    const node = from ? document.querySelector(`.page a[href="${CSS.escape(from)}"]`) : null
+    if (node) node.scrollIntoView({ block: 'center' })
+    else window.scrollTo(0, savedScroll('#/') ?? 0)
+  }, [])
   return (
     <div className="page">
       <section className="game-top">

@@ -40,7 +40,8 @@ export function PopoverDialog({
   // фокус: в окно при открытии, обратно при закрытии
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
-    ref.current?.focus({ preventScroll: true })
+    // поле внутри уже взяло фокус (autoFocus) — не отбирать: подпись связи набирается сразу
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus({ preventScroll: true })
     return () => {
       if (prev?.isConnected) prev.focus({ preventScroll: true })
     }

@@ -193,7 +193,7 @@ export function BuilderCanvas({
 
   return (
     <svg
-      ref={svgRef}
+      ref={vp.bindSvg}
       className={'builder-canvas' + (vp.zoomed ? ' zoomed' : '')}
       viewBox={fit && nodes.length ? fitBox(nodes) : vp.viewBox}
       onPointerMove={onPointerMove}

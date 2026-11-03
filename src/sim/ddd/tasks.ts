@@ -10,13 +10,14 @@ const contextsOf = (projectId: string): DddContext[] =>
   PROJECTS.find((p) => p.id === projectId)!.modules.map((m) => ({ id: m.id, name: m.title, desc: m.desc }))
 
 const card = (id: string, kind: CardKind, ctx: string, name: string, why: string): DddCard => ({ id, kind, ctx, name, why })
-const rel = (id: string, upstream: string, downstream: string, answer: MapPattern, situation: string, why: string): MapRelation => ({
+const rel = (id: string, upstream: string, downstream: string, answer: MapPattern, situation: string, why: string, alsoOk?: MapPattern[]): MapRelation => ({
   id,
   upstream,
   downstream,
   answer,
   situation,
   why,
+  alsoOk,
 })
 
 // ---------------- интернет-магазин ----------------
@@ -155,7 +156,11 @@ const foodMap: DddTask = {
       'dispatch',
       'conformist',
       tr('Картографический сервис отдаёт маршруты и время в пути в общепринятом формате (координаты, секунды, метры). Он и так хорошо подходит.', 'The maps service returns routes and travel times in a common format (coordinates, seconds, metres). It already fits well.'),
-      tr('модель внешнего сервиса стандартная и подходит как есть: переводить нечего, проще её принять', 'the external model is standard and fits as is: nothing to translate, easier to adopt it'),
+      tr(
+        'модель внешнего сервиса стандартная и подходит как есть — проще её принять (Conformist). Но и тонкий переводчик (ACL) здесь разумен, если хотите иметь возможность сменить провайдера карт',
+        'the external model is standard and fits as is, so adopting it is simplest (Conformist). A thin translator (ACL) is also reasonable here if you want to be able to switch map providers',
+      ),
+      ['acl'],
     ),
     rel(
       'menu',
@@ -201,7 +206,6 @@ const foodMap: DddTask = {
   hints: [
     tr('Внешней системе, на которую не повлиять, есть два ответа: принять её модель (если она хороша) или поставить переводчика (если она протекает и портит вашу).', 'There are two answers to an external system you cannot influence: adopt its model (if it is good) or add a translator (if it leaks and spoils yours).'),
     tr('Когда потребителей много, upstream публикует один протокол вместо интеграции под каждого.', 'When there are many consumers, upstream publishes one protocol instead of an integration for each.'),
-    tr('Каждый паттерн здесь встречается ровно один раз.', 'Each pattern is used exactly once here.'),
   ],
   debrief: [
     tr(
@@ -231,7 +235,7 @@ const bankContexts: DddTask = {
     card('signed', 'event', 'documents', tr('Платёжное поручение подписано', 'Payment order signed'), tr('подпись меняет статус документа — жизненный цикл документов', 'signing changes the document status: the document lifecycle')),
     card('doc', 'term', 'documents', tr('Документ: черновик → подписан → исполнен', 'Document: draft → signed → executed'), tr('статусная модель документа — сердце этого контекста', 'the document status model is the heart of this context')),
     card('send', 'command', 'transfers', tr('Отправить перевод по номеру телефона', 'Send a transfer by phone number'), tr('пользовательский сценарий перевода — контекст переводов', 'the user’s transfer scenario is the transfers context')),
-    card('done', 'event', 'transfers', tr('Перевод исполнен', 'Transfer executed'), tr('исход перевода — событие переводов, документы лишь фиксируют бумажную сторону', 'the transfer’s outcome is a transfers event; documents only record the paperwork side')),
+    card('done', 'event', 'transfers', tr('Перевод через СБП прошёл', 'Fast Payments transfer went through'), tr('маршрут перевода (СБП, внутри банка, на карту) и его исход — работа переводов; документ лишь фиксирует бумажную сторону', 'the transfer route (fast payments, in-bank, to a card) and its outcome are transfers work; the document only records the paperwork side')),
     card('bill', 'event', 'billpay', tr('Квитанция ЖКХ оплачена', 'Utility bill paid'), tr('оплата услуг — свои поставщики, форматы и проверки', 'bill payments have their own providers, formats and checks')),
     card('provider', 'term', 'billpay', tr('Поставщик услуг: реквизиты и формат лицевого счёта', 'Service provider: bank details and account number format'), tr('каталог поставщиков нужен только оплате услуг', 'the provider catalogue is needed only by bill payments')),
     card('exhausted', 'event', 'limits', tr('Суточный лимит исчерпан', 'Daily limit reached'), tr('лимиты — отдельные правила с собственными счётчиками', 'limits are separate rules with their own counters')),
@@ -335,7 +339,6 @@ const bankMap: DddTask = {
   ],
   hints: [
     tr('Если модель внешней системы старая и неудобная — нужен переводчик; если стандартная и хорошая — её принимают.', 'If an external system’s model is old and awkward, you need a translator; if it is standard and good, you adopt it.'),
-    tr('Каждый паттерн здесь встречается ровно один раз.', 'Each pattern is used exactly once here.'),
   ],
   debrief: [
     tr(

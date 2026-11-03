@@ -458,11 +458,11 @@ const versioning: EsTask = {
   debrief: tr(
     [
       'Upcasting — стандартный способ эволюции событий: старые версии хранятся как есть, а при чтении цепочка upcaster-ов поднимает их до текущей. Новый код знает только последнюю версию.',
-      'Другие варианты — новый тип события («ПополненВВалюте») или слабая схема с разумными значениями по умолчанию. Переписывание журнала — крайняя мера.',
+      'Другие варианты — новый тип события («ПополненВВалюте») или слабая схема с разумными значениями по умолчанию. Править события на месте нельзя никогда. Допустимая крайняя мера — copy-and-transform: прочитать старый журнал, преобразовать и записать в новое хранилище событий, а старое оставить как есть (Грег Янг).',
     ],
     [
       'Upcasting is the standard way to evolve events: old versions are stored as is, and on read a chain of upcasters brings them up to the current version. The new code only knows the latest version.',
-      'Other options are a new event type (“DepositedInCurrency”) or a weak schema with sensible defaults. Rewriting the log is a last resort.',
+      'Other options are a new event type (“DepositedInCurrency”) or a weak schema with sensible defaults. Editing events in place is never acceptable. A legitimate last resort is copy-and-transform: read the old log, transform it and write it into a new event store, leaving the old one untouched (Greg Young).',
     ],
   ),
   solution: { strategy: 'upcaster' },
@@ -552,11 +552,11 @@ const concurrency: EsTask = {
   debrief: tr(
     [
       'Оптимистическая конкурентность (expected version) — стандарт для event store: запись идёт при условии, что поток не изменился с момента чтения. При конфликте команду перечитывают и повторяют.',
-      'Так агрегат остаётся границей согласованности без блокировок: конфликты редки, и платить за них приходится только тогда, когда они случаются.',
+      'Так агрегат остаётся границей согласованности без блокировок: конфликты редки, и платить за них приходится только тогда, когда они случаются. Пессимистическая блокировка тоже корректна — минус уйти не даст, — но под тысячами операций в секунду очередь на блокировку становится узким местом, поэтому по условию задачи она не подходит.',
     ],
     [
       'Optimistic concurrency (expected version) is the standard for an event store: a write succeeds only if the stream has not changed since it was read. On conflict, the command reloads and retries.',
-      'This keeps the aggregate a consistency boundary without locks: conflicts are rare, and you pay for them only when they actually happen.',
+      'This keeps the aggregate a consistency boundary without locks: conflicts are rare, and you pay for them only when they actually happen. A pessimistic lock is correct too (it won’t let the balance go negative), but at thousands of operations per second the lock queue becomes the bottleneck, which is why the task rules it out.',
     ],
   ),
   solution: { control: 'optimistic' },

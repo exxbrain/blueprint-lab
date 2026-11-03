@@ -55,8 +55,11 @@ const shopDeps: Dep[] = [
     to: 'payments',
     kind: 'tx',
     critical: true,
-    label: tr('списание денег', 'charging the customer'),
-    why: tr('Заказ создаётся и деньги списываются в одной транзакции БД: либо всё, либо ничего.', 'The order is created and the money is charged in a single DB transaction: all or nothing.'),
+    label: tr('запись о платеже', 'payment record'),
+    why: tr(
+      'Заказ и запись о платеже создаются в одной транзакции БД: либо всё, либо ничего. Само списание у эквайера в транзакцию не входит — это внешний вызов.',
+      'The order and the payment record are created in a single DB transaction: all or nothing. The actual charge at the acquirer is not part of it; that is an external call.',
+    ),
   },
   {
     id: 'orders-inventory',
@@ -82,8 +85,11 @@ const shopDeps: Dep[] = [
     to: 'users',
     kind: 'read',
     critical: true,
-    label: tr('платёжный профиль', 'payment profile'),
-    why: tr('Платежи читают сохранённые карты из таблицы users.', 'Payments reads saved cards from the users table.'),
+    label: tr('токен сохранённой карты', 'saved card token'),
+    why: tr(
+      'Платежи берут из профиля токен сохранённой карты. Сами номера карт хранятся только в Платежах (vault): иначе в PCI-контур попали бы и Пользователи.',
+      'Payments takes the saved card token from the profile. Card numbers themselves are stored only in Payments (a vault); otherwise Users would fall into PCI scope too.',
+    ),
   },
   {
     id: 'catalog-inventory',
@@ -253,10 +259,10 @@ const shopMissions: Mission[] = [
     ],
     debrief: tr([
       'Самый дешёвый путь — вынести один модуль со своей БД, а все чтения его таблиц перевести на API. Брокер, реплики и саги здесь дороже и не нужны.',
-      'Когда сервисов станет больше, синхронные API начнут копить латентность и отказы. Тогда и придёт время событий и реплик.',
+      'Когда сервисов станет больше, синхронные API начнут копить латентность и отказы. Тогда и придёт время событий и реплик. Учтите: тяжёлые отчёты, переведённые на API, продолжают нагружать базу Каталога — просто через его сервис; следующий шаг для них — своя копия данных.',
     ], [
       'The cheapest path is to extract a single module with its own DB and switch all reads of its tables to an API. A broker, replicas and sagas cost more here and are not needed.',
-      'As the number of services grows, synchronous APIs will start accumulating latency and failures. That is when events and replicas earn their place.',
+      'As the number of services grows, synchronous APIs will start accumulating latency and failures. That is when events and replicas earn their place. Note that heavy reports switched to an API still load the Catalog database, just through its service; the next step for them is their own copy of the data.',
     ]),
     solution: {
       extract: ['catalog'],
@@ -366,11 +372,11 @@ const shopMissions: Mission[] = [
       { text: tr('Нет лишних паттернов', 'No unnecessary patterns'), check: noExcess },
     ],
     debrief: tr([
-      'Изоляция платёжного контура сужает зону аудита: в scope PCI DSS попадает один сервис, а не весь магазин.',
-      'Транзакция «заказ + списание» стала сагой: при отказе списания заказ отменяется компенсирующим событием. mTLS и токены доступа не дают взломанному соседу притвориться клиентом.',
+      'Изоляция платёжного контура сужает зону аудита: в scope PCI DSS попадает один сервис, а не весь магазин. Условие — номера карт хранятся только в Платежах, а остальные модули видят лишь токен; отчёты по платежам через API тоже не должны получать номера карт.',
+      'Транзакция «заказ + запись о платеже» стала сагой: при отказе списания заказ отменяется компенсирующим событием. mTLS и токены доступа не дают взломанному соседу притвориться клиентом.',
     ], [
-      'Isolating the payment perimeter narrows the audit scope: PCI DSS covers one service instead of the whole store.',
-      'The "order + charge" transaction became a saga: if the charge fails, the order is cancelled by a compensating event. mTLS and access tokens prevent a compromised neighbor from impersonating a customer.',
+      'Isolating the payment perimeter narrows the audit scope: PCI DSS covers one service instead of the whole store. The condition is that card numbers live only in Payments while other modules see just a token; payment reports via the API must not receive card numbers either.',
+      'The "order + payment record" transaction became a saga: if the charge fails, the order is cancelled by a compensating event. mTLS and access tokens prevent a compromised neighbor from impersonating a customer.',
     ]),
     solution: {
       extract: ['payments'],
@@ -454,7 +460,10 @@ const bankDeps: Dep[] = [
     kind: 'tx',
     critical: true,
     label: tr('счётчик лимита', 'limit counter'),
-    why: tr('Суточный лимит увеличивается в той же транзакции: иначе два параллельных перевода проскочат лимит.', 'The daily limit counter is incremented in the same transaction; otherwise two concurrent transfers could slip past the limit.'),
+    why: tr(
+      'Суточный лимит увеличивается в той же транзакции: иначе два параллельных перевода проскочат лимит. Если превратить это в сагу, первым шагом должно быть атомарное резервирование лимита в Лимитах — у саги нет изоляции.',
+      'The daily limit counter is incremented in the same transaction; otherwise two concurrent transfers could slip past the limit. If this becomes a saga, the first step must be an atomic limit reservation in Limits: sagas have no isolation.',
+    ),
   },
   {
     id: 'transfers-antifraud',
@@ -595,10 +604,10 @@ const bankMissions: Mission[] = [
     ],
     debrief: tr([
       'В банке нельзя «распилить всё»: каждый синхронный сервис на пути перевода отнимает доступность, а антифрод, подтверждение и проводка обязаны ответить до исполнения. Независимость получают модули, которые можно отвязать событиями и сагами: аудит, предложения, оплата услуг, сами переводы, антифрод.',
-      'Ядро (клиенты, счета, документы) обычно уходит последним, а часто остаётся «хорошим монолитом». Чтения из него заменяют API и репликами, а транзакции с документами и лимитами — сагами с компенсациями. Outbox здесь обязателен: потерянное событие — это потерянные деньги.',
+      'Ядро (клиенты, счета, документы) обычно уходит последним, а часто остаётся «хорошим монолитом». Чтения из него заменяют API и репликами, а транзакции с документами и лимитами — сагами с компенсациями. У саги нет изоляции, поэтому её первый шаг — атомарное резервирование лимита в Лимитах, иначе два параллельных перевода проскочат лимит. Outbox здесь обязателен: потерянное событие — это потерянные деньги.',
     ], [
       'A bank cannot "split everything": every synchronous service on the transfer path eats into availability, and anti-fraud, confirmation and posting must all respond before execution. Independence goes to the modules that can be decoupled with events and sagas: audit, offers, bill payments, transfers themselves, anti-fraud.',
-      'The core (customers, accounts, documents) usually goes last, and often stays a "good monolith". Reads from it are replaced with APIs and replicas, and transactions with documents and limits with compensating sagas. An outbox is mandatory here: a lost event means lost money.',
+      'The core (customers, accounts, documents) usually goes last, and often stays a "good monolith". Reads from it are replaced with APIs and replicas, and transactions with documents and limits with compensating sagas. A saga has no isolation, so its first step is an atomic limit reservation in Limits; otherwise two concurrent transfers slip past the limit. An outbox is mandatory here: a lost event means lost money.',
     ]),
     solution: {
       extract: ['transfers', 'billpay', 'antifraud', 'offers', 'audit'],
@@ -926,8 +935,8 @@ const foodDeps: Dep[] = [
     to: 'payments',
     kind: 'tx',
     critical: true,
-    label: tr('списание', 'charge'),
-    why: tr('Заказ и списание денег — в одной транзакции.', 'The order and the charge are in a single transaction.'),
+    label: tr('запись о платеже', 'payment record'),
+    why: tr('Заказ и запись о платеже — в одной транзакции; само списание у эквайера — внешний вызов.', 'The order and the payment record are in a single transaction; the charge at the acquirer is an external call.'),
   },
   {
     id: 'orders-dispatch',
@@ -1052,10 +1061,10 @@ const foodMissions: Mission[] = [
     ],
     debrief: tr([
       'Самый связанный модуль — самый дорогой распил: каждая из семи связей требует своего решения. Меню — через API, оплата — сага, курьер и push — события (клиенту не нужно ждать курьера, чтобы увидеть «заказ принят»), промокод — синхронно, но за circuit breaker.',
-      'Чаще такой модуль выносят последним, когда вокруг уже есть платформа и опыт. Обратите внимание, во что вынос обошёлся по сравнению с геотрекингом.',
+      'Промокоды читают заказы через API — это тяжёлое чтение по-прежнему нагружает базу Заказов; со временем ему нужна своя копия данных. Чаще такой модуль выносят последним, когда вокруг уже есть платформа и опыт. Обратите внимание, во что вынос обошёлся по сравнению с геотрекингом.',
     ], [
       'The most coupled module is the most expensive to extract: each of its seven dependencies needs its own solution. Menu via API, payment as a saga, courier and push as events (the customer should not wait for a courier to see "order received"), promo code synchronously but behind a circuit breaker.',
-      'Such a module is usually extracted last, once a platform and experience are already in place. Notice how much this extraction cost compared to geotracking.',
+      'Promo codes read orders via an API, and that heavy read still loads the Orders database; over time it needs its own copy of the data. Such a module is usually extracted last, once a platform and experience are already in place. Notice how much this extraction cost compared to geotracking.',
     ]),
     solution: {
       extract: ['orders'],

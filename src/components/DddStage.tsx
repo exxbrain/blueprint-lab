@@ -7,6 +7,7 @@ import { markScenario, recordStars, cappedStars, useHints } from '../progress'
 import {
   CARD_KIND,
   MAP_PATTERNS,
+  isRightPattern,
   mapStars,
   partitionSolved,
   referenceState,
@@ -391,8 +392,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
       <div className="ddd-relations">
         {task.relations.map((r, i) => {
           const a = showRef ? r.answer : answers[r.id]
-          const ok = checked && answers[r.id] === r.answer
-          const bad = !showRef && checked && answers[r.id] && answers[r.id] !== r.answer
+          const ok = checked && isRightPattern(r, answers[r.id])
+          const bad = !showRef && checked && answers[r.id] && !isRightPattern(r, answers[r.id])
           return (
             <div key={r.id} className={'panel ddd-rel' + (ok || showRef ? ' ok' : bad ? ' bad' : '')}>
               <div className="ddd-rel-head">

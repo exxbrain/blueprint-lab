@@ -265,11 +265,11 @@ export const CAP_TASKS: CapTask[] = [
     debrief: tr(
       [
         'Это CP: при разрыве (P) вы выбрали согласованность (C) и пожертвовали доступностью (A) в меньшем дата-центре. Сторона большинства (2 из 3) продолжает работать, меньшинство честно отказывает.',
-        'Именно так ведут себя Raft/Paxos-системы (etcd, ZooKeeper, CockroachDB): кто в меньшинстве — тот не пишет. Для денег это правильный выбор.',
+        'Похоже ведут себя Raft/Paxos-системы (etcd, ZooKeeper, CockroachDB): кто в меньшинстве — тот не пишет. Но кворум R + W > N без лидера — ещё не линеаризуемость: конкурентные записи, расхождение часов и LWW по-прежнему дают аномалии (Kleppmann, DDIA, гл. 9). Настоящие CP-системы используют консенсус с лидером, а для денег нужна ещё условная запись или проверка инварианта («баланс не меньше нуля»).',
       ],
       [
         'This is CP: under a partition (P) you chose consistency (C) and sacrificed availability (A) in the smaller data center. The majority side (2 of 3) keeps working, the minority honestly rejects requests.',
-        'This is exactly how Raft/Paxos systems behave (etcd, ZooKeeper, CockroachDB): the minority does not write. For money, this is the right choice.',
+        'Raft/Paxos systems behave similarly (etcd, ZooKeeper, CockroachDB): the minority does not write. But a leaderless R + W > N quorum is not yet linearizability: concurrent writes, clock skew and LWW still produce anomalies (Kleppmann, DDIA, ch. 9). Real CP systems use leader-based consensus, and money also needs a conditional write or an invariant check (“the balance never goes below zero”).',
       ],
     ),
     solution: { n: 3, w: 2, r: 2, shortfall: 'reject', resolve: 'lww' },
@@ -318,11 +318,11 @@ export const CAP_TASKS: CapTask[] = [
     debrief: tr(
       [
         'Это AP: при разрыве вы выбрали доступность, а согласованность получили позже (eventual consistency). Так устроена Dynamo-корзина Amazon — пример из той самой статьи.',
-        'Ключевое — способ слияния. Last write wins молча теряет данные. Слияние множеств (по сути CRDT, например OR-Set) не теряет ничего. Цена AP — короткие окна, когда стороны видят разное.',
+        'Ключевое — способ слияния. Last write wins молча теряет данные. Простое объединение множеств ничего не теряет, но у него обратная беда: удалённый товар «воскресает», если другая сторона его ещё видела — известная аномалия корзины Dynamo. Её лечит OR-Set (CRDT, который помнит удаления). Цена AP — короткие окна, когда стороны видят разное.',
       ],
       [
         'This is AP: under a partition you chose availability and got consistency later (eventual consistency). This is how Amazon’s Dynamo shopping cart works — the example from that very paper.',
-        'The key is the merge strategy. Last write wins silently loses data. A set merge (essentially a CRDT, e.g. an OR-Set) loses nothing. The price of AP is short windows when the sides see different data.',
+        'The key is the merge strategy. Last write wins silently loses data. A plain set union loses nothing, but has the opposite problem: a removed item “comes back” if the other side still saw it, a known anomaly of the Dynamo cart. An OR-Set (a CRDT that remembers removals) fixes it. The price of AP is short windows when the sides see different data.',
       ],
     ),
     solution: { n: 3, w: 2, r: 2, shortfall: 'sloppy', resolve: 'merge' },

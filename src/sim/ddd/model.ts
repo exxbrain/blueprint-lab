@@ -87,6 +87,8 @@ export interface MapRelation {
   situation: string
   answer: MapPattern
   why: string
+  /** Другие защитимые ответы */
+  alsoOk?: MapPattern[]
 }
 
 export interface MapTask {
@@ -263,7 +265,11 @@ export function referenceState(t: PartitionTask): PartitionState {
 // ---------------- карта контекстов ----------------
 
 export function scoreMap(t: MapTask, answers: Record<string, MapPattern | undefined>): { correct: number; total: number } {
-  return { correct: t.relations.filter((r) => answers[r.id] === r.answer).length, total: t.relations.length }
+  return { correct: t.relations.filter((r) => isRightPattern(r, answers[r.id])).length, total: t.relations.length }
+}
+
+export function isRightPattern(r: MapRelation, a: MapPattern | undefined): boolean {
+  return !!a && (a === r.answer || !!r.alsoOk?.includes(a))
 }
 
 export function mapStars(wrongChecks: number, hintsUsed: number): 1 | 2 | 3 {

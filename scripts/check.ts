@@ -21,7 +21,7 @@ import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
-// функция Cloudflare Pages (вход по email и паролю)
+// функция Cloudflare Pages (вход по логину и паролю)
 import { onRequest as basicAuth } from '../functions/_middleware.js'
 
 let failed = 0
@@ -466,24 +466,24 @@ if (failed) {
 }
 console.log('\nВсе задачи решаемы')
 
-// вход по email и паролю на Cloudflare Pages (functions/_middleware.js)
-console.log('\nВход по email и паролю')
+// вход по логину и паролю на Cloudflare Pages (functions/_middleware.js)
+console.log('\nВход по логину и паролю')
 {
-  const env = { AUTH_EMAIL: 'Me@Example.com ', AUTH_PASSWORD: 'пароль: с двоеточием' }
+  const env = { AUTH_USER: 'Guest ', AUTH_PASSWORD: 'пароль: с двоеточием' }
   const asset = () => new Response('<html>', { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } })
   const call = (auth: string | null, e: Record<string, string> = env) =>
     basicAuth({ request: new Request('https://x.pages.dev/', { headers: auth ? { Authorization: auth } : {} }), env: e, next: async () => asset() }) as Promise<Response>
   const basic = (user: string, pass: string) => 'Basic ' + Buffer.from(`${user}:${pass}`, 'utf8').toString('base64')
   const none = await call(null)
   if (none.status !== 401 || !none.headers.get('WWW-Authenticate')?.startsWith('Basic')) fail(`без входа: ${none.status}`)
-  if ((await call(basic('me@example.com', 'не тот'))).status !== 401) fail('неверный пароль пропущен')
-  if ((await call(basic('other@example.com', env.AUTH_PASSWORD))).status !== 401) fail('чужой email пропущен')
+  if ((await call(basic('guest', 'не тот'))).status !== 401) fail('неверный пароль пропущен')
+  if ((await call(basic('admin', env.AUTH_PASSWORD))).status !== 401) fail('чужой логин пропущен')
   if ((await call('Basic !!!')).status !== 401) fail('битый заголовок пропущен')
-  const ok = await call(basic(' ME@example.com', env.AUTH_PASSWORD))
+  const ok = await call(basic(' GUEST', env.AUTH_PASSWORD))
   if (ok.status !== 200 || (await ok.text()) !== '<html>') fail(`верный вход не пропущен: ${ok.status}`)
   if (ok.headers.get('X-Robots-Tag') !== 'noindex, nofollow') fail('за паролем нет noindex')
   if (!/^private\b/.test(ok.headers.get('Cache-Control') ?? '')) fail(`за паролем кэш не private: ${ok.headers.get('Cache-Control')}`)
-  if ((await call(basic('', ''), { AUTH_EMAIL: '', AUTH_PASSWORD: '' })).status !== 503) fail('без настроек сайт не закрыт')
-  console.log('- без входа, с чужим email, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек — 503')
+  if ((await call(basic('', ''), { AUTH_USER: '', AUTH_PASSWORD: '' })).status !== 503) fail('без настроек сайт не закрыт')
+  console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек — 503')
 }
 

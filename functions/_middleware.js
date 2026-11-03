@@ -1,9 +1,9 @@
 /**
- * Вход по email и паролю (HTTP Basic Auth) для Cloudflare Pages.
+ * Вход по логину и паролю (HTTP Basic Auth) для Cloudflare Pages.
  *
  * Функция стоит перед каждым запросом к сайту — страницами, файлами сборки и превью-адресами.
- * Email и пароль задаются в настройках проекта Pages, в репозитории их нет:
- *   AUTH_EMAIL    — email, под которым входить;
+ * Логин и пароль задаются в настройках проекта Pages, в репозитории их нет:
+ *   AUTH_USER     — логин (регистр не важен: телефоны любят делать первую букву заглавной);
  *   AUTH_PASSWORD — пароль (тип Secret).
  * Если переменные не заданы, сайт закрыт для всех: лучше не открыть, чем открыть случайно.
  */
@@ -19,17 +19,17 @@ const HEADERS = {
 }
 
 export async function onRequest({ request, env, next }) {
-  const email = (env.AUTH_EMAIL ?? '').trim().toLowerCase()
+  const user = (env.AUTH_USER ?? '').trim().toLowerCase()
   const password = env.AUTH_PASSWORD ?? ''
-  if (!email || !password)
-    return text(503, 'Вход не настроен: задайте AUTH_EMAIL и AUTH_PASSWORD в настройках проекта Cloudflare Pages.')
+  if (!user || !password)
+    return text(503, 'Вход не настроен: задайте AUTH_USER и AUTH_PASSWORD в настройках проекта Cloudflare Pages.')
 
   const given = credentials(request.headers.get('Authorization'))
   // обе проверки считаются всегда — время ответа не подсказывает, что из двух неверно
-  const emailOk = await same(given?.user.trim().toLowerCase() ?? '', email)
+  const userOk = await same(given?.user.trim().toLowerCase() ?? '', user)
   const passwordOk = await same(given?.pass ?? '', password)
-  if (!emailOk || !passwordOk) {
-    const res = text(401, 'Нужен вход: email и пароль.')
+  if (!userOk || !passwordOk) {
+    const res = text(401, 'Нужен вход: логин и пароль.')
     res.headers.set('WWW-Authenticate', `Basic realm="${REALM}", charset="UTF-8"`)
     return res
   }
@@ -50,7 +50,7 @@ function text(status, body) {
   })
 }
 
-/** «Basic base64(email:пароль)» → email и пароль; UTF-8, чтобы пароль мог быть и по-русски */
+/** «Basic base64(логин:пароль)» → логин и пароль; UTF-8, чтобы пароль мог быть и по-русски */
 function credentials(header) {
   const m = /^Basic\s+([A-Za-z0-9+/=]+)\s*$/i.exec(header ?? '')
   if (!m) return null

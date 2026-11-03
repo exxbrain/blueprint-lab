@@ -3,7 +3,7 @@
 Hands-on software architecture: short lessons, live simulations and incident-style exercises.
 The interface is bilingual: switch RU / EN in the top bar.
 
-[Русская версия](README.ru.md)
+[Русская версия](README.ru.md) · Deploying privately: [Cloudflare Pages + Access](docs/deploy-cloudflare.md)
 
 ## Run locally
 

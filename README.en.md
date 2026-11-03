@@ -17,6 +17,10 @@ npm run dev
 - **Apache Kafka** (`#/kafka`): 6 lessons with embedded simulations, a quiz, 5 incident exercises and a sandbox.
   The engine (`src/sim/kafka/engine.ts`) models partitions and keys, replication, ISR, high watermark, acks,
   min.insync.replicas, unclean leader election, consumer groups, rebalancing, offset commits, duplicates and ordering.
+- **The architect's path** (`#/`, `#/profile`): the home page is a game-style level map. 52 challenges from every
+  section are spread across four worlds (Junior → Middle → Senior → Architect, `src/levels.ts`); a world opens once
+  every challenge of the previous one is solved. Challenges award XP (assessment stars add a bonus), and the player
+  levels up from Intern to Architect.
 - **Architecture Builder** (`#/builder`): a graph of clients, load balancers, CDN, services, queues, cache and storages
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Traffic carries a workload profile and every storage
   handles it with its own efficiency (`src/sim/builder/model.ts`). Sandbox mode, classic tasks, tool drills and

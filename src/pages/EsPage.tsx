@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
 import { markScenario, useProgress } from '../progress'
+import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
 export default function EsPage() {
@@ -18,11 +19,13 @@ export default function EsPage() {
         {ES_TASKS.map((t, i) => (
           <button key={t.id} className={t.id === id ? 'primary' : ''} onClick={() => setId(t.id)}>
             {progress.scenarios[`data/es/${t.id}`] ? '✓ ' : ''}
-            {i + 1}. {t.title}
+            {i + 1}. {t.title} <TaskMarks taskKey={`data/es/${t.id}`} />
           </button>
         ))}
       </div>
-      <EsLab key={task.id} task={task} />
+      <TaskGate taskKey={`data/es/${task.id}`}>
+        <EsLab key={task.id} task={task} />
+      </TaskGate>
     </div>
   )
 }

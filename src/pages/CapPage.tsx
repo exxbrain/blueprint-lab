@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
 import { markScenario, useProgress } from '../progress'
+import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
 export default function CapPage() {
@@ -18,11 +19,13 @@ export default function CapPage() {
         {CAP_TASKS.map((t, i) => (
           <button key={t.id} className={t.id === id ? 'primary' : ''} onClick={() => setId(t.id)}>
             {progress.scenarios[`data/cap/${t.id}`] ? '✓ ' : ''}
-            {i + 1}. {t.title}
+            {i + 1}. {t.title} <TaskMarks taskKey={`data/cap/${t.id}`} />
           </button>
         ))}
       </div>
-      <CapLab key={task.id} task={task} />
+      <TaskGate taskKey={`data/cap/${task.id}`}>
+        <CapLab key={task.id} task={task} />
+      </TaskGate>
     </div>
   )
 }

@@ -28,7 +28,8 @@ import { recommendedOrder, replay, reviewOrder, type SprintMark } from '../sim/m
 import { ReviewPanel } from '../components/ReviewPanel'
 import { RefModal } from '../components/RefCard'
 import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/patterns'
-import { markScenario, useProgress } from '../progress'
+import { markScenario, recordStars, useProgress } from '../progress'
+import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
 const W = 1200
@@ -101,11 +102,13 @@ function Level({ project }: { project: Project }) {
         {project.missions.map((m) => (
           <button key={m.id} className={m.id === missionId ? 'primary' : ''} onClick={() => setMissionId(m.id)}>
             {progress.scenarios[`monolith/${project.id}/${m.id}`] ? '✓ ' : ''}
-            {m.title} <span className="small">· {m.budget} {tr('млн ₽', 'M ₽')}</span>
+            {m.title} <span className="small">· {m.budget} {tr('млн ₽', 'M ₽')}</span> <TaskMarks taskKey={`monolith/${project.id}/${m.id}`} />
           </button>
         ))}
       </div>
-      <MissionView key={mission.id} project={project} mission={mission} />
+      <TaskGate taskKey={`monolith/${project.id}/${mission.id}`}>
+        <MissionView key={mission.id} project={project} mission={mission} />
+      </TaskGate>
     </>
   )
 }
@@ -139,6 +142,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   }, [solved, viewingRef, project.id, mission.id])
 
   const review = showReview || solved ? reviewMission(project, mission, state, spent) : null
+  const stars = solved && !viewingRef ? review?.stars : undefined
+  useEffect(() => {
+    if (stars) recordStars(`monolith/${project.id}/${mission.id}`, stars)
+  }, [stars, project.id, mission.id])
   const recommended = useMemo(() => recommendedOrder(project, mission), [project, mission])
   // порядок: при просмотре эталона — рекомендуемый, иначе — ваша история спринтов
   const order =

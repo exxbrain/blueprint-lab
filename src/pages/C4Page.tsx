@@ -15,7 +15,8 @@ import {
 } from '../sim/c4/model'
 import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
-import { markScenario, useProgress } from '../progress'
+import { markScenario, recordStars, useProgress } from '../progress'
+import { TaskGate, TaskMarks } from '../components/Level'
 import { tr } from '../i18n'
 
 let uid = 1000
@@ -34,11 +35,13 @@ export default function C4Page() {
         {C4_EXERCISES.map((x, i) => (
           <button key={x.id} className={x.id === exId ? 'primary' : ''} onClick={() => setExId(x.id)}>
             {progress.scenarios[`c4/${x.id}`] ? '✓ ' : ''}
-            {i + 1}. {x.title} <span className="small">· {LEVEL_INFO[x.level].title}</span>
+            {i + 1}. {x.title} <span className="small">· {LEVEL_INFO[x.level].title}</span> <TaskMarks taskKey={`c4/${x.id}`} />
           </button>
         ))}
       </div>
-      <Exercise key={ex.id} ex={ex} />
+      <TaskGate taskKey={`c4/${ex.id}`}>
+        <Exercise key={ex.id} ex={ex} />
+      </TaskGate>
     </div>
   )
 }
@@ -66,8 +69,11 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const showReview = checked || review.solved
 
   useEffect(() => {
-    if (review.solved && !viewingRef) markScenario(`c4/${ex.id}`)
-  }, [review.solved, viewingRef, ex.id])
+    if (review.solved && !viewingRef) {
+      markScenario(`c4/${ex.id}`)
+      recordStars(`c4/${ex.id}`, review.stars)
+    }
+  }, [review.solved, review.stars, viewingRef, ex.id])
 
   const unplaced = ex.cards.filter((c) => !d.placed.some((p) => p.card === c.id))
   const selEl = d.placed.find((p) => p.card === selected)

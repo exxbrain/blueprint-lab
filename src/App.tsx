@@ -9,6 +9,7 @@ import { QuizPage } from './pages/QuizPage'
 import { ScenarioPage } from './pages/ScenarioPage'
 import { SandboxPage } from './pages/SandboxPage'
 import { NotFound } from './pages/NotFound'
+import { LevelBadge, LevelToasts } from './components/Level'
 
 const BuilderPage = lazy(() => import('./pages/BuilderPage'))
 const MonolithPage = lazy(() => import('./pages/MonolithPage'))
@@ -16,6 +17,7 @@ const C4Page = lazy(() => import('./pages/C4Page'))
 const CapPage = lazy(() => import('./pages/CapPage'))
 const EsPage = lazy(() => import('./pages/EsPage'))
 const ReferencePage = lazy(() => import('./pages/ReferencePage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 export default function App() {
   const route = useRoute()
@@ -29,6 +31,7 @@ export default function App() {
   else if (first === 'c4' && second === 'exercises') page = <C4Page />
   else if (first === 'data' && second === 'cap') page = <CapPage />
   else if (first === 'data' && second === 'es') page = <EsPage />
+  else if (first === 'profile') page = <ProfilePage />
   else if (first === 'reference') page = <ReferencePage focus={second} />
   else if (!mod) page = <NotFound />
   else if (!second) page = <ModulePage mod={mod} />
@@ -65,6 +68,7 @@ export default function App() {
             {tr('Справочник', 'Reference')}
           </a>
         </nav>
+        <LevelBadge active={first === 'profile'} />
         <div className="lang-switch" role="group" aria-label="Language">
           <button className={lang === 'ru' ? 'primary' : ''} onClick={() => lang !== 'ru' && setLang('ru')}>
             RU
@@ -77,6 +81,7 @@ export default function App() {
       <Suspense fallback={<div className="page muted">{tr('Загрузка…', 'Loading…')}</div>}>
         <div key={route.join('/')}>{page}</div>
       </Suspense>
+      <LevelToasts />
     </>
   )
 }

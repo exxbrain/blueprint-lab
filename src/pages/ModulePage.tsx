@@ -3,6 +3,7 @@ import type { Module } from '../content/types'
 import { useProgress } from '../progress'
 import { href } from '../router'
 import { moduleProgress } from './Home'
+import { TaskMarks } from '../components/Level'
 
 export function ModulePage({ mod }: { mod: Module }) {
   const progress = useProgress()
@@ -50,7 +51,7 @@ export function ModulePage({ mod }: { mod: Module }) {
               <a key={s.id} className="list-item" href={href(mod.id, 'scenario', s.id)}>
                 <span className="num">{'★'.repeat(s.difficulty)}</span>
                 <span className="title">
-                  {s.title}
+                  {s.title} <TaskMarks taskKey={`${mod.id}/${s.id}`} />
                   <span className="desc">{s.summary}</span>
                 </span>
                 {progress.scenarios[`${mod.id}/${s.id}`] && <span className="done-mark">✓ {tr('решено', 'solved')}</span>}

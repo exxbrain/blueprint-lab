@@ -4,10 +4,12 @@ export interface Progress {
   lessons: Record<string, boolean>
   scenarios: Record<string, boolean>
   quizzes: Record<string, number> // лучший результат, 0..1
+  /** Лучшая оценка решения, 1..3 звезды */
+  stars: Record<string, number>
 }
 
 const KEY = 'blueprint-lab-progress'
-const empty: Progress = { lessons: {}, scenarios: {}, quizzes: {} }
+const empty: Progress = { lessons: {}, scenarios: {}, quizzes: {}, stars: {} }
 
 function load(): Progress {
   try {
@@ -43,6 +45,10 @@ export function markLesson(id: string) {
 
 export function markScenario(id: string) {
   if (!state.scenarios[id]) save({ ...state, scenarios: { ...state.scenarios, [id]: true } })
+}
+
+export function recordStars(id: string, stars: number) {
+  if ((state.stars[id] ?? 0) < stars) save({ ...state, stars: { ...state.stars, [id]: stars } })
 }
 
 export function recordQuiz(id: string, score: number) {

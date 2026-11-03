@@ -25,9 +25,10 @@ import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
-import { markScenario, useProgress } from '../progress'
+import { markScenario, recordStars, useProgress } from '../progress'
 import { tr } from '../i18n'
 import { href } from '../router'
+import { TaskGate, TaskLevelTag, TaskMarks } from '../components/Level'
 import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
@@ -49,7 +50,10 @@ export default function BuilderPage({ id }: { id?: string }) {
         <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href('builder')}>{tr('Конструктор', 'Builder')}</a>
         {challenge && <> / {challenge.title}</>}
       </div>
-      <h1>🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder')}</h1>
+      <h1>
+        🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder')}{' '}
+        {challenge && <TaskLevelTag taskKey={`builder/${challenge.id}`} full />}
+      </h1>
       <div className="row tabs">
         <a className={'btn' + (mode === 'sandbox' ? ' primary' : '')} href={href('builder')}>
           {tr('Свободный режим', 'Sandbox')}
@@ -63,12 +67,18 @@ export default function BuilderPage({ id }: { id?: string }) {
             .map((c) => (
               <a key={c.id} className={'btn' + (mode === c.id ? ' primary' : '')} href={href('builder', c.id)}>
                 {progress.scenarios[`builder/${c.id}`] ? '✓ ' : ''}
-                {c.title}
+                {c.title} <TaskMarks taskKey={`builder/${c.id}`} />
               </a>
             ))}
         </div>
       ))}
-      <Builder key={mode} challenge={challenge} />
+      {challenge ? (
+        <TaskGate taskKey={`builder/${challenge.id}`}>
+          <Builder key={mode} challenge={challenge} />
+        </TaskGate>
+      ) : (
+        <Builder key={mode} />
+      )}
     </div>
   )
 }
@@ -103,6 +113,10 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   }, [solved, challenge, viewingRef])
 
   const review = challenge && (showReview || solved) ? reviewBuilder(challenge, nodes, edges, result, estimated) : null
+  const stars = solved && !viewingRef ? review?.stars : undefined
+  useEffect(() => {
+    if (stars && challenge) recordStars(`builder/${challenge.id}`, stars)
+  }, [stars, challenge])
 
   const toggleReference = () => {
     if (!challenge) return

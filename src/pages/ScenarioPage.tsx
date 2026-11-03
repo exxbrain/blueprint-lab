@@ -4,6 +4,7 @@ import type { Module } from '../content/types'
 import { KafkaSimulator } from '../sim/kafka/KafkaSimulator'
 import type { KafkaSim } from '../sim/kafka/engine'
 import { markScenario, useProgress } from '../progress'
+import { TaskGate } from '../components/Level'
 import { href } from '../router'
 import { NotFound } from './NotFound'
 
@@ -57,6 +58,7 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
         🚨 {scenario.title} <span className="small muted">{'★'.repeat(scenario.difficulty)}</span>
         {progress.scenarios[key] && !goal.solved && <span className="badge ok" style={{ marginLeft: 12 }}>{tr('решено ранее', 'solved earlier')}</span>}
       </h1>
+      <TaskGate taskKey={key}>
       <div className="scenario-head">
         <div className="panel lesson">
           {scenario.brief}
@@ -118,6 +120,7 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
           )
         }
       />
+      </TaskGate>
     </div>
   )
 }

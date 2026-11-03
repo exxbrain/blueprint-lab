@@ -51,6 +51,9 @@ export default function App() {
           <span className="logo-text">Blueprint Lab</span>
         </a>
         <nav>
+          <a href="#/" className={'nav-home' + (!first ? ' active' : '')}>
+            🗺️ {tr('Карта', 'Map')}
+          </a>
           <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
             {tr('Конструктор', 'Builder')}
           </a>

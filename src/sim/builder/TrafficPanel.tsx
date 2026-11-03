@@ -1,8 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { tr } from '../../i18n'
 import { KINDS, type BEdge, type BNode, type Result } from './model'
 import { emulateRequest, pickClient, type Span, type Trace } from './emulate'
 import { HOP_MS, type LiveTrace } from './BuilderCanvas'
+
+/**
+ * Новая строка сверху: весь список плавно съезжает вниз на её высоту.
+ * Без прозрачности и без пересоздания строк — поэтому не мерцает.
+ */
+function useSlideIn(ref: RefObject<HTMLDivElement | null>, topKey: string | number | undefined) {
+  const prev = useRef(topKey)
+  useLayoutEffect(() => {
+    if (prev.current === topKey) return
+    const first = prev.current !== undefined
+    prev.current = topKey
+    const el = ref.current
+    const row = el?.firstElementChild as HTMLElement | null
+    if (!first || !el || !row || !el.animate) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const h = row.getBoundingClientRect().height + 2
+    el.animate([{ transform: `translateY(-${h}px)` }, { transform: 'translateY(0)' }], { duration: 280, easing: 'ease-out' })
+  }, [topKey, ref])
+}
 
 /** Сколько запросов держим в журнале */
 const LOG_SIZE = 60
@@ -99,6 +118,8 @@ export function TrafficPanel({
   const byId = Object.fromEntries((nodes ?? []).map((n) => [n.id, n]))
   const name = describe ?? ((id: string) => (byId[id] ? { icon: KINDS[byId[id].kind].icon, label: byId[id].label } : undefined))
   const shown = (pinned !== null && log.find((t) => t.id === pinned)) || log.slice(0, 8).find((t) => t.status === 'error') || log[0]
+  const listRef = useRef<HTMLDivElement>(null)
+  useSlideIn(listRef, log[0]?.id)
   const recent = log.slice(0, 40)
   const errors = recent.filter((t) => t.status === 'error').length
   const p95 = (() => {
@@ -125,6 +146,7 @@ export function TrafficPanel({
       </div>
       <div className="traffic-cols">
         <div className="access-log" role="list">
+          <div ref={listRef} className="log-slide">
           {log.slice(0, 14).map((t) => (
             <button
               key={t.id}
@@ -141,6 +163,7 @@ export function TrafficPanel({
               <span className="dur">{ms(t.totalMs)}</span>
             </button>
           ))}
+          </div>
           {!log.length && <p className="small muted">{tr('Подключите клиента — запросы появятся здесь', 'Connect a client: requests will show up here')}</p>}
         </div>
         {shown && <Waterfall trace={shown} describe={name} onPickNode={onPickNode} />}
@@ -190,22 +213,29 @@ function Waterfall({
 
 /** Последние операции выбранного блока — как его собственный лог */
 export function NodeLog({ nodeId, log }: { nodeId: string; log: Trace[] }) {
+  const listRef = useRef<HTMLDivElement>(null)
   const lines: { t: Trace; s: Span }[] = []
   for (const t of log) {
     for (const s of t.spans) if (s.nodeId === nodeId) lines.push({ t, s })
     if (lines.length >= 10) break
   }
+  const top = lines[0] ? `${lines[0].t.id}-${lines[0].t.spans.indexOf(lines[0].s)}` : undefined
+  useSlideIn(listRef, top)
   return (
     <div className="node-log">
       <div className="pattern-group-title">{tr('Лог блока', 'Block log')}</div>
       {!lines.length && <p className="small muted">{tr('Сюда пока не дошёл ни один запрос', 'No request has reached this block yet')}</p>}
-      {lines.slice(0, 10).map(({ t, s }, i) => (
-        <div key={`${t.id}-${i}`} className={'log-line ' + STATUS_CLASS[s.status]}>
+      <div className="log-window">
+      <div ref={listRef} className="log-slide">
+      {lines.slice(0, 10).map(({ t, s }) => (
+        <div key={`${t.id}-${t.spans.indexOf(s)}`} className={'log-line ' + STATUS_CLASS[s.status]}>
           <span className="wf-ms">{ms(s.ms)}</span> <code>{s.op}</code>{' '}
           {s.status !== 'ok' && <span className={'wf-status ' + STATUS_CLASS[s.status]}>{STATUS_LABEL[s.status]}</span>}
           {s.detail && <div className="wf-detail">{s.detail}</div>}
         </div>
       ))}
+      </div>
+      </div>
     </div>
   )
 }

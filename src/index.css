@@ -2951,3 +2951,7 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .node-popover.tone-idle { border-color: var(--line); }
 .status-face { font-size: 1.8rem; line-height: 1; grid-row: span 2; }
 .bnode-mood { font-size: 16px; }
+.log-window { overflow: hidden; }
+.access-log { overflow-x: hidden; }
+.log-slide { will-change: transform; }
+.access-log > .log-slide { display: flex; flex-direction: column; gap: 2px; }

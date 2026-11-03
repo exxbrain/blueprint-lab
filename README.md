@@ -31,7 +31,11 @@ npm run dev
   Cassandra, `_search` in Elasticsearch, produce to Kafka) and real errors exactly where the model predicts them: 503s and
   timeouts under overload, `too many clients`, 502 from a dead end, an unsuitable storage, Seq Scan, consumer lag. A
   request log, a trace waterfall and a per-block log.
-- **Breaking up the monolith** (`#/monolith`): three levels — online store, food delivery and an online bank,
+- **Breaking up the monolith** (`#/monolith`): each project starts with finding Bounded Contexts (Event Storming stickies,
+  `src/sim/ddd`) and a Context Map, then the missions. Live traffic runs through the current split
+  (`src/sim/monolith/emulate.ts`): in-process calls, REST between services, events via the broker, sagas, replicas, and
+  real failures such as 404 without a facade, SQL into moved tables, lost events without an outbox and cascading timeouts.
+  Three levels — online store, food delivery and an online bank,
   16 missions with a budget, a review of the final architecture and of the decomposition order. Strangler Fig step by
   step: extracting modules, separate databases, sagas, event-carried replicas, outbox, circuit breakers,
   27 microservice patterns, 16 stress tests and detection of unnecessary patterns

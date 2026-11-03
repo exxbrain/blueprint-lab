@@ -4,7 +4,7 @@
  * Запуск: npm run check
  */
 import { PROJECTS } from '../src/sim/monolith/projects'
-import { evaluate, initialState, solutionState, stateCost } from '../src/sim/monolith/model'
+import { computeMetrics, evaluate, initialState, solutionState, stateCost } from '../src/sim/monolith/model'
 import { reviewMission } from '../src/sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order'
 import { builderChallenges, estimateOk } from '../src/sim/builder/challenges'
@@ -17,6 +17,7 @@ import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
 import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
+import { emulateMono } from '../src/sim/monolith/emulate'
 import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
 
 let failed = 0
@@ -308,6 +309,28 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
       console.log(`- ${project?.title}: карта контекстов, ${t.relations.length} связей`)
     }
   }
+}
+
+// живой трафик распила: монолит без изменений работает без ошибок, эталоны миссий — почти без ошибок
+console.log('\nЭмуляция трафика распила')
+for (const p of PROJECTS) {
+  const s0 = initialState(p)
+  const m0 = computeMetrics(p, s0)
+  let err0 = 0
+  for (let i = 0; i < 300; i++) if (emulateMono(p, s0, m0).status === 'error') err0++
+  if (err0) fail(`${p.title}: исходный монолит даёт ошибки (${err0} из 300)`)
+  for (const mission of p.missions) {
+    const s = solutionState(p, mission.solution)
+    const m = computeMetrics(p, s)
+    let err = 0
+    for (let i = 0; i < 400; i++) {
+      const t = emulateMono(p, s, m)
+      if (t.status === 'error') err++
+      if (t.spans.some((x) => !x.op)) fail(`${p.title} / ${mission.title}: спан без операции`)
+    }
+    if (err / 400 > 0.1) fail(`${p.title} / ${mission.title}: эталон даёт ${Math.round((err / 400) * 100)}% ошибок`)
+  }
+  console.log(`- ${p.title}: исходный монолит без ошибок, эталоны миссий стабильны`)
 }
 
 // живой трафик должен показывать то же, что предсказывает модель: доля ошибок в эмуляции ≈ модельной

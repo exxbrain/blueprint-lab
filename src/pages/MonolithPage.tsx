@@ -33,6 +33,10 @@ import { TaskGate, TaskMarks } from '../components/Level'
 import { DddStage } from '../components/DddStage'
 import { DDD_STAGES } from '../sim/ddd/tasks'
 import { tr } from '../i18n'
+import { CLIENT, GATEWAY, KAFKA, MONO_DB, emulateMono } from '../sim/monolith/emulate'
+import { NodeLog, TrafficPanel } from '../sim/builder/TrafficPanel'
+import { HOP_MS, type LiveTrace } from '../sim/builder/BuilderCanvas'
+import type { SpanStatus, Trace } from '../sim/builder/emulate'
 
 const W = 1200
 const BOX_W = 180
@@ -160,6 +164,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const [log, setLog] = useState<LogEntry[]>([])
   const [selected, setSelected] = useState<ModuleId | null>(project.modules[0].id)
   const metrics = useMemo(() => evaluate(project, state, spent, mission.budget), [project, state, spent, mission.budget])
+  const traffic = useMonoTraffic(project, state, metrics)
   const goals = [
     ...mission.goals.map((g) => ({ text: g.text, ok: g.check(metrics) })),
     { text: tr(`Уложиться в бюджет ${mission.budget} млн ₽`, `Stay within the ${mission.budget} M ₽ budget`), ok: spent <= mission.budget },
@@ -454,6 +459,14 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             activeDep={popover?.id ?? null}
             onDepClick={openDep}
             onBackground={() => setPopover(null)}
+            traces={traffic.inFlight}
+          />
+          <TrafficPanel
+            log={traffic.log}
+            describe={(id) => describeNode(project, id)}
+            running={traffic.running}
+            setRunning={traffic.setRunning}
+            onPickNode={(id) => project.modules.some((m) => m.id === id) && setSelected(id)}
           />
           {popover && (
             <DepPopover
@@ -474,6 +487,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </div>
         <aside className="panel props">
           {mod && <ModulePanel project={project} id={mod.id} state={state} apply={apply} />}
+          {mod && <NodeLog nodeId={mod.id} log={traffic.log} />}
         </aside>
       </div>
 
@@ -994,10 +1008,12 @@ function MonolithCanvas({
   activeDep,
   onDepClick,
   onBackground,
+  traces,
 }: {
   project: Project
   state: State
   metrics: Metrics
+  traces?: LiveTrace[]
   selected: ModuleId | null
   onSelect: (id: ModuleId) => void
   activeDep: string | null
@@ -1036,9 +1052,10 @@ function MonolithCanvas({
     // середина квадратичной кривой Безье (t = 0.5)
     const mid = { x: 0.25 * a.x + 0.5 * cx + 0.25 * b.x, y: 0.25 * a.y + 0.5 * cy + 0.25 * b.y }
     const path = `M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}`
+    const geom = { a, c: { x: cx, y: cy }, b }
     // подпись только по наведению или для открытой связи — постоянные подписи закрывают сервисы
     const showChip = hovered === d.id || activeDep === d.id
-    return { d, mode, path, cls, isBroken, mid, showChip }
+    return { d, mode, path, cls, isBroken, mid, showChip, geom }
   })
 
   return (
@@ -1208,6 +1225,30 @@ function MonolithCanvas({
         )
       })}
 
+      {traces && traces.length > 0 && (
+        <MonoTrafficLayer
+          traces={traces}
+          geom={(hopId) => {
+            if (hopId.startsWith('entry:')) {
+              const m = hopId.slice(6)
+              if (!pos[m]) return null
+              const from = state.infra.gateway && anyExtracted ? { x: 340, y: 112 } : { x: 120, y: 64 }
+              const to = center(m)
+              return { a: from, c: { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }, b: to }
+            }
+            if (hopId.startsWith('db:')) {
+              const m = hopId.slice(3)
+              if (!pos[m]) return null
+              const a = center(m)
+              const b = dbCenter(m)
+              return { a, c: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, b }
+            }
+            const e = edges.find((x) => x.d.id === hopId)
+            return e ? e.geom : null
+          }}
+        />
+      )}
+
       {/* подписи связей — поверх модулей */}
       {placeChips(edges.filter((e) => e.showChip)).map(({ d, mode, isBroken, text, x, y, w }) => {
           const tone = isBroken ? 'broken' : mode === null ? 'local' : mode
@@ -1317,6 +1358,112 @@ function Cylinder({ x, y, w, h, label, small }: { x: number; y: number; w: numbe
           🗄️
         </text>
       )}
+    </g>
+  )
+}
+
+// ---------------- живой трафик ----------------
+
+/** Запросы по текущей схеме распила; журнал сбрасывается, когда схема меняется */
+function useMonoTraffic(project: Project, state: State, metrics: Metrics) {
+  const [running, setRunning] = useState(true)
+  const [inFlight, setInFlight] = useState<LiveTrace[]>([])
+  const [log, setLog] = useState<Trace[]>([])
+  const latest = useRef({ project, state, metrics })
+  latest.current = { project, state, metrics }
+  const sig = JSON.stringify(state)
+  useEffect(() => {
+    setLog([])
+    setInFlight([])
+  }, [sig])
+  useEffect(() => {
+    if (!running) return
+    const tick = () => {
+      const { project, state, metrics } = latest.current
+      const t = emulateMono(project, state, metrics)
+      const now = performance.now()
+      const alive = (x: LiveTrace) => now - x.born < (x.hops.length + 3) * HOP_MS + 1500
+      setInFlight((xs) => [...xs.filter(alive), { ...t, born: now }].slice(-10))
+      setLog((xs) => [t, ...xs].slice(0, 60))
+    }
+    tick()
+    const h = setInterval(tick, 900)
+    return () => clearInterval(h)
+  }, [running])
+  return { running, setRunning, inFlight, log }
+}
+
+function describeNode(project: Project, id: string): { icon: string; label: string } | undefined {
+  const m = project.modules.find((x) => x.id === id)
+  if (m) return { icon: m.icon, label: m.title }
+  if (id === MONO_DB) return { icon: '🗄', label: tr('Общая БД', 'Shared DB') }
+  if (id === KAFKA) return { icon: '📜', label: 'Kafka' }
+  if (id === GATEWAY) return { icon: '🚪', label: tr('Strangler-фасад', 'Strangler facade') }
+  if (id === CLIENT) return { icon: '📱', label: tr('Клиенты', 'Clients') }
+  if (id.endsWith('-db')) {
+    const owner = project.modules.find((x) => x.id === id.slice(0, -3))
+    return { icon: '🗄', label: tr(`БД «${owner?.title ?? id}»`, `“${owner?.title ?? id}” DB`) }
+  }
+  return undefined
+}
+
+type Geom = { a: { x: number; y: number }; c: { x: number; y: number }; b: { x: number; y: number } }
+
+const MONO_DOT: Record<SpanStatus, string> = {
+  ok: '#7cc4ff',
+  hit: '#5be49b',
+  miss: '#ffb454',
+  slow: '#ff9f43',
+  error: '#ff6b7a',
+  queued: '#ffd166',
+  async: '#ffd166',
+}
+
+/** Точки бегут по связям в порядке вызовов; ошибки и события подписываются над целью */
+function MonoTrafficLayer({ traces, geom }: { traces: LiveTrace[]; geom: (hopId: string) => Geom | null }) {
+  const [now, setNow] = useState(() => performance.now())
+  useEffect(() => {
+    let raf = 0
+    const tick = () => {
+      setNow(performance.now())
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  const step = HOP_MS * 0.7
+  const dots: React.ReactElement[] = []
+  const marks: React.ReactElement[] = []
+  for (const t of traces) {
+    t.hops.forEach((h, i) => {
+      const g = geom(h.edgeId)
+      if (!g) return
+      const start = t.born + i * step
+      const p = (now - start) / HOP_MS
+      if (p >= 0 && p <= 1) {
+        const u = 1 - p
+        const x = u * u * g.a.x + 2 * u * p * g.c.x + p * p * g.b.x
+        const y = u * u * g.a.y + 2 * u * p * g.c.y + p * p * g.b.y
+        dots.push(<circle key={`${t.id}-${i}`} cx={x} cy={y} r={h.status === 'error' ? 8 : 6} fill={MONO_DOT[h.status]} className="tdot" />)
+      }
+      const age = now - (start + HOP_MS)
+      const text =
+        h.status === 'error' ? (t.httpStatus ? String(t.httpStatus) : 'ERR')
+        : h.status === 'miss' ? 'fallback'
+        : h.status === 'queued' ? tr('событие', 'event')
+        : ''
+      if (text && age >= 0 && age < 1400)
+        marks.push(
+          <text key={`${t.id}-m${i}`} x={g.b.x} y={g.b.y - 34 - age / 50} textAnchor="middle" className={'tmark big ' + h.status} style={{ opacity: 1 - age / 1400 }}>
+            {text}
+          </text>,
+        )
+    })
+  }
+  return (
+    <g className="traffic" pointerEvents="none">
+      {dots}
+      {marks}
     </g>
   )
 }

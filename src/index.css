@@ -2823,3 +2823,4 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   .ddd-picker-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; max-height: 40vh; overflow: auto; }
   .ddd-board { padding-bottom: 120px; }
 }
+.tmark.big { font-size: 16px; }

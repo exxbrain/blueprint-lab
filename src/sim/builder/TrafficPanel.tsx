@@ -82,18 +82,22 @@ function codeOf(t: Trace) {
 export function TrafficPanel({
   log,
   nodes,
+  describe,
   running,
   setRunning,
   onPickNode,
 }: {
   log: Trace[]
-  nodes: BNode[]
+  nodes?: BNode[]
+  /** Подпись узла трассы; по умолчанию — блок конструктора */
+  describe?: (id: string) => { icon: string; label: string } | undefined
   running: boolean
   setRunning: (v: boolean) => void
   onPickNode: (id: string) => void
 }) {
   const [pinned, setPinned] = useState<number | null>(null)
-  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  const byId = Object.fromEntries((nodes ?? []).map((n) => [n.id, n]))
+  const name = describe ?? ((id: string) => (byId[id] ? { icon: KINDS[byId[id].kind].icon, label: byId[id].label } : undefined))
   const shown = (pinned !== null && log.find((t) => t.id === pinned)) || log.slice(0, 8).find((t) => t.status === 'error') || log[0]
   const recent = log.slice(0, 40)
   const errors = recent.filter((t) => t.status === 'error').length
@@ -139,13 +143,21 @@ export function TrafficPanel({
           ))}
           {!log.length && <p className="small muted">{tr('Подключите клиента — запросы появятся здесь', 'Connect a client: requests will show up here')}</p>}
         </div>
-        {shown && <Waterfall trace={shown} byId={byId} onPickNode={onPickNode} />}
+        {shown && <Waterfall trace={shown} describe={name} onPickNode={onPickNode} />}
       </div>
     </div>
   )
 }
 
-function Waterfall({ trace, byId, onPickNode }: { trace: Trace; byId: Record<string, BNode>; onPickNode: (id: string) => void }) {
+function Waterfall({
+  trace,
+  describe,
+  onPickNode,
+}: {
+  trace: Trace
+  describe: (id: string) => { icon: string; label: string } | undefined
+  onPickNode: (id: string) => void
+}) {
   const span = Math.max(1, trace.totalMs, ...trace.spans.map((s) => s.start + s.ms))
   return (
     <div className="waterfall">
@@ -154,12 +166,12 @@ function Waterfall({ trace, byId, onPickNode }: { trace: Trace; byId: Record<str
         <span className="muted small"> · {ms(trace.totalMs)} · trace {trace.id.toString(16).padStart(8, '0')}</span>
       </div>
       {trace.spans.map((s, i) => {
-        const n = byId[s.nodeId]
+        const n = describe(s.nodeId)
         if (!n) return null
         return (
           <div key={i} className={'wf-row ' + STATUS_CLASS[s.status]}>
             <button className="wf-name" style={{ paddingLeft: 4 + (s.depth - 1) * 12 }} onClick={() => onPickNode(s.nodeId)} title={tr('Выделить блок', 'Select block')}>
-              {KINDS[n.kind].icon} {n.label}
+              {n.icon} {n.label}
             </button>
             <div className="wf-track">
               <div className="wf-bar" style={{ left: `${(s.start / span) * 100}%`, width: `${Math.max(0.6, (s.ms / span) * 100)}%` }} />

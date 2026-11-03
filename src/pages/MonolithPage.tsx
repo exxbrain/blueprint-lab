@@ -28,8 +28,9 @@ import { recommendedOrder, replay, reviewOrder, type SprintMark } from '../sim/m
 import { ReviewPanel } from '../components/ReviewPanel'
 import { RefModal } from '../components/RefCard'
 import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/patterns'
-import { markScenario, recordStars, useProgress } from '../progress'
-import { TaskGate, TaskMarks } from '../components/Level'
+import { markScenario, recordStars, useProgress, cappedStars, useHints } from '../progress'
+import { TaskGate, TaskLevelTag } from '../components/Level'
+import { href } from '../router'
 import { DddStage } from '../components/DddStage'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
@@ -67,89 +68,54 @@ interface LogEntry {
   tone: 'ok' | 'warn' | 'bad'
 }
 
-export default function MonolithPage() {
+const stepsOf = (p: Project) => [...(DDD_STAGES[p.id] ?? []).map((t) => t.id), ...p.missions.map((m) => m.id)]
+const stepKey = (p: Project, step: string) => `monolith/${p.id}/${step}`
+
+export default function MonolithPage({ projectId, stepId }: { projectId?: string; stepId?: string }) {
   const progress = useProgress()
-  const [projectId, setProjectId] = useState(PROJECTS[0].id)
-  const project = PROJECTS.find((p) => p.id === projectId)!
+  // без адреса — первая нерешённая задача; выбирается один раз, чтобы после решения страница не перескакивала
+  const [entry] = useState(() => {
+    for (const p of PROJECTS) {
+      const s = stepsOf(p).find((x) => !progress.scenarios[stepKey(p, x)])
+      if (s) return { project: p.id, step: s }
+    }
+    return { project: PROJECTS[0].id, step: stepsOf(PROJECTS[0])[0] }
+  })
+  const project = PROJECTS.find((p) => p.id === projectId) ?? PROJECTS.find((p) => p.id === entry.project)!
+  const steps = stepsOf(project)
+  const step = stepId && steps.includes(stepId) ? stepId : project.id === entry.project ? entry.step : steps[0]
+  const stage = (DDD_STAGES[project.id] ?? []).find((t) => t.id === step)
+  const mission = project.missions.find((m) => m.id === step) ?? project.missions[0]
+  const nextStep = steps[steps.indexOf(step) + 1]
+  const title = stage ? stage.title : mission.title
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/microservices">{tr('Микросервисы', 'Microservices')}</a> /{' '}
-        {tr('Распил монолита', 'Breaking up the monolith')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Распил монолита', 'Breaking up the monolith')} / {project.title}
       </div>
-      <h1>🪓 {tr('Распил монолита', 'Breaking up the monolith')}</h1>
-      <div className="row tabs">
-        {PROJECTS.map((p, i) => (
-          <button
-            key={p.id}
-            className={p.id === projectId ? 'primary' : ''}
-            onClick={() => setProjectId(p.id)}
-            title={p.short}
-          >
-            {tr('Уровень', 'Level')} {i + 1}: {p.title}{' '}
-            <span className="small">
-              {p.missions.filter((m) => progress.scenarios[`monolith/${p.id}/${m.id}`]).length}/{p.missions.length}
-            </span>
-          </button>
-        ))}
-      </div>
-      <Level key={project.id} project={project} />
-    </div>
-  )
-}
-
-function Level({ project }: { project: Project }) {
-  const progress = useProgress()
-  const stages = DDD_STAGES[project.id] ?? []
-  const steps = [...stages.map((t) => `stage:${t.id}`), ...project.missions.map((m) => m.id)]
-  const keyOf = (step: string) => `monolith/${project.id}/${step.replace(/^stage:/, '')}`
-  // открываем первый нерешённый шаг: сначала этапы поиска границ, потом миссии
-  const [sel, setSel] = useState(() => steps.find((s) => !progress.scenarios[keyOf(s)]) ?? steps[0])
-  const stage = sel.startsWith('stage:') ? stages.find((t) => `stage:${t.id}` === sel) : undefined
-  const mission = project.missions.find((m) => m.id === sel) ?? project.missions[0]
-  const nextStep = steps[steps.indexOf(sel) + 1]
-  return (
-    <>
-      {stages.length > 0 && (
-        <div className="row tabs missions">
-          <span className="muted small">{tr('Перед распилом:', 'Before the split:')}</span>
-          {stages.map((t) => (
-            <button key={t.id} className={sel === `stage:${t.id}` ? 'primary' : ''} onClick={() => setSel(`stage:${t.id}`)}>
-              {progress.scenarios[keyOf(t.id)] ? '✓ ' : ''}
-              {t.title} <TaskMarks taskKey={keyOf(t.id)} />
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="row tabs missions">
-        <span className="muted small">{tr('Миссия:', 'Mission:')}</span>
-        {project.missions.map((m) => (
-          <button key={m.id} className={m.id === sel ? 'primary' : ''} onClick={() => setSel(m.id)}>
-            {progress.scenarios[`monolith/${project.id}/${m.id}`] ? '✓ ' : ''}
-            {m.title} <span className="small">· {m.budget} {tr('млн ₽', 'M ₽')}</span> <TaskMarks taskKey={`monolith/${project.id}/${m.id}`} />
-          </button>
-        ))}
-      </div>
+      <h1>
+        🪓 {project.title}: {title} <TaskLevelTag taskKey={stepKey(project, step)} full />
+      </h1>
       {stage ? (
-        <TaskGate taskKey={keyOf(stage.id)}>
+        <TaskGate taskKey={stepKey(project, stage.id)}>
           <DddStage
-            key={stage.id}
+            key={project.id + stage.id}
             task={stage}
-            progressKey={keyOf(stage.id)}
-            onNext={nextStep ? () => setSel(nextStep) : undefined}
+            progressKey={stepKey(project, stage.id)}
+            onNext={nextStep ? () => (window.location.hash = href('monolith', project.id, nextStep)) : undefined}
             nextLabel={
-              nextStep?.startsWith('stage:')
-                ? tr('Дальше: карта контекстов →', 'Next: context map →')
-                : tr('Дальше: распил →', 'Next: the split →')
+              (DDD_STAGES[project.id] ?? []).some((t) => t.id === nextStep)
+                ? tr('Дальше: карта контекстов', 'Next: context map')
+                : tr('Дальше: распил', 'Next: the split')
             }
           />
         </TaskGate>
       ) : (
-        <TaskGate taskKey={`monolith/${project.id}/${mission.id}`}>
-          <MissionView key={mission.id} project={project} mission={mission} />
+        <TaskGate taskKey={stepKey(project, mission.id)}>
+          <MissionView key={project.id + mission.id} project={project} mission={mission} />
         </TaskGate>
       )}
-    </>
+    </div>
   )
 }
 
@@ -183,7 +149,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   }, [solved, viewingRef, project.id, mission.id])
 
   const review = showReview || solved ? reviewMission(project, mission, state, spent) : null
-  const stars = solved && !viewingRef ? review?.stars : undefined
+  const hintState = useHints(`monolith/${project.id}/${mission.id}`)
+  const stars = solved && !viewingRef && review ? cappedStars(review.stars, hintState.used) : undefined
   const result$ = useResultModal(solved, !viewingRef)
   useEffect(() => {
     if (stars) recordStars(`monolith/${project.id}/${mission.id}`, stars)
@@ -210,6 +177,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       setMine(null)
     } else {
       setMine({ state, spent, history, log })
+      hintState.reveal()
       const ref = solutionState(project, mission.solution)
       setState(ref)
       setSpent(stateCost(project, ref))
@@ -343,7 +311,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         open={result$.open}
         onClose={() => result$.setOpen(false)}
         progressKey={`monolith/${project.id}/${mission.id}`}
-        stars={review?.stars ?? 1}
+        stars={stars ?? 1}
         title={tr('Миссия выполнена!', 'Mission complete!')}
       >
         {review && order && (

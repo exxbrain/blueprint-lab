@@ -28,10 +28,10 @@ export default function App() {
   let page
   if (!first) page = <Home />
   else if (first === 'builder') page = <BuilderPage id={second} />
-  else if (first === 'monolith') page = <MonolithPage />
-  else if (first === 'c4' && second === 'exercises') page = <C4Page />
-  else if (first === 'data' && second === 'cap') page = <CapPage />
-  else if (first === 'data' && second === 'es') page = <EsPage />
+  else if (first === 'monolith') page = <MonolithPage projectId={second} stepId={third} />
+  else if (first === 'c4' && second === 'exercises') page = <C4Page id={third} />
+  else if (first === 'data' && second === 'cap') page = <CapPage id={third} />
+  else if (first === 'data' && second === 'es') page = <EsPage id={third} />
   else if (first === 'profile') page = <ProfilePage />
   else if (first === 'kubernetes' && second === 'lab') page = <K8sPage id={third} />
   else if (first === 'reference') page = <ReferencePage focus={second} />

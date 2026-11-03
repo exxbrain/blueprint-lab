@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { TaskGate, TaskMarks } from '../components/Level'
-import { hintStars, markScenario, recordStars, useProgress } from '../progress'
+import { TaskGate, TaskLevelTag } from '../components/Level'
+import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
 import { href } from '../router'
 import { K8S_TASKS, runTask, type K8sConfig, type K8sTask } from '../sim/k8s/tasks'
 import type { Frame, KEvent, Phase, PodView } from '../sim/k8s/engine'
@@ -12,21 +12,17 @@ export const k8sKey = (id: string) => `kubernetes/lab/${id}`
 
 export default function K8sPage({ id }: { id?: string }) {
   const progress = useProgress()
-  const task = K8S_TASKS.find((t) => t.id === id) ?? K8S_TASKS.find((t) => !progress.scenarios[k8sKey(t.id)]) ?? K8S_TASKS[0]
+  // без номера в адресе — первая нерешённая, но выбранная один раз: иначе после решения страница перескакивала бы дальше
+  const [entry] = useState(() => K8S_TASKS.find((t) => !progress.scenarios[k8sKey(t.id)]) ?? K8S_TASKS[0])
+  const task = K8S_TASKS.find((t) => t.id === id) ?? entry
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href('kubernetes')}>Kubernetes</a> / {tr('Лаборатория', 'Lab')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href('kubernetes')}>Kubernetes</a>
       </div>
-      <h1>☸️ {tr('Kubernetes: инциденты', 'Kubernetes: incidents')}</h1>
-      <div className="row tabs">
-        {K8S_TASKS.map((t, i) => (
-          <a key={t.id} className={'btn' + (t.id === task.id ? ' primary' : '')} href={href('kubernetes', 'lab', t.id)}>
-            {progress.scenarios[k8sKey(t.id)] ? '✓ ' : ''}
-            {i + 1}. {t.title} <TaskMarks taskKey={k8sKey(t.id)} />
-          </a>
-        ))}
-      </div>
+      <h1>
+        ☸️ {task.title} <TaskLevelTag taskKey={k8sKey(task.id)} full />
+      </h1>
       <TaskGate taskKey={k8sKey(task.id)}>
         <Lab key={task.id} task={task} />
       </TaskGate>
@@ -47,7 +43,8 @@ const PHASE_CLASS: Record<Phase, string> = {
 function Lab({ task }: { task: K8sTask }) {
   const [cfg, setCfg] = useState<K8sConfig>(task.start)
   const [mine, setMine] = useState<K8sConfig | null>(null)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(k8sKey(task.id))
+  const hints = hintState.used
   const [pos, setPos] = useState(0)
   const [playing, setPlaying] = useState(true)
   const run = useMemo(() => runTask(task, cfg), [task, cfg])
@@ -96,8 +93,8 @@ function Lab({ task }: { task: K8sTask }) {
           )}
           <div className="row">
             {hints < task.hints.length && (
-              <button onClick={() => setHints(hints + 1)}>
-                💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
+              <button onClick={hintState.take}>
+                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -116,6 +113,7 @@ function Lab({ task }: { task: K8sTask }) {
               <button
                 onClick={() => {
                   setMine(cfg)
+                  hintState.reveal()
                   setCfg(task.solution)
                   setPos(0)
                   setPlaying(true)

@@ -65,7 +65,7 @@ const errorsBelow = (limit: number) => ({
 // ---------------- Младший ----------------
 
 const oom: K8sTask = {
-  id: 'oom',
+  id: 'pod-restarts',
   title: tr('Под падает каждые пару минут', 'The pod keeps dying'),
   level: 1,
   brief: [
@@ -120,7 +120,7 @@ const oom: K8sTask = {
 }
 
 const readiness: K8sTask = {
-  id: 'readiness',
+  id: 'deploy-503',
   title: tr('503 на каждом деплое', '503s on every deploy'),
   level: 1,
   brief: [
@@ -162,7 +162,7 @@ const readiness: K8sTask = {
 }
 
 const crashloop: K8sTask = {
-  id: 'crashloop',
+  id: 'release-down',
   title: tr('Выкатили — всё лежит', 'Deployed, and everything is down'),
   level: 1,
   brief: [
@@ -211,7 +211,7 @@ const crashloop: K8sTask = {
 // ---------------- Средний ----------------
 
 const liveness: K8sTask = {
-  id: 'liveness',
+  id: 'hung-pod',
   title: tr('Под завис, но жив', 'The pod hung but is still alive'),
   level: 2,
   brief: [
@@ -267,7 +267,7 @@ const liveness: K8sTask = {
 const hpaRps = (t: number) => (t < 30 ? 300 : t < 90 ? 300 + ((t - 30) / 60) * 1100 : t < 160 ? 1400 : 300)
 
 const hpa: K8sTask = {
-  id: 'hpa',
+  id: 'evening-peak',
   title: tr('Вечерний пик', 'The evening peak'),
   level: 2,
   brief: [
@@ -310,7 +310,7 @@ const hpa: K8sTask = {
 }
 
 const pending: K8sTask = {
-  id: 'pending',
+  id: 'stuck-pods',
   title: tr('Поды висят в Pending', 'Pods stuck in Pending'),
   level: 2,
   brief: [
@@ -374,7 +374,7 @@ const pending: K8sTask = {
 }
 
 const rolling: K8sTask = {
-  id: 'rolling',
+  id: 'zero-downtime',
   title: tr('Релиз без простоя', 'A zero-downtime release'),
   level: 2,
   brief: [
@@ -426,7 +426,7 @@ const rolling: K8sTask = {
 // ---------------- Старший ----------------
 
 const nodeFailure: K8sTask = {
-  id: 'node-failure',
+  id: 'node-died',
   title: tr('Упала нода', 'A node died'),
   level: 3,
   brief: [
@@ -478,7 +478,7 @@ const nodeFailure: K8sTask = {
 }
 
 const drain: K8sTask = {
-  id: 'drain',
+  id: 'cluster-upgrade',
   title: tr('Обновление кластера', 'Cluster upgrade'),
   level: 3,
   brief: [
@@ -521,7 +521,7 @@ const drain: K8sTask = {
 }
 
 const noisy: K8sTask = {
-  id: 'noisy',
+  id: 'night-report',
   title: tr('Шумный сосед', 'A noisy neighbour'),
   level: 3,
   brief: [
@@ -585,7 +585,7 @@ const noisy: K8sTask = {
 // ---------------- Архитектор ----------------
 
 const canary: K8sTask = {
-  id: 'canary',
+  id: 'live-check',
   title: tr('Релиз с проверкой на живых пользователях', 'A release checked on live users'),
   level: 4,
   brief: [
@@ -642,7 +642,7 @@ const zoneNodes: NodeSpec[] = [
 ]
 
 const zones: K8sTask = {
-  id: 'zones',
+  id: 'zone-outage',
   title: tr('Отказ зоны доступности', 'An availability zone outage'),
   level: 4,
   brief: [

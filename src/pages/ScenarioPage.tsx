@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import type { Module } from '../content/types'
 import { KafkaSimulator } from '../sim/kafka/KafkaSimulator'
 import type { KafkaSim } from '../sim/kafka/engine'
-import { hintStars, markScenario, recordStars, useProgress } from '../progress'
+import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
 import { TaskGate } from '../components/Level'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { href } from '../router'
@@ -19,11 +19,13 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
   const progress = useProgress()
   const scenario = mod.scenarios.find((s) => s.id === scenarioId)
   const [goal, setGoal] = useState<GoalState>({ progress: 0, status: '', solved: false })
-  const [hints, setHints] = useState(0)
   const result$ = useResultModal(goal.solved)
   const holdStart = useRef<number | null>(null)
   const simRef = useRef<KafkaSim | null>(null)
   const triggered = useRef(new WeakSet<KafkaSim>())
+  // хуки — до раннего выхода для несуществующего сценария
+  const hintState = useHints(`${mod.id}/${scenarioId}`)
+  const hints = hintState.used
 
   if (!scenario) return <NotFound />
   const key = `${mod.id}/${scenario.id}`
@@ -75,7 +77,7 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
             </ol>
           )}
           {hints < scenario.hints.length && (
-            <button onClick={() => setHints(hints + 1)}>💡 {tr('Подсказка', 'Hint')} ({hints}/{scenario.hints.length})</button>
+            <button onClick={hintState.take}>💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, scenario.hints.length)}/{scenario.hints.length})</button>
           )}
         </div>
         <div className={'panel goal' + (goal.solved ? ' success' : '')}>

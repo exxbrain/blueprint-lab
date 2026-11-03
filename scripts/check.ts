@@ -115,7 +115,7 @@ console.log('\nЛовушки конструктора')
     const [a, b] = drop(n, e, 'k1')
     return [set(set(a, 'es', { instances: 2 }), 'd1', { instances: 4 }), b]
   })
-  trap('olap', 'без ClickHouse, PG×5', (n, e) => {
+  trap('reports-db', 'без ClickHouse, PG×5', (n, e) => {
     const [a, b] = drop(n, e, 'ch')
     return [set(a, 'd1', { instances: 5 }), b]
   })
@@ -134,9 +134,9 @@ console.log('\nЛовушки конструктора')
   ])
   trap('tickets', 'воркеров 20 — перегрев БД', (n, e) => [set(n, 'w1', { instances: 20 }), e])
   trap('tickets', 'воркеров 8 — очередь растёт', (n, e) => [set(n, 'w1', { instances: 8 }), e])
-  trap('tool-clickhouse', 'Elasticsearch вместо ClickHouse', (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind: 'elastic' as const } : x)), e])
-  trap('tool-cassandra', 'MongoDB вместо Cassandra', (n, e) => [n.map((x) => (x.id === 'cs' ? { ...x, kind: 'mongo' as const, instances: 6 } : x)), e])
-  trap('tool-cdn', 'S3 ×3 вместо CDN', (n) => [
+  trap('revenue-dashboard', 'Elasticsearch вместо ClickHouse', (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind: 'elastic' as const } : x)), e])
+  trap('sensor-stream', 'MongoDB вместо Cassandra', (n, e) => [n.map((x) => (x.id === 'cs' ? { ...x, kind: 'mongo' as const, instances: 6 } : x)), e])
+  trap('slow-images', 'S3 ×3 вместо CDN', (n) => [
     n.filter((x) => x.id !== 'cdn').map((x) => (x.id === 's3' ? { ...x, instances: 3 } : x)),
     [{ id: 'e1', from: 'c1', to: 's3' }],
   ])

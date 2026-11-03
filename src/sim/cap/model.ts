@@ -328,7 +328,7 @@ export const CAP_TASKS: CapTask[] = [
     solution: { n: 3, w: 2, r: 2, shortfall: 'sloppy', resolve: 'merge' },
   },
   {
-    id: 'quorum5',
+    id: 'five-nodes',
     title: tr('Пять узлов, два падают', 'Five nodes, two go down'),
     brief: tr(
       [

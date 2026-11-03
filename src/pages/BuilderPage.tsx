@@ -15,7 +15,6 @@ import {
 } from '../sim/builder/model'
 import {
   builderChallenges,
-  CHALLENGE_GROUP_LABEL,
   estimateOk,
   sandboxStart,
   SERVICE_PROFILES,
@@ -26,10 +25,9 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { markScenario, recordStars, useProgress } from '../progress'
+import { markScenario, recordStars, cappedStars, useHints } from '../progress'
 import { tr } from '../i18n'
-import { href } from '../router'
-import { TaskGate, TaskLevelTag, TaskMarks } from '../components/Level'
+import { TaskGate, TaskLevelTag } from '../components/Level'
 import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
@@ -42,37 +40,23 @@ let uid = 100
 const nextId = (p: string) => `${p}${++uid}`
 
 export default function BuilderPage({ id }: { id?: string }) {
-  const progress = useProgress()
   const mode = id && builderChallenges.some((c) => c.id === id) ? id : 'sandbox'
   const challenge = builderChallenges.find((c) => c.id === mode)
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href('builder')}>{tr('Конструктор', 'Builder')}</a>
-        {challenge && <> / {challenge.title}</>}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {challenge ? tr('Конструктор', 'Builder') : tr('Конструктор: свободный режим', 'Builder: sandbox')}
       </div>
       <h1>
         🏗️ {challenge ? challenge.title : tr('Конструктор архитектуры', 'Architecture Builder')}{' '}
         {challenge && <TaskLevelTag taskKey={`builder/${challenge.id}`} full />}
       </h1>
-      <div className="row tabs">
-        <a className={'btn' + (mode === 'sandbox' ? ' primary' : '')} href={href('builder')}>
-          {tr('Свободный режим', 'Sandbox')}
-        </a>
-      </div>
-      {(['Классика', 'Инструменты', 'System Design'] as const).map((group) => (
-        <div key={group} className="row tabs">
-          <span className="muted small tab-group">{CHALLENGE_GROUP_LABEL[group]}:</span>
-          {builderChallenges
-            .filter((c) => c.group === group)
-            .map((c) => (
-              <a key={c.id} className={'btn' + (mode === c.id ? ' primary' : '')} href={href('builder', c.id)}>
-                {progress.scenarios[`builder/${c.id}`] ? '✓ ' : ''}
-                {c.title} <TaskMarks taskKey={`builder/${c.id}`} />
-              </a>
-            ))}
-        </div>
-      ))}
+      {!challenge && (
+        <p className="muted">
+          {tr('Свободный режим: собирайте что угодно. Задачи — на ', 'Sandbox: build anything. Challenges are on the ')}
+          <a href="#/">{tr('карте уровней', 'level map')}</a>.
+        </p>
+      )}
       {challenge ? (
         <TaskGate taskKey={`builder/${challenge.id}`}>
           <Builder key={mode} challenge={challenge} />
@@ -90,7 +74,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const [nodes, setNodes] = useState<BNode[]>(start.nodes)
   const [edges, setEdges] = useState<BEdge[]>(start.edges)
   const [selected, setSelected] = useState<string | null>(null)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(`builder/${challenge?.id ?? 'sandbox'}`)
+  const hints = hintState.used
   const [flash, setFlash] = useState<string | null>(null)
   const [estimated, setEstimated] = useState(!challenge?.estimate)
   const [showReview, setShowReview] = useState(false)
@@ -114,7 +99,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   }, [solved, challenge, viewingRef])
 
   const review = challenge && (showReview || solved) ? reviewBuilder(challenge, nodes, edges, result, estimated) : null
-  const stars = solved && !viewingRef ? review?.stars : undefined
+  // звёзды — оценка решения, но не выше потолка по подсказкам и просмотру эталона
+  const stars = solved && !viewingRef && review ? cappedStars(review.stars, hints) : undefined
   const result$ = useResultModal(solved, !viewingRef)
   useEffect(() => {
     if (stars && challenge) recordStars(`builder/${challenge.id}`, stars)
@@ -128,6 +114,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       setMine(null)
     } else {
       setMine({ nodes, edges })
+      hintState.reveal()
       setNodes(challenge.solution.nodes)
       setEdges(challenge.solution.edges)
       setEstimated(true)
@@ -150,12 +137,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
    * Без координат — справа от выделенного блока с автоматической связью, иначе в свободное место у центра.
    */
   const add = (kind: NodeKind, at?: { x: number; y: number }) => {
-    const sel = nodes.find((x) => x.id === selected)
-    const want = at
-      ? { x: at.x - NODE_W / 2, y: at.y - NODE_H / 2 }
-      : sel
-        ? { x: sel.x + NODE_W + 50, y: sel.y }
-        : { x: 500 - NODE_W / 2, y: 270 - NODE_H / 2 }
+    // перетащили — ставим туда, куда бросили; по клику — на свободное место внизу холста, а не рядом с выделенным:
+    // где блоку место в схеме и с чем его связать, решает игрок
+    const want = at ? { x: at.x - NODE_W / 2, y: at.y - NODE_H / 2 } : { x: 40, y: 540 - NODE_H - 20 }
     const pos = freeSpot(nodes, want.x, want.y)
     const n: BNode = {
       id: nextId('n'),
@@ -168,13 +152,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       ...(kind === 'cdn' ? { hitRatio: challenge?.hitRatio.cdn ?? 0.9 } : {}),
       ...(kind === 'service' ? { capacity: 300, latency: 20 } : {}),
     }
-    const nextNodes = [...nodes, n]
-    setNodes(nextNodes)
-    // клик по палитре при выделенном блоке — сразу провести связь от него
-    if (!at && sel && !isStorage(sel.kind) && kind !== 'client') {
-      setEdges([...edges, { id: nextId('e'), from: sel.id, to: n.id }])
-    }
-    setSelected(n.id)
+    setNodes([...nodes, n])
+    setSelected(null)
   }
 
   const connect = (from: string, to: string) => {
@@ -253,8 +232,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               </ol>
             )}
             {hints < challenge.hints.length && (
-              <button onClick={() => setHints(hints + 1)}>
-                💡 {tr('Подсказка', 'Hint')} ({hints}/{challenge.hints.length})
+              <button onClick={hintState.take}>
+                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, challenge.hints.length)}/{challenge.hints.length})
               </button>
             )}
           </div>
@@ -301,7 +280,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />
       )}
       {challenge && (
-        <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={review?.stars ?? 1}>
+        <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={stars ?? 1}>
           {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment')} />}
           <div className="lesson">
             <h3>{tr('Разбор задачи', 'Debrief')}</h3>
@@ -347,8 +326,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           ))}
           <p className="small muted">
             {tr(
-              'Перетащите компонент на холст или кликните: если выделен блок, новый встанет справа и сразу соединится с ним. Связь вручную — тяните за кружок справа от блока. Del — удалить выделенное.',
-              'Drag a component onto the canvas or click it: if a block is selected, the new one is placed to its right and connected to it. To connect manually, drag from the circle on the right of a block. Del deletes the selection.',
+              'Перетащите компонент на холст или кликните — он появится внизу холста. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
+              'Drag a component onto the canvas or click it, and it appears at the bottom of the canvas. To connect, drag from the circle on the right of a block. Del deletes the selection.',
             )}
           </p>
         </aside>

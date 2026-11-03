@@ -42,17 +42,17 @@ export interface Task {
 
 const BUILDER_LEVEL: Record<string, TaskLevel> = {
   sale: 1,
-  'tool-redis': 1,
-  'tool-cdn': 1,
-  'tool-s3': 1,
-  'tool-kafka': 1,
+  'slow-home': 1,
+  'slow-images': 1,
+  'doc-scans': 1,
+  'signup-email': 1,
   payments: 2,
   'catalog-search': 2,
-  olap: 2,
+  'reports-db': 2,
   profiles: 2,
-  'tool-cassandra': 2,
-  'tool-elastic': 2,
-  'tool-clickhouse': 2,
+  'sensor-stream': 2,
+  'classifieds': 2,
+  'revenue-dashboard': 2,
   shortener: 2,
   tickets: 3,
   feed: 3,
@@ -81,7 +81,7 @@ export const TASKS: Task[] = [
       area: tr('Распил монолита', 'Monolith'),
       // поиск границ — на ступень проще миссий проекта, карта контекстов — на уровне проекта
       level: clamp((PROJECT_LEVEL[p.id] ?? 3) - (i === 0 ? 1 : 0)),
-      href: href('monolith'),
+      href: href('monolith', p.id, t.id),
     })),
   ),
   ...PROJECTS.flatMap((p) =>
@@ -90,7 +90,7 @@ export const TASKS: Task[] = [
       title: `${p.title}: ${m.title}`,
       area: tr('Распил монолита', 'Monolith'),
       level: clamp((PROJECT_LEVEL[p.id] ?? 3) - (i === 0 ? 1 : 0)),
-      href: href('monolith'),
+      href: href('monolith', p.id, m.id),
     })),
   ),
   ...modules.flatMap((mod) =>
@@ -114,21 +114,21 @@ export const TASKS: Task[] = [
     title: ex.title,
     area: 'C4',
     level: clamp(i + 1),
-    href: href('c4', 'exercises'),
+    href: href('c4', 'exercises', ex.id),
   })),
   ...CAP_TASKS.map((t, i) => ({
     key: `data/cap/${t.id}`,
     title: t.title,
     area: 'CAP',
     level: clamp(i === 0 ? 1 : i < 2 ? 2 : 3),
-    href: href('data', 'cap'),
+    href: href('data', 'cap', t.id),
   })),
   ...ES_TASKS.map((t, i) => ({
     key: `data/es/${t.id}`,
     title: t.title,
     area: 'Event Sourcing',
     level: clamp(i === 0 ? 1 : i < 2 ? 2 : 3),
-    href: href('data', 'es'),
+    href: href('data', 'es', t.id),
   })),
 ]
 

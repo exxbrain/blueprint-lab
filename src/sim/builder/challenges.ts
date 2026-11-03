@@ -293,7 +293,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'olap',
+    id: 'reports-db',
     title: tr('Отчёты убивают базу заказов', 'Reports Are Killing the Orders DB'),
     group: 'Классика',
     brief: tr(
@@ -524,7 +524,7 @@ export const builderChallenges: BuilderChallenge[] = [
 
   // ---------------- Инструменты: по одной задаче на инструмент ----------------
   {
-    id: 'tool-redis',
+    id: 'slow-home',
     title: tr('Главная страница тормозит', 'The home page is slow'),
     group: 'Инструменты',
     tool: 'cache',
@@ -594,7 +594,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-cdn',
+    id: 'slow-images',
     title: tr('Картинки грузятся медленно', 'Images load slowly'),
     group: 'Инструменты',
     tool: 'cdn',
@@ -655,7 +655,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-kafka',
+    id: 'signup-email',
     title: tr('Регистрация ждёт письма', 'Sign-up waits for an email'),
     group: 'Инструменты',
     tool: 'queue',
@@ -728,7 +728,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-cassandra',
+    id: 'sensor-stream',
     title: tr('Поток показаний датчиков', 'A stream of sensor readings'),
     group: 'Инструменты',
     tool: 'cassandra',
@@ -794,7 +794,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-elastic',
+    id: 'classifieds',
     title: tr('Поиск по объявлениям', 'Classifieds search'),
     group: 'Инструменты',
     tool: 'elastic',
@@ -870,7 +870,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-clickhouse',
+    id: 'revenue-dashboard',
     title: tr('Дашборд выручки', 'Revenue dashboard'),
     group: 'Инструменты',
     tool: 'clickhouse',
@@ -949,7 +949,7 @@ export const builderChallenges: BuilderChallenge[] = [
     },
   },
   {
-    id: 'tool-s3',
+    id: 'doc-scans',
     title: tr('Сканы документов в базе', 'Document scans in the database'),
     group: 'Инструменты',
     tool: 's3',

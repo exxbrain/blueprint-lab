@@ -3,7 +3,7 @@ import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
-import { markScenario, recordStars } from '../progress'
+import { markScenario, recordStars, cappedStars, useHints } from '../progress'
 import {
   CARD_KIND,
   MAP_PATTERNS,
@@ -34,7 +34,7 @@ export function DddStage({ task, progressKey, onNext, nextLabel }: { task: DddTa
 let gid = 0
 const newGroup = (n: number) => ({ id: `u${++gid}`, name: tr(`Контекст ${n}`, `Context ${n}`) })
 
-function Hints({ hints, used, setUsed }: { hints: string[]; used: number; setUsed: (n: number) => void }) {
+function Hints({ hints, used, take }: { hints: string[]; used: number; take: () => void }) {
   return (
     <>
       {used > 0 && (
@@ -45,8 +45,8 @@ function Hints({ hints, used, setUsed }: { hints: string[]; used: number; setUse
         </ol>
       )}
       {used < hints.length && (
-        <button onClick={() => setUsed(used + 1)}>
-          💡 {tr('Подсказка', 'Hint')} ({used}/{hints.length})
+        <button onClick={take}>
+          💡 {tr('Подсказка', 'Hint')} ({Math.min(used, hints.length)}/{hints.length})
         </button>
       )}
     </>
@@ -77,20 +77,21 @@ function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; 
 function PartitionView({ task, progressKey, onNext, nextLabel }: { task: PartitionTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
   const [state, setState] = useState<PartitionState>(() => ({ groups: [newGroup(1), newGroup(2)], place: {} }))
   const [picked, setPicked] = useState<string | null>(null)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(progressKey)
+  const hints = hintState.used
   const [checked, setChecked] = useState(false)
   const [mine, setMine] = useState<PartitionState | null>(null)
   const viewingRef = mine !== null
-  const review = checked ? reviewPartition(task, state, hints) : null
+  const review = checked ? reviewPartition(task, state, Math.min(hints, task.hints.length)) : null
   const solved = checked && partitionSolved(task, state)
   const result$ = useResultModal(solved, !viewingRef)
 
   useEffect(() => {
     if (solved && !viewingRef && review) {
       markScenario(progressKey)
-      recordStars(progressKey, review.stars)
+      recordStars(progressKey, cappedStars(review.stars, hints))
     }
-  }, [solved, viewingRef, review, progressKey])
+  }, [solved, viewingRef, review, progressKey, hints])
 
   const update = (next: PartitionState) => {
     setState(next)
@@ -120,6 +121,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
       setMine(null)
     } else {
       setMine(state)
+      hintState.reveal()
       setState(referenceState(task))
     }
     setChecked(false)
@@ -152,7 +154,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
       <div className="scenario-head">
         <div className="panel lesson">
           <Rich paras={task.brief} />
-          <Hints hints={task.hints} used={hints} setUsed={setHints} />
+          <Hints hints={task.hints} used={hints} take={hintState.take} />
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
           <h4>{solved ? tr('✅ Границы найдены!', '✅ Boundaries found!') : tr('🎯 Цели', '🎯 Goals')}</h4>
@@ -196,7 +198,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
         open={result$.open}
         onClose={() => result$.setOpen(false)}
         progressKey={progressKey}
-        stars={review?.stars ?? 1}
+        stars={review ? cappedStars(review.stars, hints) : 1}
         title={tr('Границы найдены!', 'Boundaries found!')}
         next={onNext ? { label: nextLabel ?? tr('Дальше', 'Next'), onClick: onNext } : undefined}
       >
@@ -295,12 +297,13 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
   const [answers, setAnswers] = useState<Record<string, MapPattern | undefined>>({})
   const [checked, setChecked] = useState(false)
   const [wrongChecks, setWrongChecks] = useState(0)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(progressKey)
+  const hints = hintState.used
   const [showRef, setShowRef] = useState(false)
   const sc = scoreMap(task, answers)
   const allAnswered = task.relations.every((r) => answers[r.id])
   const solved = checked && sc.correct === sc.total && !showRef
-  const stars = mapStars(wrongChecks, hints)
+  const stars = cappedStars(mapStars(wrongChecks, 0), hints)
   const result$ = useResultModal(solved)
   const ctx = (id: string) => task.contexts.find((c) => c.id === id)
 
@@ -321,7 +324,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
       <div className="scenario-head">
         <div className="panel lesson">
           <Rich paras={task.brief} />
-          <Hints hints={task.hints} used={hints} setUsed={setHints} />
+          <Hints hints={task.hints} used={hints} take={hintState.take} />
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>
           <h4>{solved ? tr('✅ Карта готова!', '✅ Map complete!') : tr('🎯 Цели', '🎯 Goals')}</h4>
@@ -361,7 +364,12 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
             ✔ {tr('Проверить', 'Check')}
           </button>
         )}
-        <button onClick={() => setShowRef(!showRef)}>
+        <button
+          onClick={() => {
+            if (!showRef) hintState.reveal()
+            setShowRef(!showRef)
+          }}
+        >
           {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers') : '👁 ' + tr('Показать ответы', 'Show answers')}
         </button>
       </div>

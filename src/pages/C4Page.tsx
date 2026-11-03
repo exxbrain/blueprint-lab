@@ -16,30 +16,25 @@ import {
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { ReviewPanel } from '../components/ReviewPanel'
-import { markScenario, recordStars, useProgress } from '../progress'
-import { TaskGate, TaskMarks } from '../components/Level'
+import { markScenario, recordStars, useProgress, cappedStars, useHints } from '../progress'
+import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
 let uid = 1000
 
-export default function C4Page() {
+export default function C4Page({ id }: { id?: string }) {
   const progress = useProgress()
-  const [exId, setExId] = useState(C4_EXERCISES[0].id)
-  const ex = C4_EXERCISES.find((x) => x.id === exId)!
+  // без адреса — первое нерешённое упражнение, выбранное один раз
+  const [entry] = useState(() => C4_EXERCISES.find((x) => !progress.scenarios[`c4/${x.id}`]) ?? C4_EXERCISES[0])
+  const ex = C4_EXERCISES.find((x) => x.id === id) ?? entry
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/c4">C4 Model</a> / {tr('Упражнения', 'Exercises')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / C4 / {LEVEL_INFO[ex.level].title}
       </div>
-      <h1>{tr('🗺️ Упражнения по C4', '🗺️ C4 exercises')}</h1>
-      <div className="row tabs">
-        {C4_EXERCISES.map((x, i) => (
-          <button key={x.id} className={x.id === exId ? 'primary' : ''} onClick={() => setExId(x.id)}>
-            {progress.scenarios[`c4/${x.id}`] ? '✓ ' : ''}
-            {i + 1}. {x.title} <span className="small">· {LEVEL_INFO[x.level].title}</span> <TaskMarks taskKey={`c4/${x.id}`} />
-          </button>
-        ))}
-      </div>
+      <h1>
+        🗺️ {ex.title} <TaskLevelTag taskKey={`c4/${ex.id}`} full />
+      </h1>
       <TaskGate taskKey={`c4/${ex.id}`}>
         <Exercise key={ex.id} ex={ex} />
       </TaskGate>
@@ -63,7 +58,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const [d, setD] = useState<DiagramState>(initial)
   const [selected, setSelected] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(`c4/${ex.id}`)
+  const hints = hintState.used
   const [mine, setMine] = useState<DiagramState | null>(null)
   const viewingRef = mine !== null
   const review = reviewDiagram(ex, d)
@@ -73,9 +69,9 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   useEffect(() => {
     if (review.solved && !viewingRef) {
       markScenario(`c4/${ex.id}`)
-      recordStars(`c4/${ex.id}`, review.stars)
+      recordStars(`c4/${ex.id}`, cappedStars(review.stars, hints))
     }
-  }, [review.solved, review.stars, viewingRef, ex.id])
+  }, [review.solved, review.stars, viewingRef, ex.id, hints])
 
   const unplaced = ex.cards.filter((c) => !d.placed.some((p) => p.card === c.id))
   const selEl = d.placed.find((p) => p.card === selected)
@@ -112,6 +108,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
       setMine(null)
     } else {
       setMine(d)
+      hintState.reveal()
       setD(structuredClone(ex.solution))
     }
     setSelected(null)
@@ -131,8 +128,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           )}
           <div className="row">
             {hints < ex.hints.length && (
-              <button onClick={() => setHints(hints + 1)}>
-                💡 {tr('Подсказка', 'Hint')} ({hints}/{ex.hints.length})
+              <button onClick={hintState.take}>
+                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, ex.hints.length)}/{ex.hints.length})
               </button>
             )}
             {review.solved && !viewingRef ? (
@@ -186,7 +183,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           </button>
         </div>
       )}
-      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`c4/${ex.id}`} stars={review.stars}>
+      <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`c4/${ex.id}`} stars={cappedStars(review.stars, hints)}>
         <ReviewPanel review={review} title={tr('Проверка диаграммы', 'Diagram check')} />
         <div className="lesson">
           <h3>{tr('Разбор', 'Debrief')}</h3>

@@ -2,28 +2,23 @@ import { useEffect, useState } from 'react'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { hintStars, markScenario, recordStars, useProgress } from '../progress'
-import { TaskGate, TaskMarks } from '../components/Level'
+import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
+import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
-export default function EsPage() {
+export default function EsPage({ id }: { id?: string }) {
   const progress = useProgress()
-  const [id, setId] = useState(ES_TASKS[0].id)
-  const task = ES_TASKS.find((t) => t.id === id)!
+  // без адреса — первая нерешённая задача, выбранная один раз
+  const [entry] = useState(() => ES_TASKS.find((t) => !progress.scenarios[`data/es/${t.id}`]) ?? ES_TASKS[0])
+  const task = ES_TASKS.find((t) => t.id === id) ?? entry
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/data">{tr('Распределённые данные', 'Distributed data')}</a> / Event Sourcing
+        <a href="#/">{tr('Карта', 'Map')}</a> / Event Sourcing
       </div>
-      <h1>📚 Event Sourcing</h1>
-      <div className="row tabs">
-        {ES_TASKS.map((t, i) => (
-          <button key={t.id} className={t.id === id ? 'primary' : ''} onClick={() => setId(t.id)}>
-            {progress.scenarios[`data/es/${t.id}`] ? '✓ ' : ''}
-            {i + 1}. {t.title} <TaskMarks taskKey={`data/es/${t.id}`} />
-          </button>
-        ))}
-      </div>
+      <h1>
+        📚 {task.title} <TaskLevelTag taskKey={`data/es/${task.id}`} full />
+      </h1>
       <TaskGate taskKey={`data/es/${task.id}`}>
         <EsLab key={task.id} task={task} />
       </TaskGate>
@@ -42,7 +37,8 @@ const MARK_LABEL: Record<string, string> = {
 
 function EsLab({ task }: { task: EsTask }) {
   const [cfg, setCfg] = useState<EsConfig>(task.start)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(`data/es/${task.id}`)
+  const hints = hintState.used
   const [mine, setMine] = useState<EsConfig | null>(null)
   const run = task.run(cfg)
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
@@ -70,8 +66,8 @@ function EsLab({ task }: { task: EsTask }) {
           )}
           <div className="row">
             {hints < task.hints.length && (
-              <button onClick={() => setHints(hints + 1)}>
-                💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
+              <button onClick={hintState.take}>
+                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -88,6 +84,7 @@ function EsLab({ task }: { task: EsTask }) {
               <button
                 onClick={() => {
                   setMine(cfg)
+                  hintState.reveal()
                   setCfg(task.solution)
                 }}
               >

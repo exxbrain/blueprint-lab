@@ -51,7 +51,7 @@ const rub = (n: number) => `${n.toLocaleString(locale)} ₽`
 // ---------------- 1. Ошибочное списание ----------------
 
 const reversal: EsTask = {
-  id: 'reversal',
+  id: 'double-charge',
   title: tr('Ошибочное списание', 'Erroneous withdrawal'),
   brief: tr(
     [
@@ -175,7 +175,7 @@ const DEPOSITS = [
 const DEPLOY_DAY = 20
 
 const rebuild: EsTask = {
-  id: 'rebuild',
+  id: 'new-report',
   title: tr('Новый отчёт задним числом', 'A new report, retroactively'),
   brief: tr(
     [
@@ -277,7 +277,7 @@ const PER_EVENT_MS = 0.01
 const SNAPSHOT_LOAD_MS = 2
 
 const snapshots: EsTask = {
-  id: 'snapshots',
+  id: 'slow-account',
   title: tr('Медленная загрузка счёта', 'Slow account loading'),
   brief: tr(
     [
@@ -363,7 +363,7 @@ const snapshots: EsTask = {
 // ---------------- 4. Версии событий ----------------
 
 const versioning: EsTask = {
-  id: 'versioning',
+  id: 'event-version',
   title: tr('Новая версия события', 'A new event version'),
   brief: tr(
     [
@@ -471,7 +471,7 @@ const versioning: EsTask = {
 // ---------------- 5. Параллельные команды ----------------
 
 const concurrency: EsTask = {
-  id: 'concurrency',
+  id: 'two-withdrawals',
   title: tr('Два списания одновременно', 'Two withdrawals at once'),
   brief: tr(
     [

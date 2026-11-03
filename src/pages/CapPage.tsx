@@ -2,28 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { hintStars, markScenario, recordStars, useProgress } from '../progress'
-import { TaskGate, TaskMarks } from '../components/Level'
+import { hintStars, markScenario, recordStars, useProgress, useHints } from '../progress'
+import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 
-export default function CapPage() {
+export default function CapPage({ id }: { id?: string }) {
   const progress = useProgress()
-  const [id, setId] = useState(CAP_TASKS[0].id)
-  const task = CAP_TASKS.find((t) => t.id === id)!
+  // без адреса — первая нерешённая задача, выбранная один раз
+  const [entry] = useState(() => CAP_TASKS.find((t) => !progress.scenarios[`data/cap/${t.id}`]) ?? CAP_TASKS[0])
+  const task = CAP_TASKS.find((t) => t.id === id) ?? entry
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href="#/data">{tr('Распределённые данные', 'Distributed data')}</a> / {tr('CAP и кворумы', 'CAP and quorums')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('CAP и кворумы', 'CAP and quorums')}
       </div>
-      <h1>⚖️ {tr('CAP и кворумы', 'CAP and quorums')}</h1>
-      <div className="row tabs">
-        {CAP_TASKS.map((t, i) => (
-          <button key={t.id} className={t.id === id ? 'primary' : ''} onClick={() => setId(t.id)}>
-            {progress.scenarios[`data/cap/${t.id}`] ? '✓ ' : ''}
-            {i + 1}. {t.title} <TaskMarks taskKey={`data/cap/${t.id}`} />
-          </button>
-        ))}
-      </div>
+      <h1>
+        ⚖️ {task.title} <TaskLevelTag taskKey={`data/cap/${task.id}`} full />
+      </h1>
       <TaskGate taskKey={`data/cap/${task.id}`}>
         <CapLab key={task.id} task={task} />
       </TaskGate>
@@ -44,7 +39,8 @@ function CapLab({ task }: { task: CapTask }) {
   const [cfg, setCfg] = useState<CapConfig>(task.start)
   const [pos, setPos] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [hints, setHints] = useState(0)
+  const hintState = useHints(`data/cap/${task.id}`)
+  const hints = hintState.used
   const [mine, setMine] = useState<CapConfig | null>(null)
   const run = useMemo(() => runCap(cfg, task.steps), [cfg, task.steps])
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
@@ -96,8 +92,8 @@ function CapLab({ task }: { task: CapTask }) {
           )}
           <div className="row">
             {hints < task.hints.length && (
-              <button onClick={() => setHints(hints + 1)}>
-                💡 {tr('Подсказка', 'Hint')} ({hints}/{task.hints.length})
+              <button onClick={hintState.take}>
+                💡 {tr('Подсказка', 'Hint')} ({Math.min(hints, task.hints.length)}/{task.hints.length})
               </button>
             )}
             {mine ? (
@@ -115,6 +111,7 @@ function CapLab({ task }: { task: CapTask }) {
               <button
                 onClick={() => {
                   setMine(cfg)
+                  hintState.reveal()
                   setCfg(task.solution)
                   setPos(0)
                 }}

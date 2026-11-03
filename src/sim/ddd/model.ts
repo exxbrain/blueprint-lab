@@ -158,30 +158,36 @@ export function partitionSolved(t: PartitionTask, s: PartitionState): boolean {
 }
 
 /** Какому контексту эталона соответствует группа игрока: тому, чьих карточек в ней больше всего */
+const STOP = new Set(['and', 'the', 'for', 'для', 'про', 'под', 'над', 'без', 'при', 'или'])
+
 /** Основы слов названия: «Корзины покупателя» → корзи, покуп. Хватает, чтобы узнать контекст в имени группы */
 function stems(name: string): string[] {
   return name
     .toLowerCase()
     .replace(/ё/g, 'е')
     .split(/[^a-zа-я0-9]+/)
-    .filter((w) => w.length >= 3 && w !== 'and')
+    .filter((w) => w.length >= 3 && !STOP.has(w))
     .map((w) => w.slice(0, 5))
 }
 
 /**
- * Контекст, который игрок сам назвал в имени группы. Только если он однозначен и подкреплён стикерами:
- * его стикеров в группе — больше трети. «Письма о заказах» с одним стикером заказа — это не группа «Заказы».
+ * Контекст, который игрок сам назвал в имени группы. Только если название группы целиком из слов названия контекста
+ * («Корзина», «Рестораны» для «Рестораны и меню») и это подкреплено стикерами — их больше трети группы.
+ * Лишнее слово («Письма о заказах», «Курьеры для заказов») — не узнаём: о группе говорит большинство стикеров.
  */
 function namedContext(t: PartitionTask, name: string, counts: Record<string, number>): string | undefined {
-  const mine = new Set(stems(name))
-  if (!mine.size) return
+  const mine = stems(name)
+  if (!mine.length) return
+  const fits = t.contexts.filter((c) => {
+    const words = new Set(stems(c.name))
+    return words.size > 0 && mine.every((w) => words.has(w))
+  })
+  // «Оплата» подходит и к «Оплата», и к «Оплата услуг» — тогда берём точное совпадение
+  const exact = fits.filter((c) => stems(c.name).every((w) => mine.includes(w)))
+  const hit = fits.length === 1 ? fits[0] : exact.length === 1 ? exact[0] : undefined
+  if (!hit) return
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
-  // название упоминает контекст: все его слова — или хотя бы одно; упомянуто несколько — неоднозначно
-  for (const fits of [(c: DddContext) => stems(c.name).every((w) => mine.has(w)), (c: DddContext) => stems(c.name).some((w) => mine.has(w))]) {
-    const hits = t.contexts.filter((c) => stems(c.name).length && fits(c))
-    if (hits.length > 1) return
-    if (hits.length === 1) return (counts[hits[0].id] ?? 0) * 3 > total ? hits[0].id : undefined
-  }
+  return (counts[hit.id] ?? 0) * 3 > total ? hit.id : undefined
 }
 
 /**

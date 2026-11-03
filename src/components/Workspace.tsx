@@ -237,7 +237,7 @@ export function usePanZoom(w: number, h: number, { interactive }: { interactive?
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [el])
 
-  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pointers = useRef(new Map<number, { x: number; y: number; touch?: boolean }>())
   const gesture = useRef<{ t: T; mid: { x: number; y: number }; dist: number; ids: number[] } | null>(null)
   const start = (ids: number[]) => {
     const p = ids.map((id) => pointers.current.get(id)!)
@@ -255,7 +255,7 @@ export function usePanZoom(w: number, h: number, { interactive }: { interactive?
   const handlers = {
     onPointerDownCapture: (e: RPointerEvent<HTMLDivElement>) => {
       if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return
-      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' })
       const ids = [...pointers.current.keys()]
       if (ids.length >= 2) {
         // второй палец: это масштаб и сдвиг, у элементов поля его забираем
@@ -271,8 +271,9 @@ export function usePanZoom(w: number, h: number, { interactive }: { interactive?
       }
     },
     onPointerMoveCapture: (e: RPointerEvent<HTMLDivElement>) => {
-      if (!pointers.current.has(e.pointerId)) return
-      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const was = pointers.current.get(e.pointerId)
+      if (!was) return
+      pointers.current.set(e.pointerId, { ...was, x: e.clientX, y: e.clientY })
       const g = gesture.current
       if (!g || !g.ids.includes(e.pointerId)) return
       // пока идёт жест, элементы поля движения не получают
@@ -300,7 +301,12 @@ export function usePanZoom(w: number, h: number, { interactive }: { interactive?
       pointers.current.delete(e.pointerId)
       gesture.current = null
     },
-    onContextMenu: () => {
+    onContextMenu: (e: React.MouseEvent) => {
+      // долгое касание пальцем — не меню: жест продолжается
+      if ([...pointers.current.values()].some((p) => p.touch)) {
+        e.preventDefault()
+        return
+      }
       pointers.current.clear()
       gesture.current = null
     },

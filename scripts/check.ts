@@ -415,6 +415,21 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
         if (wrong.length !== 1 || wrong[0] !== stray.id)
           fail(`${projectId}/${t.id}: группа «О: ${guest.name}» с одним стикером «${guest.name}» узнана по названию: не на месте ${wrong.length}`)
       }
+      // лишнее слово в названии («Курьеры для заказов»): чужих стикеров даже больше трети, но группа — не их контекст
+      {
+        const big = [...t.contexts].sort((x, y) => t.cards.filter((c) => c.ctx === y.id).length - t.cards.filter((c) => c.ctx === x.id).length)
+        const host = big[0]
+        const guest = big.find((c) => c.id !== host.id && t.cards.filter((x) => x.ctx === c.id).length >= 2)
+        if (guest && t.cards.filter((c) => c.ctx === host.id).length >= 3) {
+          const st = referenceState(t)
+          const moved = t.cards.filter((c) => c.ctx === guest.id).slice(0, 2)
+          for (const c of moved) st.place[c.id] = `g-${host.id}`
+          st.groups = st.groups.map((g) => (g.id === `g-${host.id}` ? { ...g, name: `Прочее ${guest.name}` } : g))
+          const wrong = misplacedCards(t, st).map((c) => c.id).sort()
+          if (wrong.join() !== moved.map((c) => c.id).sort().join())
+            fail(`${projectId}/${t.id}: группа «Прочее ${guest.name}» узнана по названию: не на месте ${wrong.length}`)
+        }
+      }
       console.log(`- ${project?.title}: ${t.cards.length} карточек, ${t.contexts.length} контекстов`)
     } else {
       const ids = new Set(t.contexts.map((c) => c.id))

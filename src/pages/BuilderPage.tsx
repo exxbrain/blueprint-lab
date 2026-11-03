@@ -916,7 +916,8 @@ function StatusBadge({ tone, label, detail, face }: Status) {
     <div className={'status-badge ' + tone}>
       {face ? <span className="status-face">{face}</span> : <span className="status-dot" />}
       <b>{label}</b>
-      {detail && <span className="small">{detail}</span>}
+      {/* место под пояснение есть всегда: иначе плашка меняет высоту и ползунки под ней прыгают */}
+      <span className="small">{detail}</span>
     </div>
   )
 }
@@ -947,8 +948,11 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
   return (
     <div className="scaling">
       <label>
-        {unitLabel[spec.unit]}: {node.instances}
-        {spec.unit === 'replicas' && node.instances > 1 && <span className="muted"> (1 + {node.instances - 1})</span>}
+        {unitLabel[spec.unit]}:{' '}
+        <span className={'range-num' + (spec.unit === 'replicas' ? ' wide' : '')}>
+          {node.instances}
+          {spec.unit === 'replicas' && node.instances > 1 && <span className="muted"> (1 + {node.instances - 1})</span>}
+        </span>
         <input type="range" min={1} max={spec.maxInstances} value={node.instances} onChange={(e) => patch({ instances: +e.target.value })} />
       </label>
       <div className="small muted">{unitHint[spec.unit]}</div>
@@ -967,7 +971,7 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
       {spec.maxShards && (
         <>
           <label>
-            {tr('шардов', 'shards')}: {shards}
+            {tr('шардов', 'shards')}: <span className="range-num">{shards}</span>
             <input type="range" min={1} max={spec.maxShards} value={shards} onChange={(e) => patch({ shards: +e.target.value })} />
           </label>
           <div className="small muted">

@@ -2938,7 +2938,10 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   border: 1px solid currentColor;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
-.status-badge .small { grid-column: 2; color: var(--text); opacity: 0.85; }
+.status-badge .small { grid-column: 2; color: var(--text); opacity: 0.85; min-height: 2lh; }
+/* число у ползунка постоянной ширины — подпись не переносится по-разному при перетаскивании */
+.range-num { display: inline-block; min-width: 2ch; font-variant-numeric: tabular-nums; }
+.range-num.wide { min-width: 9ch; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .status-badge.ok { color: var(--ok); }
 .status-badge.warn { color: var(--warn); }

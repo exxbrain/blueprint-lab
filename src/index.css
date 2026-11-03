@@ -2955,3 +2955,13 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .access-log { overflow-x: hidden; }
 .log-slide { will-change: transform; }
 .access-log > .log-slide { display: flex; flex-direction: column; gap: 2px; }
+/* постоянная высота живого трафика: содержимое меняется, а страница под ним не прыгает */
+.access-log { height: 330px; max-height: none; }
+.waterfall { height: 330px; max-height: none; }
+.log-window { height: 230px; }
+.node-popover .node-log { max-height: none; overflow: visible; }
+.hub-log { height: 140px; min-height: 0; overflow: hidden; }
+@media (max-width: 900px) {
+  .access-log { height: 240px; }
+  .waterfall { height: 300px; }
+}

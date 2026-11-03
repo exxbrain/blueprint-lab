@@ -166,7 +166,11 @@ export function TrafficPanel({
           </div>
           {!log.length && <p className="small muted">{tr('Подключите клиента — запросы появятся здесь', 'Connect a client: requests will show up here')}</p>}
         </div>
-        {shown && <Waterfall trace={shown} describe={name} onPickNode={onPickNode} />}
+        {shown ? (
+          <Waterfall trace={shown} describe={name} onPickNode={onPickNode} />
+        ) : (
+          <div className="waterfall small muted">{tr('Здесь появится путь запроса по блокам', 'The request path through the blocks will appear here')}</div>
+        )}
       </div>
     </div>
   )

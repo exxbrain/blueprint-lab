@@ -1,5 +1,5 @@
 # Cloudflare Pages: заголовки для всех страниц.
-# Сайт закрыт паролем (functions/_middleware.js) и не должен попадать в поисковики.
+# Сайт закрыт паролем (worker/index.js) и не должен попадать в поисковики.
 /*
   X-Robots-Tag: noindex, nofollow
   X-Content-Type-Options: nosniff

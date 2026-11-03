@@ -21,8 +21,8 @@ import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
-// функция Cloudflare Pages (вход по логину и паролю)
-import { onRequest as basicAuth } from '../functions/_middleware.js'
+// Worker перед сайтом на Cloudflare: вход по логину и паролю
+import worker, { guard } from '../worker/index.js'
 
 let failed = 0
 const fail = (msg: string) => {
@@ -461,13 +461,13 @@ for (const ch of builderChallenges) {
 console.log('- доля успешных запросов совпадает с моделью во всех задачах')
 
 // проверки выше пишут ошибки в failed; итог — только после всех, иначе ошибка не остановит сборку
-// вход по логину и паролю на Cloudflare Pages (functions/_middleware.js)
+// вход по логину и паролю на Cloudflare Workers (worker/index.js)
 console.log('\nВход по логину и паролю')
 {
   const env = { AUTH_USER: 'Guest ', AUTH_PASSWORD: 'пароль: с двоеточием' }
   const asset = () => new Response('<html>', { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } })
   const call = (auth: string | null, e: Record<string, string> = env) =>
-    basicAuth({ request: new Request('https://x.pages.dev/', { headers: auth ? { Authorization: auth } : {} }), env: e, next: async () => asset() }) as Promise<Response>
+    guard(new Request('https://x.workers.dev/', { headers: auth ? { Authorization: auth } : {} }), e, async () => asset()) as Promise<Response>
   const basic = (user: string, pass: string) => 'Basic ' + Buffer.from(`${user}:${pass}`, 'utf8').toString('base64')
   const none = await call(null)
   if (none.status !== 401 || !none.headers.get('WWW-Authenticate')?.startsWith('Basic')) fail(`без входа: ${none.status}`)
@@ -480,6 +480,12 @@ console.log('\nВход по логину и паролю')
   if (!/^private\b/.test(ok.headers.get('Cache-Control') ?? '')) fail(`за паролем кэш не private: ${ok.headers.get('Cache-Control')}`)
   if ((await call(basic('', ''), { AUTH_USER: '', AUTH_PASSWORD: '' })).status !== 503) fail('без настроек сайт не закрыт')
   if ((await call(basic('team', 'guest:x'), { AUTH_USER: 'team:guest', AUTH_PASSWORD: 'x' })).status !== 503) fail('логин с двоеточием не отвергнут как ошибка настройки')
+  // сам Worker: без входа файлы сборки не отдаются, с входом — отдаются из привязки ASSETS
+  const served: string[] = []
+  const assets = { fetch: async (r: Request) => (served.push(new URL(r.url).pathname), asset()) }
+  const req = (auth?: string) => new Request('https://x.workers.dev/assets/index.js', { headers: auth ? { Authorization: auth } : {} })
+  if ((await worker.fetch(req(), { ...env, ASSETS: assets })).status !== 401 || served.length) fail('Worker отдал файл сборки без входа')
+  if ((await worker.fetch(req(basic('guest', env.AUTH_PASSWORD)), { ...env, ASSETS: assets })).status !== 200 || served[0] !== '/assets/index.js') fail('Worker не отдал файл после входа')
   console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
 }
 

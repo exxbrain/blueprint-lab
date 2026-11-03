@@ -1,16 +1,23 @@
 /**
- * Вход по логину и паролю (HTTP Basic Auth) для Cloudflare Pages.
+ * Вход по логину и паролю (HTTP Basic Auth) перед сайтом на Cloudflare Workers.
  *
- * Функция стоит перед каждым запросом к сайту — страницами, файлами сборки и превью-адресами.
- * Логин и пароль задаются в настройках проекта Pages, в репозитории их нет:
+ * Worker запускается раньше статических файлов (assets.run_worker_first в wrangler.jsonc) — на каждый запрос:
+ * страницы, файлы сборки, всё. Без этой настройки Cloudflare отдал бы файлы мимо Worker'а, то есть без пароля.
+ * Логин и пароль — секреты Worker'а, в репозитории их нет:
  *   AUTH_USER     — логин без двоеточия (регистр не важен: телефоны любят делать первую букву заглавной);
- *   AUTH_PASSWORD — пароль (тип Secret).
- * Если переменные не заданы, сайт закрыт для всех: лучше не открыть, чем открыть случайно.
+ *   AUTH_PASSWORD — пароль.
+ * Если секреты не заданы, сайт закрыт для всех: лучше не открыть, чем открыть случайно.
  */
+
+export default {
+  fetch(request, env) {
+    return guard(request, env, () => env.ASSETS.fetch(request))
+  },
+}
 
 const REALM = 'Blueprint Lab'
 
-/** Заголовки из public/_headers: на ответы, прошедшие через функцию, Cloudflare их может не применить */
+/** Заголовки из public/_headers ставятся и здесь: ответы проходят через Worker */
 const HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow',
   'X-Content-Type-Options': 'nosniff',
@@ -18,11 +25,12 @@ const HEADERS = {
   'X-Frame-Options': 'DENY',
 }
 
-export async function onRequest({ request, env, next }) {
+/** Проверка входа; next() — отдать то, что просили (файлы сборки) */
+export async function guard(request, env, next) {
   const user = (env.AUTH_USER ?? '').trim().toLowerCase()
   const password = env.AUTH_PASSWORD ?? ''
   if (!user || !password)
-    return text(503, 'Вход не настроен: задайте AUTH_USER и AUTH_PASSWORD в настройках проекта Cloudflare Pages.')
+    return text(503, 'Вход не настроен: задайте секреты AUTH_USER и AUTH_PASSWORD в настройках Worker’а.')
   // браузер разделяет логин и пароль первым двоеточием — такой логин не совпал бы никогда
   if (user.includes(':')) return text(503, 'Вход не настроен: в логине AUTH_USER не должно быть двоеточия.')
 

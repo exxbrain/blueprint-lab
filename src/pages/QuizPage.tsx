@@ -24,7 +24,7 @@ export function QuizPage({ mod }: { mod: Module }) {
     return (
       <div className="page narrow">
         <div className="crumbs">
-          <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
+          <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
         </div>
         <div className={'panel' + (ratio >= 0.8 ? ' success' : '')} style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ fontSize: '3rem' }}>{ratio >= 0.8 ? '🏆' : ratio >= 0.5 ? '👍' : '📚'}</div>
@@ -50,7 +50,7 @@ export function QuizPage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Квиз', 'Quiz')}
       </div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="muted">

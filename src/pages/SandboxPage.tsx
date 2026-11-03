@@ -6,7 +6,7 @@ export function SandboxPage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href('kafka')}>Apache Kafka</a> / {tr('Песочница', 'Sandbox')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href('kafka')}>Apache Kafka</a> / {tr('Песочница', 'Sandbox')}
       </div>
       <h1>🧰 {tr('Песочница Kafka', 'Kafka sandbox')}</h1>
       <p className="muted">

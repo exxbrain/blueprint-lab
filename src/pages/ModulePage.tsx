@@ -12,7 +12,7 @@ export function ModulePage({ mod }: { mod: Module }) {
   return (
     <div className="page narrow">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / {mod.title}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {mod.title}
       </div>
       <h1>
         {mod.icon} {mod.title}

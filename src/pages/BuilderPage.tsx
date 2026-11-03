@@ -170,6 +170,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     }
     setNodes([...nodes, n])
     setSelected(null)
+    setRevealId(n.id)
   }
 
   const connect = (from: string, to: string) => {
@@ -219,6 +220,13 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [addOpen, setAddOpen] = useState(false)
+  /** Только что добавленный блок: холст покажет и подсветит его */
+  const [revealId, setRevealId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!revealId) return
+    const t = setTimeout(() => setRevealId(null), 2500)
+    return () => clearTimeout(t)
+  }, [revealId])
   const [dragging, setDragging] = useState(false)
   const closePopover = useCallback(() => setSelected(null), [])
   const addRef = useRef<HTMLDivElement>(null)
@@ -466,6 +474,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             }}
             traces={traffic.inFlight}
             onDragging={setDragging}
+            reveal={revealId}
           />
           {(selNode || selEdge) && !dragging && (
             <ElementPopover
@@ -834,7 +843,7 @@ function ElementPopover({
   usePopoverReflow()
   const ref = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
-  useCloseOnOutside(ref, onClose, '.bnode, .bedge, .access-row, .wf-name')
+  useCloseOnOutside(ref, onClose, '.bnode, .bedge, .access-row, .wf-name, .canvas-zoom')
   const sheet = useBottomSheet(ref, body, onClose)
   const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
   let style: React.CSSProperties = { left: 8, top: 72, bottom: 8 }

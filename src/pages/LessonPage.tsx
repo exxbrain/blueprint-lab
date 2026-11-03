@@ -16,7 +16,7 @@ export function LessonPage({ mod, lessonId }: { mod: Module; lessonId: string })
   return (
     <div className="page" style={{ maxWidth: 1300 }}>
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Урок', 'Lesson')} {idx + 1}
+        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Урок', 'Lesson')} {idx + 1}
       </div>
       <h1>{lesson.title}</h1>
       <p className="muted">

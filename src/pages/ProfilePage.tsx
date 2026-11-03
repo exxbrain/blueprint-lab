@@ -11,7 +11,7 @@ export default function ProfilePage() {
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / {tr('Мой уровень', 'My level')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Мой уровень', 'My level')}
       </div>
 
       <section className="panel level-card">

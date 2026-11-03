@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { href, useRoute } from './router'
 import { findModule } from './content/modules'
 import { lang, setLang, tr } from './i18n'
@@ -23,6 +23,10 @@ const K8sPage = lazy(() => import('./pages/K8sPage'))
 export default function App() {
   const route = useRoute()
   const [first, second, third] = route
+  // строка меню прокручивается вбок, если не помещается: активный пункт всегда в видимой части
+  useEffect(() => {
+    document.querySelector('.topbar nav a.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+  }, [first])
   const mod = findModule(first)
 
   let page
@@ -46,33 +50,33 @@ export default function App() {
   return (
     <>
       <header className="topbar">
-        <a className="logo" href="#/">
+        <a className="logo" href="#/" aria-label={tr('Blueprint Lab — на карту', 'Blueprint Lab: to the map')}>
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
           <span className="logo-text">Blueprint Lab</span>
         </a>
         <nav>
-          <a href="#/" className={'nav-home' + (!first ? ' active' : '')}>
-            🗺️ {tr('Карта', 'Map')}
+          <a href="#/" className={'nav-home' + (!first ? ' active' : '')} aria-current={!first ? 'page' : undefined}>
+            <span aria-hidden>🗺️</span> {tr('Карта', 'Map')}
           </a>
-          <a href={href('builder')} className={first === 'builder' ? 'active' : ''}>
+          <a href={href('builder')} className={first === 'builder' ? 'active' : ''} aria-current={first === 'builder' ? 'page' : undefined}>
             {tr('Конструктор', 'Builder')}
           </a>
-          <a href={href('kafka')} className={first === 'kafka' ? 'active' : ''}>
+          <a href={href('kafka')} className={first === 'kafka' ? 'active' : ''} aria-current={first === 'kafka' ? 'page' : undefined}>
             Kafka
           </a>
-          <a href={href('kubernetes')} className={first === 'kubernetes' ? 'active' : ''}>
+          <a href={href('kubernetes')} className={first === 'kubernetes' ? 'active' : ''} aria-current={first === 'kubernetes' ? 'page' : undefined}>
             Kubernetes
           </a>
-          <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''}>
+          <a href={href('microservices')} className={first === 'microservices' || first === 'monolith' ? 'active' : ''} aria-current={first === 'microservices' || first === 'monolith' ? 'page' : undefined}>
             {tr('Микросервисы', 'Microservices')}
           </a>
-          <a href={href('data')} className={first === 'data' ? 'active' : ''}>
+          <a href={href('data')} className={first === 'data' ? 'active' : ''} aria-current={first === 'data' ? 'page' : undefined}>
             {tr('Данные', 'Data')}
           </a>
-          <a href={href('c4')} className={first === 'c4' ? 'active' : ''}>
+          <a href={href('c4')} className={first === 'c4' ? 'active' : ''} aria-current={first === 'c4' ? 'page' : undefined}>
             C4
           </a>
-          <a href={href('reference')} className={first === 'reference' ? 'active' : ''}>
+          <a href={href('reference')} className={first === 'reference' ? 'active' : ''} aria-current={first === 'reference' ? 'page' : undefined}>
             {tr('Справочник', 'Reference')}
           </a>
         </nav>

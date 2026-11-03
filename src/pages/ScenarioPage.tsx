@@ -59,7 +59,7 @@ export function ScenarioPage({ mod, scenarioId }: { mod: Module; scenarioId: str
   return (
     <div className="page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Инцидент', 'Incident')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / <a href={href(mod.id)}>{mod.title}</a> / {tr('Инцидент', 'Incident')}
       </div>
       <h1>
         🚨 {scenario.title} <span className="small muted">{'★'.repeat(scenario.difficulty)}</span>

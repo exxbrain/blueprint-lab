@@ -55,7 +55,7 @@ export default function ReferencePage({ focus }: { focus?: string }) {
   return (
     <div className="page narrow ref-page">
       <div className="crumbs">
-        <a href="#/">{tr('Главная', 'Home')}</a> / {tr('Справочник', 'Reference')}
+        <a href="#/">{tr('Карта', 'Map')}</a> / {tr('Справочник', 'Reference')}
       </div>
       <h1>📖 {tr('Справочник', 'Reference')}</h1>
       <p className="muted">

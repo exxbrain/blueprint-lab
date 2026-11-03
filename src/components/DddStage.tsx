@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from './Rich'
+import { HintDock } from './HintDock'
+import { usePhone } from './popover'
+import { Workspace } from './Workspace'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -79,6 +82,9 @@ function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; 
 function PartitionView({ task, progressKey, onNext, nextLabel }: { task: PartitionTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
   const [state, setState] = useState<PartitionState>(() => ({ groups: [newGroup(1), newGroup(2)], place: {} }))
   const [picked, setPicked] = useState<string | null>(null)
+  const phone = usePhone()
+  // условие при входе — модальным окном (на телефоне)
+  const [panelOpen, setPanelOpen] = useState(true)
   const hintState = useHints(progressKey)
   const hints = hintState.used
   const [checked, setChecked] = useState(false)
@@ -143,8 +149,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
     },
   })
 
-  return (
-    <div className="ddd">
+  const headEl = <>
       <div className="scenario-head">
         <div className="panel lesson">
           <Rich paras={task.brief} />
@@ -165,7 +170,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           </div>
         </div>
       </div>
-
+    </>
+  const refEl = <>
       {viewingRef && (
         <div className="ref-banner">
           {tr('👁 Вы смотрите эталонное разбиение — в зачёт оно не идёт.', '👁 You are viewing the reference split; it does not count toward completion.')}
@@ -174,7 +180,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           </button>
         </div>
       )}
-
+    </>
+  const actionsEl = <>
       <div className="row review-actions">
         {solved && !viewingRef ? (
           <ResultButton solved onClick={() => result$.setOpen(true)} />
@@ -186,8 +193,11 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
         {!viewingRef && <button onClick={toggleRef} title={referenceNote()}>👁 {tr('Показать эталон', 'Show reference')}</button>}
         {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back')}</span>}
       </div>
-
+    </>
+  const reviewEl = <>
       {review && !(solved && !viewingRef) && <ReviewPanel review={review} title={tr('Оценка разбиения', 'Split assessment')} />}
+    </>
+  const resultEl = <>
       <ResultModal
         open={result$.open}
         onClose={() => result$.setOpen(false)}
@@ -202,7 +212,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
-
+    </>
+  const pickerEl = <>
       {picked && (
         <div className="ddd-picker" role="dialog" aria-label={tr('Куда положить стикер', 'Where to put the sticky')}>
           <div className="small">
@@ -222,27 +233,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           </div>
         </div>
       )}
-
-      <div className="ddd-board">
-        <div className={'panel ddd-pool' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)} {...dropProps(null)}>
-          <h4>
-            {tr('Стикеры', 'Stickies')} <span className="small muted">{pool.length}</span>
-          </h4>
-          <div className="ddd-legend small">
-            {(Object.keys(CARD_KIND) as (keyof typeof CARD_KIND)[]).map((k) => (
-              <span key={k} className={`ddd-dot kind-${k}`} title={CARD_KIND[k].hint}>
-                {CARD_KIND[k].title}
-              </span>
-            ))}
-          </div>
-          <div className="ddd-cards">
-            {pool.map((c) => (
-              <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
-            ))}
-            {!pool.length && <p className="small muted">{tr('Все стикеры разложены', 'All stickies placed')}</p>}
-          </div>
-        </div>
-
+    </>
+  const groupsEl = <>
         <div className="ddd-groups">
           {state.groups.map((g) => {
             const cards = task.cards.filter((c) => state.place[c.id] === g.id)
@@ -282,6 +274,100 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
             ＋ {picked ? tr('Новый контекст с этим стикером', 'New context with this sticky') : tr('Новый контекст', 'New context')}
           </button>
         </div>
+    </>
+
+  // телефон: рабочий экран — группы на весь экран, стикеры лентой внизу, условие модальным окном
+  if (phone)
+    return (
+      <>
+        <Workspace
+          title={task.title}
+          scroll
+          panelOpen={panelOpen}
+          setPanelOpen={setPanelOpen}
+          panel={
+            <>
+              {headEl}
+              {actionsEl}
+              {reviewEl}
+            </>
+          }
+          metrics={<span>{tr(`разложено ${task.cards.length - pool.length}/${task.cards.length}`, `placed ${task.cards.length - pool.length}/${task.cards.length}`)}</span>}
+          right={
+            <>
+              <HintDock hints={task.hints} used={hints} take={hintState.take} compact />
+              {solved && !viewingRef ? (
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                  ★
+                </button>
+              ) : (
+                <button
+                  className="primary ws-check"
+                  disabled={pool.length > 0 || viewingRef}
+                  onClick={() => {
+                    setChecked(true)
+                    // не решено — сразу показать оценку; решено — откроется окно результата
+                    if (!partitionSolved(task, state)) setPanelOpen(true)
+                  }}
+                >
+                  ✔ {tr('Проверить', 'Check')}
+                </button>
+              )}
+            </>
+          }
+          bottom={
+            <div className={'ddd-tray' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)}>
+              <span className="ddd-tray-count">
+                {tr('Стикеры', 'Stickies')} {pool.length}
+              </span>
+              {pool.map((c) => (
+                <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
+              ))}
+              {!pool.length && <span className="small muted">{tr('Все разложены — проверьте', 'All placed: check now')}</span>}
+            </div>
+          }
+        >
+          {refEl}
+          {checked && review && !(solved && !viewingRef) && (
+            <button className="ws-review-chip" onClick={() => setPanelOpen(true)}>
+              📋 {tr('Оценка готова — открыть', 'Assessment ready: open')}
+            </button>
+          )}
+          {groupsEl}
+          {pickerEl}
+        </Workspace>
+        {resultEl}
+      </>
+    )
+
+  return (
+    <div className="ddd">
+      {headEl}
+      {refEl}
+      {actionsEl}
+      {reviewEl}
+      {resultEl}
+      {pickerEl}
+      <div className="ddd-board">
+        <div className={'panel ddd-pool' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)} {...dropProps(null)}>
+          <h4>
+            {tr('Стикеры', 'Stickies')} <span className="small muted">{pool.length}</span>
+          </h4>
+          <div className="ddd-legend small">
+            {(Object.keys(CARD_KIND) as (keyof typeof CARD_KIND)[]).map((k) => (
+              <span key={k} className={`ddd-dot kind-${k}`} title={CARD_KIND[k].hint}>
+                {CARD_KIND[k].title}
+              </span>
+            ))}
+          </div>
+          <div className="ddd-cards">
+            {pool.map((c) => (
+              <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
+            ))}
+            {!pool.length && <p className="small muted">{tr('Все стикеры разложены', 'All stickies placed')}</p>}
+          </div>
+        </div>
+        {groupsEl}
       </div>
     </div>
   )
@@ -294,6 +380,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
   const hintState = useHints(progressKey)
   const hints = hintState.used
   const [showRef, setShowRef] = useState(false)
+  const phone = usePhone()
+  const [panelOpen, setPanelOpen] = useState(true)
   const sc = scoreMap(task, answers)
   const allAnswered = task.relations.every((r) => answers[r.id])
   const solved = checked && sc.correct === sc.total && !showRef
@@ -313,8 +401,7 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
     if (scoreMap(task, answers).correct < task.relations.length) setWrongChecks((n) => n + 1)
   }
 
-  return (
-    <div className="ddd">
+  const headEl = <>
       <div className="scenario-head">
         <div className="panel lesson">
           <Rich paras={task.brief} />
@@ -338,7 +425,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           {solved && <div className="review-stars small">{[1, 2, 3].map((i) => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</div>}
         </div>
       </div>
-
+    </>
+  const patternsEl = <>
       <details className="panel ddd-patterns">
         <summary>{tr('Паттерны Context Map', 'Context Map patterns')}</summary>
         <ul className="small">
@@ -349,7 +437,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           ))}
         </ul>
       </details>
-
+    </>
+  const actionsEl = <>
       <div className="row review-actions">
         {solved ? (
           <ResultButton solved onClick={() => result$.setOpen(true)} />
@@ -368,7 +457,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers') : '👁 ' + tr('Показать ответы', 'Show answers')}
         </button>
       </div>
-
+    </>
+  const resultEl = <>
       <ResultModal
         open={result$.open}
         onClose={() => result$.setOpen(false)}
@@ -382,7 +472,8 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           <Rich paras={task.debrief} />
         </div>
       </ResultModal>
-
+    </>
+  const relationsEl = <>
       <div className="ddd-relations">
         {task.relations.map((r, i) => {
           const a = showRef ? r.answer : answers[r.id]
@@ -421,6 +512,58 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
           )
         })}
       </div>
+    </>
+
+  // телефон: рабочий экран — связи на весь экран, условие и паттерны модальным окном
+  if (phone)
+    return (
+      <>
+        <Workspace
+          title={task.title}
+          scroll
+          panelOpen={panelOpen}
+          setPanelOpen={setPanelOpen}
+          panel={
+            <>
+              {headEl}
+              {patternsEl}
+              {actionsEl}
+            </>
+          }
+          metrics={<span>{tr(`выбрано ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`, `chosen ${Object.values(answers).filter(Boolean).length}/${task.relations.length}`)}</span>}
+          right={
+            <>
+              <HintDock hints={task.hints} used={hints} take={hintState.take} compact />
+              {solved ? (
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                  ★
+                </button>
+              ) : (
+                <button className="primary ws-check" disabled={!allAnswered || showRef} onClick={check}>
+                  ✔ {tr('Проверить', 'Check')}
+                </button>
+              )}
+            </>
+          }
+        >
+          {checked && !solved && (
+            <div className="panel small bad-text ws-note">
+              {tr(`Верно ${sc.correct} из ${sc.total} — ошибки отмечены ниже`, `${sc.correct} of ${sc.total} correct; mistakes are marked below`)}
+            </div>
+          )}
+          {relationsEl}
+        </Workspace>
+        {resultEl}
+      </>
+    )
+
+  return (
+    <div className="ddd">
+      {headEl}
+      {patternsEl}
+      {actionsEl}
+      {resultEl}
+      {relationsEl}
     </div>
   )
 }

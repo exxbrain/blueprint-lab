@@ -3079,7 +3079,8 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .module-popover { width: 330px; padding-top: 10px; }
 .popover-x { position: absolute; top: 8px; right: 8px; }
 /* палитра свёрнута в кнопку «Добавить компонент» */
-.builder-grid { grid-template-columns: minmax(0, 1fr); }
+/* конструктор — одна колонка (палитра свёрнута в кнопку); у C4 палитра и свойства остаются колонками */
+.builder-grid:not(.c4-grid) { grid-template-columns: minmax(0, 1fr); }
 .add-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .add-btn { font-weight: 700; }
 .add-menu {
@@ -3258,6 +3259,8 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 /* холст на компьютере держит пропорции 1000×540 сам, что бы ни показывала видимая часть */
 .builder-canvas { aspect-ratio: 1000 / 540; }
 .hub-demo .builder-canvas { aspect-ratio: auto; }
+/* у диаграммы C4 свой размер холста — пропорции берутся из него */
+.c4-canvas { aspect-ratio: auto; }
 /* границы холста: за них блоки не уходят */
 .canvas-frame { fill: none; stroke: rgba(124, 196, 255, 0.2); stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; pointer-events: none; }
 .ws-pill { display: flex; align-items: center; gap: 4px; }
@@ -3265,6 +3268,8 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 
 body.ws-mode { overflow: hidden; }
 body.ws-mode .topbar { display: none; }
+/* анимация появления страницы сдвигает её: «фиксированный» рабочий экран считался бы от страницы, а не от экрана */
+body.ws-mode .page { animation: none; }
 /* схема — на весь экран */
 .ws .builder-wrap {
   position: fixed;
@@ -3387,7 +3392,8 @@ body.ws-mode .topbar { display: none; }
 .ws .ws-panel,
 .ws .ws-traffic { display: none; }
 .ws .ws-panel.open,
-.ws .ws-traffic.open {
+.ws .ws-traffic.open,
+.ws .ws-sheet.open {
   display: block;
   position: fixed;
   left: 0;
@@ -3417,4 +3423,79 @@ body.ws-mode .topbar { display: none; }
 }
 .ws .ws-start { display: block; width: 100%; margin-top: 12px; }
 .ws .scenario-head { grid-template-columns: minmax(0, 1fr); }
+
+/* общий рабочий экран (распил, контексты, C4): поле на весь экран, панели плавают поверх */
+.ws.wsx { position: fixed; inset: 0; z-index: 30; background: var(--bg); }
+.wsx-field { position: absolute; inset: 0; overflow: hidden; }
+.wsx-field.scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: calc(100px + env(safe-area-inset-top)) 10px calc(96px + env(safe-area-inset-bottom));
+}
+.wsx-top {
+  position: absolute;
+  z-index: 3;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.ws .ws-sheet { display: none; }
+.ws-zoom { position: relative; }
+.ws .ws-tool-icon { position: relative; }
+.ws-badge {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.6rem;
+  line-height: 16px;
+}
+/* поле со схемой: масштаб и сдвиг пальцами */
+.pz { position: absolute; inset: 0; overflow: hidden; touch-action: none; background:
+    linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0 / 20px 20px; }
+.pz-inner { position: absolute; left: 0; top: 0; }
+.ws .ws-check { height: 36px; padding: 0 12px; white-space: nowrap; }
+/* контексты: стикеры — лентой внизу, выбор группы — над ней */
+.ddd-tray { display: flex; align-items: center; gap: 6px; min-height: 54px; }
+.ddd-tray.target { outline: 2px dashed var(--accent); outline-offset: 2px; border-radius: 12px; }
+.ddd-tray-count { flex: none; padding: 0 6px; font-size: 0.7rem; color: var(--muted); }
+.ws .ws-tools .ddd-card { flex: none; max-width: 150px; margin: 0; font-size: 0.75rem; white-space: normal; text-align: left; }
+.ws .ddd-picker {
+  position: fixed;
+  z-index: 5;
+  left: 8px;
+  right: 8px;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  margin: 0;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+}
+.ws .ddd-groups { grid-template-columns: minmax(0, 1fr); }
+.ws-review-chip { display: block; width: 100%; margin-bottom: 10px; }
+/* распил: окно связи на телефоне — шторкой снизу */
+.ws-dep .dep-popover {
+  position: fixed;
+  z-index: 41;
+  left: 0 !important;
+  right: 0;
+  top: auto !important;
+  bottom: 0;
+  width: auto;
+  max-height: 75dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0;
+  animation: sheet-in 0.22s ease-out;
+}
+.ws .ref-banner { position: absolute; z-index: 3; left: 8px; right: 8px; top: calc(92px + env(safe-area-inset-top)); margin: 0; }
+.ws-note { margin-bottom: 10px; }
 

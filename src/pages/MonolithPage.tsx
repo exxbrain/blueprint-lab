@@ -32,7 +32,8 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
-import { sideColumn, usePopoverReflow } from '../components/popover'
+import { sideColumn, usePhone, usePopoverReflow } from '../components/popover'
+import { PanZoomField, Sheet, Tool, Workspace, ZoomMenu, usePanZoom } from '../components/Workspace'
 import { PopoverDialog } from '../components/PopoverDialog'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
@@ -218,6 +219,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const mod = project.modules.find((m) => m.id === selected)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [popover, setPopover] = useState<{ id: string; x: number; y: number } | null>(null)
+  const phone = usePhone()
+  // условие при входе — модальным окном (на телефоне); паттерны, проблемы и трафик — шторками
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [sheet, setSheet] = useState<'patterns' | 'problems' | 'traffic' | null>(null)
+  const pz = usePanZoom(W, layout(project.modules.length).H)
   const openDep = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const r = wrapRef.current!.getBoundingClientRect()
@@ -233,8 +239,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  return (
-    <>
+  const headEl = <>
       <div className="scenario-head">
         <div className="panel lesson">
           {project.intro.map((para) => (
@@ -282,8 +287,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </ul>
         </div>
       </div>
-
-
+    </>
+  const refEl = <>
       {viewingRef && (
         <div className="ref-banner">
           {tr(
@@ -299,6 +304,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </button>
         </div>
       )}
+    </>
+  const actionsEl = <>
       <div className="row review-actions">
         {solved && !viewingRef ? (
           <ResultButton solved onClick={() => result$.setOpen(true)} />
@@ -309,6 +316,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         )}
         {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
       </div>
+    </>
+  const resultReviewEl = <>
       <ResultModal
         open={result$.open}
         onClose={() => result$.setOpen(false)}
@@ -339,7 +348,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </ReviewPanel>
         </div>
       )}
-
+    </>
+  const metricsEl = <>
       <div className="mono-metrics">
         <div className={'metric budget ' + (spent > mission.budget ? 'bad' : spent > mission.budget * 0.8 ? 'warn' : 'ok')}>
           <div className="metric-value">
@@ -379,7 +389,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           <button onClick={reset}>↺ {tr('Заново', 'Start over')}</button>
         </div>
       </div>
-
+    </>
+  const helpEl = <>
       <details className="metrics-help">
         <summary>{tr('Как считаются метрики', 'How metrics are calculated')}</summary>
         <ul className="small">
@@ -436,9 +447,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           )}
         </ul>
       </details>
-
-      <div className="mono-grid">
-        <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
+    </>
+  const canvasEl = <>
           <MonolithCanvas
             project={project}
             state={state}
@@ -457,6 +467,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             }}
             traces={traffic.inFlight}
           />
+    </>
+  const trafficEl = <>
           <TrafficPanel
             log={traffic.log}
             describe={(id) => describeNode(project, id)}
@@ -464,12 +476,16 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             setRunning={traffic.setRunning}
             onPickNode={(id) => project.modules.some((m) => m.id === id) && setSelected(id)}
           />
+    </>
+  const modPopEl = <>
           {mod && !popover && (
             <ModulePopover wrap={wrapRef.current} id={mod.id} label={mod.title} onClose={() => setSelected(null)}>
               <ModulePanel project={project} id={mod.id} state={state} apply={apply} />
               <NodeLog nodeId={mod.id} log={traffic.log} />
             </ModulePopover>
           )}
+    </>
+  const depPopEl = <>
           {popover && (
             <DepPopover
               project={project}
@@ -486,11 +502,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
               onClose={() => setPopover(null)}
             />
           )}
-        </div>
-      </div>
-
+    </>
+  const patternsEl = <>
       <PatternsPanel state={state} metrics={metrics} apply={apply} />
-
+    </>
+  const bottomEl = <>
       <div className="mono-bottom">
         <section className="panel">
           <h4>
@@ -527,6 +543,98 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           </ul>
         </section>
       </div>
+    </>
+
+  // телефон: рабочий экран — схема на весь экран, масштаб пальцами; паттерны, проблемы и трафик — шторками
+  if (phone)
+    return (
+      <>
+        <Workspace
+          title={mission.title}
+          panelOpen={panelOpen}
+          setPanelOpen={setPanelOpen}
+          panel={
+            <>
+              {headEl}
+              {actionsEl}
+              {metricsEl}
+              {helpEl}
+            </>
+          }
+          metrics={
+            <>
+              <span className={spent > mission.budget ? 'bad-text' : ''}>
+                {spent}/{mission.budget} {tr('млн', 'M')}
+              </span>
+              <span className={metrics.flowLatency <= t.latency ? '' : 'bad-text'}>{tr(`${metrics.flowLatency} мс`, `${metrics.flowLatency} ms`)}</span>
+              <span className={metrics.flowAvailability >= t.availability ? '' : 'bad-text'}>{(metrics.flowAvailability * 100).toFixed(2)}%</span>
+              <span>{goals.filter((g) => g.ok).length}/{goals.length} 🎯</span>
+            </>
+          }
+          right={
+            <>
+              <ZoomMenu pz={pz} />
+              <button className="icon ws-btn" onClick={undo} disabled={!history.length} title={tr('Отменить', 'Undo')} aria-label={tr('Отменить', 'Undo')}>
+                ↶
+              </button>
+              {solved && !viewingRef && (
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                  ★
+                </button>
+              )}
+            </>
+          }
+          bottom={
+            <>
+              <Tool icon="🧩" label={tr('Паттерны', 'Patterns')} on={sheet === 'patterns'} onClick={() => setSheet(sheet === 'patterns' ? null : 'patterns')} />
+              <Tool icon="⚠️" label={tr('Проблемы', 'Problems')} on={sheet === 'problems'} onClick={() => setSheet(sheet === 'problems' ? null : 'problems')} badge={metrics.problems.length || undefined} />
+              <Tool icon="📡" label={tr('Трафик', 'Traffic')} on={sheet === 'traffic'} onClick={() => setSheet(sheet === 'traffic' ? null : 'traffic')} />
+            </>
+          }
+        >
+          <PanZoomField pz={pz}>{canvasEl}</PanZoomField>
+          {refEl}
+        </Workspace>
+        {sheet === 'patterns' && (
+          <Sheet title={tr('Паттерны', 'Patterns')} onClose={() => setSheet(null)}>
+            {patternsEl}
+          </Sheet>
+        )}
+        {sheet === 'problems' && (
+          <Sheet title={tr('Проблемы и спринты', 'Problems and sprints')} onClose={() => setSheet(null)}>
+            {bottomEl}
+          </Sheet>
+        )}
+        {sheet === 'traffic' && (
+          <Sheet title={tr('Живой трафик', 'Live traffic')} onClose={() => setSheet(null)}>
+            {trafficEl}
+          </Sheet>
+        )}
+        {popover && <div className="sheet-scrim" onClick={() => setPopover(null)} aria-hidden />}
+        <div className="ws ws-dep">{depPopEl}</div>
+        {modPopEl}
+        {resultReviewEl}
+      </>
+    )
+
+  return (
+    <>
+      {headEl}
+      {refEl}
+      {actionsEl}
+      {resultReviewEl}
+      {metricsEl}
+      {helpEl}
+      <div className="mono-grid">
+        <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
+          {canvasEl}
+          {trafficEl}
+          {modPopEl}
+          {depPopEl}
+        </div>
+      </div>
+      {patternsEl}
+      {bottomEl}
     </>
   )
 }

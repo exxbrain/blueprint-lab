@@ -33,6 +33,7 @@ import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { sideColumn, useCloseOnOutside, usePopoverReflow } from '../components/popover'
 import { HintDock } from '../components/HintDock'
+import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints } from '../progress'
 import { tr } from '../i18n'
 import { TaskGate, TaskLevelTag } from '../components/Level'
@@ -102,6 +103,13 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       ]
     : []
   const solved = goals.length > 0 && goals.every((g) => g.ok)
+  // динамические подсказки: что сейчас мешает на поле
+  const live = useMemo(
+    () => diagnose({ nodes, edges, result, goals: challenge ? goals : undefined, budget: challenge?.budget }),
+    // goals пересчитываются из тех же nodes/edges/result
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, edges, result, challenge],
+  )
   useEffect(() => {
     if (solved && challenge && !viewingRef) markScenario(`builder/${challenge.id}`)
   }, [solved, challenge, viewingRef])
@@ -324,7 +332,17 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               ＋ {tr('Добавить компонент', 'Add a component')}
             </button>
             <span className="small muted">{tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…')}</span>
-            {challenge && <HintDock hints={challenge.hints} used={hints} take={hintState.take} />}
+            <HintDock
+              hints={challenge?.hints ?? []}
+              used={hints}
+              take={hintState.take}
+              live={live}
+              liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
+              onPick={(id) => {
+                setSelected(id)
+                setAddOpen(false)
+              }}
+            />
           </div>
           {addOpen && (
             <div className="panel palette add-menu" role="menu">

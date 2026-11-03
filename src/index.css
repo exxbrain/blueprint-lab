@@ -3037,3 +3037,15 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .hint-dock-card li { margin-bottom: 6px; }
 .hint-dock-note { margin: 8px 0 0; }
 .c4-wrap { position: relative; }
+.hint-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.hint-dot.bad { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+.hint-dot.warn { background: var(--warn); }
+.hint-dot.ok { background: var(--ok); }
+.live-hints ul { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 6px; }
+.live-hint { border-left: 3px solid var(--muted); padding: 2px 0 2px 8px; font-size: 0.85rem; }
+.live-hint.bad { border-color: var(--bad); }
+.live-hint.warn { border-color: var(--warn); }
+.live-hint.ok { border-color: var(--ok); }
+.live-hint-link { background: none; border: none; padding: 0; color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.live-hint-link:hover { color: var(--accent); }
+.live-hints { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }

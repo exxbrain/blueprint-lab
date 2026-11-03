@@ -17,6 +17,7 @@ import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
 import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
+import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
@@ -195,6 +196,20 @@ console.log('\nПодсказки без названий инструменто
       const m = g.match(tools) ?? g.match(patterns)
       if (m) fail(`цель задачи «${c.title}» называет «${m[0]}»: ${g}`)
     }
+  // динамические подсказки на поле: тоже без названий инструментов (названия блоков в «ёлочках» — их ставил игрок)
+  let nd = 0
+  for (const c of builderChallenges)
+    for (const g of [c, c.solution]) {
+      const r = simulate(g.nodes, g.edges)
+      const goals = [...c.paths.map((p) => ({ text: p.text, ok: reaches(g.edges, p.from, p.to) })), ...c.goals.map((x) => ({ text: x.text, ok: x.check(r) }))]
+      for (const d of diagnose({ nodes: g.nodes, edges: g.edges, result: r, goals, budget: c.budget })) {
+        nd++
+        const plain = d.text.replace(/«[^»]*»|“[^”]*”/g, '')
+        const m = plain.match(tools) ?? plain.match(patterns)
+        if (m) fail(`подсказка на поле в «${c.title}» называет «${m[0]}»: ${d.text}`)
+      }
+    }
+  console.log(`- подсказок на поле проверено: ${nd}`)
   for (const c of builderChallenges.filter((x) => x.tool)) {
     const m = c.title.match(tools)
     if (m) fail(`заголовок задачи на инструмент выдаёт ответ: «${c.title}»`)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useBottomSheet, useCloseOnOutside, usePhone } from './popover'
 import { Scrim } from './Workspace'
@@ -46,6 +46,19 @@ export function PopoverDialog({
     }
   }, [])
 
+  // компьютер: высота — по содержимому; не помещается ниже элемента — колонка поднимается, но не выше шапки
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || phone) return
+    const header = (document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0) + 8
+    const bottom = window.innerHeight - 8
+    const want = typeof style.top === 'number' ? style.top : header
+    const need = el.scrollHeight
+    const top = want + need > bottom ? Math.max(header, bottom - need) : want
+    el.style.top = `${top}px`
+    el.style.maxHeight = `${bottom - top}px`
+  })
+
   // модальная шторка: страница под ней не листается
   useEffect(() => {
     if (!phone) return
@@ -85,7 +98,8 @@ export function PopoverDialog({
         aria-label={label}
         tabIndex={-1}
         className={className + (sheet.full ? ' sheet-full' : '')}
-        style={style}
+        // на телефоне — шторка: место и высоту задаёт она сама
+        style={phone ? undefined : style}
         onKeyDown={onKeyDown}
       >
         <div className="sheet-handle" {...sheet.handle} aria-hidden />

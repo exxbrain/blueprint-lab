@@ -3505,3 +3505,12 @@ body.ws-mode .page { animation: none; }
 .ws-sheet .c4-card { display: block; width: 100%; margin: 0 0 6px; font-size: 0.85rem; padding: 8px 10px; text-align: left; }
 .ws-sheet .c4-card .muted { display: inline; }
 
+/* общая строка над схемой: «＋ Добавить» слева, масштаб и подсказки справа */
+.editor-bar { position: relative; }
+.editor-bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.editor-bar-right .hint-dock { margin-left: 0; }
+.zoom-tool { position: relative; }
+.c4-wrap .add-menu { width: min(420px, 90vw); }
+.c4-wrap .add-menu .c4-card { display: block; width: 100%; margin: 0 0 6px; text-align: left; }
+.ws .ws-canvas { position: absolute; inset: 0; }
+

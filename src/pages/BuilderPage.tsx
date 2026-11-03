@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot } from '../sim/builder/BuilderCanvas'
+import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot, nodesBox } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
   SIZES,
@@ -30,9 +30,11 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
-import { isTyping, sideColumn, usePhone, usePopoverReflow } from '../components/popover'
-import { PopoverDialog } from '../components/PopoverDialog'
-import { Scrim } from '../components/Workspace'
+import { isTyping, usePhone } from '../components/popover'
+import { Sheet, Tool, Workspace } from '../components/Workspace'
+import { useViewport } from '../components/editor/useViewport'
+import { ZoomMenu } from '../components/editor/ZoomMenu'
+import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -238,11 +240,18 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const ws = usePhone()
   const [panelOpen, setPanelOpen] = useState(() => !!challenge)
   const [trafficOpen, setTrafficOpen] = useState(false)
-  useEffect(() => {
-    if (!ws) return
-    document.body.classList.add('ws-mode')
-    return () => document.body.classList.remove('ws-mode')
-  }, [ws])
+  // масштаб и сдвиг — общие для всех редакторов схем; на телефоне при входе схема вписывается в экран
+  const vp = useViewport({
+    width: 1000,
+    height: 540,
+    autoFit: ws,
+    content: () => nodesBox(nodes, 30),
+    selection: () => {
+      const n = nodes.find((x) => x.id === selected)
+      const e = edges.find((x) => x.id === selected)
+      return nodesBox(n ? [n] : e ? nodes.filter((x) => x.id === e.from || x.id === e.to) : [], 60)
+    },
+  })
   /** Только что добавленный блок: холст покажет и подсветит его */
   const [revealId, setRevealId] = useState<string | null>(null)
   useEffect(() => {
@@ -265,20 +274,6 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     document.addEventListener('pointerdown', onDown, true)
     return () => document.removeEventListener('pointerdown', onDown, true)
   }, [addOpen])
-  /** Где на холсте выбранный элемент (в координатах схемы 1000×540) */
-  const anchorOf = (n?: BNode, e?: BEdge) => {
-    if (n) return { x: n.x, y: n.y, w: NODE_W, h: NODE_H }
-    if (e) {
-      const a = nodes.find((x) => x.id === e.from)
-      const b = nodes.find((x) => x.id === e.to)
-      if (a && b) {
-        const x = (a.x + NODE_W + b.x) / 2
-        const y = (a.y + b.y + NODE_H) / 2
-        return { x: x - 10, y: y - 10, w: 20, h: 20 }
-      }
-    }
-    return { x: 0, y: 0, w: 0, h: 0 }
-  }
   const patch = (id: string, p: Partial<BNode>) => setNodes(nodes.map((n) => (n.id === id ? { ...n, ...p } : n)))
 
   const statsEl = (
@@ -304,27 +299,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     </div>
   )
   const title = challenge?.title ?? tr('Свободный режим', 'Sandbox')
-
-  return (
-    <div className={'builder' + (ws ? ' ws' : '')}>
-      {ws && panelOpen && <Scrim onClose={() => setPanelOpen(false)} />}
-      <div
-        className={'ws-panel' + (panelOpen ? ' open' : '')}
-        role={ws ? 'dialog' : undefined}
-        aria-modal={ws || undefined}
-        aria-label={ws ? title : undefined}
-      >
-      {ws && (
-        <div className="ws-panel-head">
-          <b>{title}</b>
-          <button className="icon" onClick={() => setPanelOpen(false)} title={tr('Закрыть (Esc)', 'Close (Esc)')} aria-label={tr('Закрыть', 'Close')}>
-            ✕
-          </button>
-        </div>
-      )}
-      {ws && !challenge && (
-        <p className="muted">{tr('Собирайте что угодно: блоки — на панели внизу, задачи — на карте уровней.', 'Build anything: blocks are on the bottom bar, challenges are on the level map.')}</p>
-      )}
+  const headEl = <>
       {challenge && (
         <div className="scenario-head">
           <div className="panel lesson">
@@ -357,6 +332,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </div>
         </div>
       )}
+    </>
+  const refEl = <>
       {viewingRef && (
         <div className="ref-banner">
           {tr(
@@ -372,6 +349,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </button>
         </div>
       )}
+    </>
+  const actionsEl = <>
       {challenge && (
         <div className="row review-actions">
           {solved && !viewingRef ? (
@@ -384,16 +363,13 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas')}</button>}
         </div>
       )}
+    </>
+  const reviewEl = <>
       {review && showReview && !(solved && !viewingRef) && (
         <ReviewPanel review={review} title={viewingRef ? tr('Оценка эталона', 'Reference assessment') : tr('Оценка вашего решения', 'Your solution assessment')} />
       )}
-      {ws && statsEl}
-      {ws && (
-        <button className="primary ws-start" onClick={() => setPanelOpen(false)}>
-          {tr('К схеме', 'To the diagram')} →
-        </button>
-      )}
-      </div>
+    </>
+  const resultEl = <>
       {challenge && (
         <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`builder/${challenge.id}`} stars={stars ?? 1}>
           {review && <ReviewPanel review={review} title={tr('Оценка вашего решения', 'Your solution assessment')} />}
@@ -403,40 +379,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </div>
         </ResultModal>
       )}
-
-      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
-      <div className="builder-grid">
-
-        <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
-          <div ref={addRef}>
-          {!ws && (
-          <div className="add-bar">
-            {/* на телефоне — плавающая кнопка в углу экрана: до неё не нужно прокручивать */}
-            <button
-              className={'add-btn' + (addOpen ? ' primary' : '') + (selNode || selEdge || addOpen ? ' fab-hidden' : '')}
-              onClick={() => setAddOpen(!addOpen)}
-              aria-expanded={addOpen}
-              aria-label={tr('Добавить компонент', 'Add a component')}
-            >
-              ＋<span className="add-label"> {tr('Добавить компонент', 'Add a component')}</span>
-            </button>
-            <span className="small muted">{tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…')}</span>
-            <HintDock
-              hints={challenge?.hints ?? []}
-              used={hints}
-              take={hintState.take}
-              live={live}
-              liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
-              onPick={(id) => {
-                setSelected(id)
-                setAddOpen(false)
-              }}
-            />
-          </div>
-          )}
-          {addOpen && <Scrim onClose={() => setAddOpen(false)} />}
-          {addOpen && (
-            <div className="panel palette add-menu" role="menu">
+    </>
+  const addMenuEl = <>
           {(['Трафик', 'Вычисления', 'Хранилища'] as const).map((group) => (
             <div key={group}>
               <div className="pattern-group-title">{KIND_GROUP_LABEL[group]}</div>
@@ -488,11 +432,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               'The numbers are stylized: a real PostgreSQL handles several times more on simple queries. What matters is the proportions and what limits what.',
             )}
           </p>
-            </div>
-          )}
-          </div>
-          {!ws && statsEl}
-          {ws && flash && <div className="ws-toast">{flash}</div>}
+    </>
+  const cycleEl = <>
           {(cycleNote || result.cycle) && (
             <div className="cycle-note">
               <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it')}>
@@ -520,6 +461,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
               </div>
             </div>
           )}
+    </>
+  const canvasEl = <>
           <BuilderCanvas
             nodes={nodes}
             edges={edges}
@@ -539,74 +482,16 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
             traces={traffic.inFlight}
             onDragging={setDragging}
             reveal={revealId}
-            autoFit={ws}
-            lead={
-              ws ? (
-                <>
-                  <a className="btn icon ws-btn" href="#/" title={tr('На карту', 'To the map')} aria-label={tr('На карту', 'To the map')}>
-                    ←
-                  </a>
-                  <button className="ws-title" onClick={() => setPanelOpen(true)}>
-                    {title}
-                  </button>
-                  <button className="icon ws-btn" onClick={() => setPanelOpen(true)} title={tr('Задача и цели', 'Task and goals')} aria-label={tr('Задача и цели', 'Task and goals')}>
-                    ▤
-                  </button>
-                </>
-              ) : undefined
-            }
-            extra={
-              ws ? (
-                <>
-                  <HintDock
-                    hints={challenge?.hints ?? []}
-                    used={hints}
-                    take={hintState.take}
-                    live={live}
-                    liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
-                    onPick={(id) => setSelected(id)}
-                    compact
-                  />
-                  {challenge && solved && !viewingRef && (
-                    <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
-                      ★
-                    </button>
-                  )}
-                </>
-              ) : undefined
-            }
+            vp={vp}
           />
-          {ws && (
-            <>
-              <button className="ws-metrics" onClick={() => setPanelOpen(true)} title={tr('Метрики и цели', 'Metrics and goals')}>
-                <span className={result.clientSuccess >= 0.995 ? 'ok-text' : result.clientSuccess >= 0.95 ? 'warn-text' : 'bad-text'}>
-                  ✓ {(result.clientSuccess * 100).toFixed(1)}%
-                </span>
-                <span>{tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}</span>
-                <span className={challenge && result.cost > challenge.budget ? 'bad-text' : ''}>
-                  ${result.cost}
-                  {challenge ? `/${challenge.budget}` : ''}
-                </span>
-                {challenge && <span>{goals.filter((g) => g.ok).length}/{goals.length} 🎯</span>}
-              </button>
-              <div className="ws-tools" role="toolbar" aria-label={tr('Компоненты', 'Components')}>
-                <button className={'ws-tool ws-add' + (addOpen ? ' on' : '')} onClick={() => setAddOpen(!addOpen)} aria-expanded={addOpen} aria-haspopup="menu">
-                  <span className="ws-tool-icon">＋</span>
-                  <span className="ws-tool-label">{tr('Компонент', 'Component')}</span>
-                </button>
-                <span className="ws-sep" aria-hidden />
-                <button className={'ws-tool' + (trafficOpen ? ' on' : '')} onClick={() => setTrafficOpen(!trafficOpen)} aria-expanded={trafficOpen}>
-                  <span className="ws-tool-icon">📡</span>
-                  <span className="ws-tool-label">{tr('Трафик', 'Traffic')}</span>
-                </button>
-              </div>
-            </>
-          )}
+    </>
+  const popoverEl = <>
           {(selNode || selEdge) && !dragging && (
-            <ElementPopover
-              label={selNode ? selNode.label : tr('Связь', 'Connection')}
-              anchor={anchorOf(selNode, selEdge)}
+            <ElementDialog
               wrap={wrapRef.current}
+              id={(selNode ?? selEdge)!.id}
+              label={selNode ? selNode.label : tr('Связь', 'Connection')}
+              keep=".bnode, .bedge, .access-row, .wf-name, .zoom-tool"
               onClose={closePopover}
               tone={selNode ? nodeStatus(selNode, result.nodes[selNode.id], !estimated).tone : edgeStatus(selEdge!, result, nodes, !estimated).tone}
             >
@@ -652,31 +537,150 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                   {estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
                 </>
               )}
-            </ElementPopover>
+            </ElementDialog>
           )}
-          {ws && trafficOpen && <Scrim onClose={() => setTrafficOpen(false)} />}
-          <div className={'ws-traffic' + (trafficOpen ? ' open' : '')} role={ws ? 'dialog' : undefined} aria-label={ws ? tr('Живой трафик', 'Live traffic') : undefined}>
-          {ws && (
-            <div className="ws-panel-head">
-              <b>📡 {tr('Живой трафик', 'Live traffic')}</b>
-              <button className="icon" onClick={() => setTrafficOpen(false)} aria-label={tr('Закрыть', 'Close')}>
-                ✕
-              </button>
-            </div>
-          )}
+    </>
+  const trafficEl = <>
           {estimated ? (
-            <TrafficPanel log={traffic.log} nodes={nodes} running={traffic.running} setRunning={traffic.setRunning} onPickNode={(id) => {
-              setSelected(id)
-              setTrafficOpen(false)
-            }} />
+            <TrafficPanel
+              log={traffic.log}
+              nodes={nodes}
+              running={traffic.running}
+              setRunning={traffic.setRunning}
+              onPickNode={(id) => {
+                setSelected(id)
+                setTrafficOpen(false)
+              }}
+            />
           ) : (
             <p className="small muted traffic-locked">
               📡 {tr('Живой трафик включится после прикидки нагрузки.', 'Live traffic starts once the load estimate is done.')}
             </p>
           )}
-          </div>
-        </div>
+    </>
+  const hintsEl = (compact: boolean) => (
+    <HintDock
+      hints={challenge?.hints ?? []}
+      used={hints}
+      take={hintState.take}
+      live={live}
+      liveLocked={estimated ? undefined : tr('Сначала сделайте прикидку нагрузки — до неё модель не покажет цифры.', 'Do the load estimate first; until then the model shows no numbers.')}
+      onPick={(id) => {
+        setSelected(id)
+        setAddOpen(false)
+      }}
+      compact={compact}
+    />
+  )
+  const stage = (children: ReactNode) => (
+    <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
+      {children}
+    </div>
+  )
 
+  // телефон: общий рабочий экран — схема на весь экран, задача модальным окном, компоненты и трафик шторками
+  if (ws)
+    return (
+      <>
+        <Workspace
+          title={title}
+          panelOpen={panelOpen}
+          setPanelOpen={setPanelOpen}
+          panel={
+            <>
+              {!challenge && (
+                <p className="muted">{tr('Собирайте что угодно: компоненты — кнопкой внизу, задачи — на карте уровней.', 'Build anything: components are on the bottom button, challenges are on the level map.')}</p>
+              )}
+              {headEl}
+              {actionsEl}
+              {reviewEl}
+              {statsEl}
+            </>
+          }
+          metrics={
+            <>
+              <span className={result.clientSuccess >= 0.995 ? 'ok-text' : result.clientSuccess >= 0.95 ? 'warn-text' : 'bad-text'}>
+                ✓ {(result.clientSuccess * 100).toFixed(1)}%
+              </span>
+              <span>{tr(`${Math.round(result.clientLatency)} мс`, `${Math.round(result.clientLatency)} ms`)}</span>
+              <span className={challenge && result.cost > challenge.budget ? 'bad-text' : ''}>
+                ${result.cost}
+                {challenge ? `/${challenge.budget}` : ''}
+              </span>
+              {challenge && (
+                <span>
+                  {goals.filter((g) => g.ok).length}/{goals.length} 🎯
+                </span>
+              )}
+            </>
+          }
+          right={
+            <>
+              <ZoomMenu vp={vp} />
+              {hintsEl(true)}
+              {challenge && solved && !viewingRef && (
+                <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
+                  ★
+                </button>
+              )}
+            </>
+          }
+          bottom={
+            <>
+              <Tool icon="＋" label={tr('Компонент', 'Component')} on={addOpen} onClick={() => setAddOpen(!addOpen)} />
+              <Tool icon="📡" label={tr('Трафик', 'Traffic')} on={trafficOpen} onClick={() => setTrafficOpen(!trafficOpen)} />
+            </>
+          }
+        >
+          <div ref={wrapRef} className="ws-canvas">
+            {stage(canvasEl)}
+          </div>
+          {refEl}
+          {flash && <div className="ws-toast">{flash}</div>}
+          {cycleEl}
+        </Workspace>
+        {addOpen && (
+          <Sheet title={tr('Компоненты', 'Components')} onClose={() => setAddOpen(false)}>
+            <div className="palette">{addMenuEl}</div>
+          </Sheet>
+        )}
+        {trafficOpen && (
+          <Sheet title={'📡 ' + tr('Живой трафик', 'Live traffic')} onClose={() => setTrafficOpen(false)}>
+            {trafficEl}
+          </Sheet>
+        )}
+        {popoverEl}
+        {resultEl}
+        {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
+      </>
+    )
+
+  // компьютер: условие и цели сверху; над схемой — общая строка: «＋ Добавить компонент», масштаб, подсказки
+  return (
+    <div className="builder">
+      {headEl}
+      {refEl}
+      {actionsEl}
+      {reviewEl}
+      {resultEl}
+      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
+      <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
+        <EditorBar
+          vp={vp}
+          add={{
+            label: tr('Добавить компонент', 'Add a component'),
+            caption: tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…'),
+            open: addOpen,
+            setOpen: setAddOpen,
+            menu: addMenuEl,
+          }}
+          right={hintsEl(false)}
+        />
+        {statsEl}
+        {cycleEl}
+        {stage(canvasEl)}
+        {popoverEl}
+        {trafficEl}
       </div>
     </div>
   )
@@ -959,50 +963,6 @@ function EstimatePanel({
         </div>
       )}
     </div>
-  )
-}
-
-const POPOVER_W = 320
-
-/**
- * Окно параметров — колонка сбоку от элемента на всю видимую высоту: справа от него, а если не помещается — слева.
- * Так окно не упирается в низ экрана, и прокручивать почти ничего не нужно.
- */
-function ElementPopover({
-  anchor,
-  wrap,
-  tone,
-  label,
-  onClose,
-  children,
-}: {
-  anchor: { x: number; y: number; w: number; h: number }
-  wrap: HTMLDivElement | null
-  tone: Tone
-  label: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  usePopoverReflow()
-  const svg = wrap?.querySelector('svg.builder-canvas') as SVGSVGElement | null
-  let style: React.CSSProperties = { left: 8, top: 72, bottom: 8 }
-  if (svg) {
-    const sr = svg.getBoundingClientRect()
-    const vb = svg.viewBox.baseVal
-    const k = sr.width / (vb.width || 1000)
-    style = sideColumn(sr.left + (anchor.x - vb.x) * k, sr.left + (anchor.x + anchor.w - vb.x) * k, POPOVER_W)
-  }
-  return (
-    <PopoverDialog
-      label={label}
-      className={'node-popover tone-' + tone}
-      style={style}
-      onClose={onClose}
-      keep=".bnode, .bedge, .access-row, .wf-name, .canvas-zoom"
-      rootProps={{ onPointerDown: (e) => e.stopPropagation() }}
-    >
-      {children}
-    </PopoverDialog>
   )
 }
 

@@ -1,5 +1,6 @@
-import { useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { tr } from '../../i18n'
+import type { Viewport } from '../../components/editor/useViewport'
 import { BOUNDARY, CANVAS, EL_H, EL_W, KIND_INFO, type C4Exercise, type DiagramState, type Placed } from './model'
 
 /** Тип данных при перетаскивании карточки из списка кандидатов */
@@ -13,6 +14,8 @@ interface Props {
   onMove: (card: string, x: number, y: number) => void
   onConnect: (from: string, to: string) => void
   onDropCard: (card: string, x: number, y: number) => void
+  /** Масштаб и сдвиг — общие для всех редакторов схем (useViewport на странице) */
+  vp: Viewport
 }
 
 /** Точка на границе прямоугольника элемента в направлении к точке (tx, ty) */
@@ -28,33 +31,39 @@ function edgePoint(p: Placed, tx: number, ty: number) {
   return { x: cx + dx * s, y: cy + dy * s }
 }
 
-export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, onDropCard }: Props) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const drag = useRef<{ card: string; dx: number; dy: number } | null>(null)
+export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, onDropCard, vp }: Props) {
+  const svgRef = vp.svgRef
+  const drag = useRef<{ card: string; dx: number; dy: number; ox: number; oy: number; moved: boolean } | null>(null)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
   const cardOf = (id: string) => ex.cards.find((c) => c.id === id)!
   const byCard = new Map(diagram.placed.map((p) => [p.card, p]))
 
-  const toSvg = (e: { clientX: number; clientY: number }) => {
-    const svg = svgRef.current!
-    const pt = svg.createSVGPoint()
-    pt.x = e.clientX
-    pt.y = e.clientY
-    const p = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-    return { x: p.x, y: p.y }
+  const toSvg = vp.toSvg
+  /** Второй палец: начатое перетаскивание отменяется, элемент возвращается на место */
+  const cancelDrag = () => {
+    const d = drag.current
+    if (d?.moved) onMove(d.card, d.ox, d.oy)
+    drag.current = null
+    setLink(null)
   }
+  useEffect(() => {
+    vp.secondFinger.current = cancelDrag
+  })
   const at = (x: number, y: number) =>
     diagram.placed.find((p) => x >= p.x && x <= p.x + EL_W && y >= p.y && y <= p.y + EL_H)
 
   const onPointerMove = (e: RPointerEvent) => {
+    if (vp.onMove(e)) return
     const p = toSvg(e)
     if (drag.current) {
+      drag.current.moved = true
       const x = Math.max(0, Math.min(CANVAS.w - EL_W, p.x - drag.current.dx))
       const y = Math.max(0, Math.min(CANVAS.h - EL_H, p.y - drag.current.dy))
       onMove(drag.current.card, Math.round(x / 10) * 10, Math.round(y / 10) * 10)
     } else if (link) setLink({ ...link, x: p.x, y: p.y })
   }
   const onPointerUp = (e: RPointerEvent) => {
+    if (vp.onUp(e)) return
     if (link) {
       const p = toSvg(e)
       const target = at(p.x, p.y)
@@ -67,13 +76,23 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
   return (
     <svg
       ref={svgRef}
-      className="builder-canvas c4-canvas"
-      viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`}
+      className={'builder-canvas c4-canvas' + (vp.zoomed ? ' zoomed' : '')}
+      viewBox={vp.viewBox}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onPointerLeave={(e) => {
+        // при захвате указателя «уход» с холста не конец жеста
+        if (!vp.holds(e.pointerId)) onPointerUp(e)
+      }}
+      onContextMenu={(e) => vp.onContextMenu(e, cancelDrag)}
+      onPointerDownCapture={vp.onPointerDownCapture}
       onPointerDown={(e) => {
-        if (e.target === svgRef.current || (e.target as Element).classList.contains('c4-boundary')) onSelect(null)
+        // пустое место (не элемент и не связь): снять выбор и, если схема приближена, двигать её
+        if ((e.target as Element).closest?.('.c4-el, .c4-rel')) return
+        if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
+        onSelect(null)
+        vp.onBackgroundDown(e)
       }}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(C4_MIME)) {
@@ -121,6 +140,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
         return (
           <g
             key={r.id}
+            data-id={r.id}
             className={'c4-rel' + (sel ? ' selected' : '') + (r.label.trim() ? '' : ' unlabeled')}
             onPointerDown={(e) => {
               e.stopPropagation()
@@ -165,6 +185,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
         return (
           <g
             key={p.card}
+            data-id={p.card}
             className={'c4-el ' + (kind ?? 'unknown') + (selected === p.card ? ' selected' : '')}
             transform={`translate(${p.x},${p.y})`}
             onPointerDown={(e) => {
@@ -172,7 +193,8 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
               // правая кнопка и Ctrl+щелчок на Mac — меню браузера, а не перетаскивание
               if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
               const pt = toSvg(e)
-              drag.current = { card: p.card, dx: pt.x - p.x, dy: pt.y - p.y }
+              drag.current = { card: p.card, dx: pt.x - p.x, dy: pt.y - p.y, ox: p.x, oy: p.y, moved: false }
+              vp.capture(e.pointerId)
               onSelect(p.card)
             }}
           >

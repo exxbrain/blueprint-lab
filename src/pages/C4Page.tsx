@@ -22,7 +22,10 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 import { usePhone } from '../components/popover'
-import { PanZoomField, Sheet, Tool, Workspace, ZoomMenu, usePanZoom } from '../components/Workspace'
+import { Sheet, Tool, Workspace } from '../components/Workspace'
+import { useViewport } from '../components/editor/useViewport'
+import { ZoomMenu } from '../components/editor/ZoomMenu'
+import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
 
 let uid = 1000
 
@@ -66,7 +69,22 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   // условие при входе — модальным окном (на телефоне)
   const [panelOpen, setPanelOpen] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
-  const pz = usePanZoom(CANVAS.w, CANVAS.h, { interactive: '.c4-el, .c4-rel, .bnode-port' })
+  const wrapRef = useRef<HTMLDivElement>(null)
+  // масштаб и сдвиг — общие для всех редакторов; на телефоне при входе схема вписывается в экран
+  const vp = useViewport({
+    width: CANVAS.w,
+    height: CANVAS.h,
+    autoFit: phone,
+    selection: () => {
+      const el = d.placed.find((x) => x.card === selected)
+      const rel = d.rels.find((x) => x.id === selected)
+      const ends = el ? [el] : rel ? d.placed.filter((x) => x.card === rel.from || x.card === rel.to) : []
+      if (!ends.length) return null
+      const x0 = Math.min(...ends.map((x) => x.x)) - 60
+      const y0 = Math.min(...ends.map((x) => x.y)) - 60
+      return { x: x0, y: y0, w: Math.max(...ends.map((x) => x.x + EL_W)) - x0 + 60, h: Math.max(...ends.map((x) => x.y + EL_H)) - y0 + 60 }
+    },
+  })
   // свойства на телефоне — шторкой по касанию элемента (без сдвига); при нажатии и перетаскивании — нет
   const [propsOpen, setPropsOpen] = useState(false)
   const tapStart = useRef<{ id: number; x: number; y: number; n: number; onItem: boolean } | null>(null)
@@ -243,6 +261,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             onDropCard={(cardId, x, y) => {
               if (!d.placed.some((p) => p.card === cardId)) place(cardId, { x, y })
             }}
+            vp={vp}
           />
     </>
   const propsEl = <>
@@ -335,7 +354,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
           metrics={<span>{tr(`на диаграмме ${d.placed.length} · связей ${d.rels.length}`, `on diagram ${d.placed.length} · links ${d.rels.length}`)}</span>}
           right={
             <>
-              <ZoomMenu pz={pz} />
+              <ZoomMenu vp={vp} />
               <HintDock hints={ex.hints} used={hints} take={hintState.take} compact />
               {review.solved && !viewingRef ? (
                 <button className="primary ws-btn" onClick={() => result$.setOpen(true)} title={tr('Результат', 'Result')} aria-label={tr('Результат', 'Result')}>
@@ -387,7 +406,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
               tapStart.current = null
             }}
           >
-            <PanZoomField pz={pz}>{canvasEl}</PanZoomField>
+            {canvasEl}
           </div>
           {refEl}
         </Workspace>
@@ -436,48 +455,64 @@ function Exercise({ ex }: { ex: C4Exercise }) {
       {resultEl}
       {reviewEl}
 
-      <div className="builder-grid c4-grid">
-        <aside className="panel palette">
-          <h4>{tr('Кандидаты', 'Candidates')}</h4>
-          <p className="small muted">{tr('Не все нужны. Перетащите на холст или кликните.', 'Not all are needed. Drag onto the canvas or click.')}</p>
-          {unplaced.map((c) => (
-            <button
-              key={c.id}
-              className="palette-item c4-card"
-              onClick={() => place(c.id)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(C4_MIME, c.id)
-                e.dataTransfer.effectAllowed = 'copy'
-              }}
-              title={c.desc}
-            >
-              <span>
-                <b>{c.name}</b>
-                <span className="small muted"> — {c.desc}</span>
-              </span>
-            </button>
-          ))}
-          {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на холсте', 'All cards are on the canvas')}</p>}
-          <p className="small muted">
-            {tr(
-              'Связь — тяните за кружок справа от элемента. Del — удалить выделенное.',
-              'Relationship: drag from the dot on the right of an element. Del deletes the selection.',
-            )}
-          </p>
-        </aside>
-
-        <div className="panel canvas-wrap c4-wrap">
-          <div className="add-bar">
-            <HintDock hints={ex.hints} used={hints} take={hintState.take} />
-          </div>
+      <div className="panel canvas-wrap c4-wrap" ref={wrapRef}>
+        <EditorBar
+          vp={vp}
+          add={{
+            label: tr('Добавить элемент', 'Add an element') + (unplaced.length ? ` · ${unplaced.length}` : ''),
+            caption: tr('не все кандидаты нужны', 'not every candidate is needed'),
+            open: addOpen,
+            setOpen: setAddOpen,
+            menu: (
+              <>
+                {unplaced.map((c) => (
+                  <button
+                    key={c.id}
+                    className="palette-item c4-card"
+                    onClick={() => {
+                      place(c.id)
+                      setAddOpen(false)
+                    }}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(C4_MIME, c.id)
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
+                    title={c.desc}
+                  >
+                    <span>
+                      <b>{c.name}</b>
+                      <span className="small muted"> — {c.desc}</span>
+                    </span>
+                  </button>
+                ))}
+                {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на холсте', 'All cards are on the canvas')}</p>}
+                <p className="small muted">
+                  {tr(
+                    'Кликните — элемент появится на холсте, или перетащите его на нужное место. Связь — тяните за кружок справа от элемента. Del — удалить выделенное.',
+                    'Click to place an element on the canvas, or drag it where you want. Relationship: drag from the dot on the right of an element. Del deletes the selection.',
+                  )}
+                </p>
+              </>
+            ),
+          }}
+          right={<HintDock hints={ex.hints} used={hints} take={hintState.take} />}
+        />
+        <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
           {canvasEl}
         </div>
-
-        <aside className="panel props">
-          <h4>{tr('Свойства', 'Properties')}</h4>
-          {propsEl}
-        </aside>
+        {(selEl || selRel) && selected && (
+          <ElementDialog
+            wrap={wrapRef.current}
+            id={selected}
+            label={selEl ? card(selEl.card).name : tr('Связь', 'Relationship')}
+            title={tr('Свойства', 'Properties')}
+            keep=".c4-el, .c4-rel"
+            onClose={() => setSelected(null)}
+          >
+            {propsEl}
+          </ElementDialog>
+        )}
       </div>
     </>
   )

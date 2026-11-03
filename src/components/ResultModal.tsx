@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../i18n'
 import { TASK_XP, XP, taskLevel } from '../levels'
-import { nextTask } from './LevelMap'
+import { nextAfter } from './LevelMap'
 import { useProgress } from '../progress'
 
 /** Открывает окно результата в момент, когда задача становится решённой (а не при каждом рендере) */
@@ -53,9 +53,16 @@ export function ResultModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
   if (!open) return null
+  // переход по ссылке и закрытие окна: сначала переход — закрытие убирает ссылку из документа,
+  // а по ссылке, которой уже нет в документе, браузер не переходит
+  const go = (e: React.MouseEvent, to: string) => {
+    e.preventDefault()
+    window.location.hash = to
+    onClose()
+  }
   const level = taskLevel(progressKey)
   const xp = level ? Math.round(TASK_XP[level] * (1 + 0.25 * (stars - 1))) : 0
-  const next = nextTask(progress)
+  const next = nextAfter(progress, progressKey)
   const best = progress.stars?.[progressKey] ?? 0
   return (
     <div className="ref-overlay result-overlay" onClick={onClose}>
@@ -96,13 +103,13 @@ export function ResultModal({
               ▶ {custom.label}
             </button>
           )}
-          {!custom && next && next.key !== progressKey && (
-            <a className="btn primary" href={next.href} onClick={onClose}>
-              ▶ {tr('Следующий уровень', 'Next level')}: {next.title}
+          {!custom && next && (
+            <a className="btn primary" href={next.href} onClick={(e) => go(e, next.href)}>
+              ▶ {tr('Следующее задание', 'Next task')}: {next.title}
             </a>
           )}
           <button onClick={onClose}>{tr('Остаться и улучшить', 'Stay and improve')}</button>
-          <a className="btn" href="#/" onClick={onClose}>
+          <a className="btn" href="#/" onClick={(e) => go(e, '#/')}>
             🗺️ {tr('К карте', 'To the map')}
           </a>
         </div>

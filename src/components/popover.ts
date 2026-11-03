@@ -17,11 +17,15 @@ export function usePopoverReflow() {
   }, [])
 }
 
-/** Колонка сбоку от элемента (координаты экрана): от шапки до низа окна */
-export function sideColumn(left: number, right: number, width: number): CSSProperties {
-  const top = (document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 60) + 8
+/**
+ * Колонка сбоку от элемента (координаты экрана): верх — на уровне элемента, высота — по содержимому.
+ * Не помещается ниже — PopoverDialog поднимет её, но не выше шапки (лишнего пустого места нет).
+ */
+export function sideColumn(left: number, right: number, width: number, anchorTop?: number): CSSProperties {
+  const header = (document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0) + 8
   const x = right + 12 + width <= window.innerWidth - 8 ? right + 12 : Math.max(8, left - 12 - width)
-  return { left: x, top, bottom: 8 }
+  const top = Math.max(header, Math.min(anchorTop ?? header, window.innerHeight - 160))
+  return { left: x, top, maxHeight: window.innerHeight - 8 - top }
 }
 
 

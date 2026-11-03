@@ -52,7 +52,16 @@ export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
           </button>
         </div>
         <RefBody e={e} />
-        <a className="small" href={`#/reference/${e.id}`} onClick={onClose}>
+        <a
+          className="small"
+          href={`#/reference/${e.id}`}
+          onClick={(ev) => {
+            // сначала переход, потом закрытие: иначе ссылка исчезает из документа раньше перехода
+            ev.preventDefault()
+            window.location.hash = `#/reference/${e.id}`
+            onClose()
+          }}
+        >
           {tr('Весь справочник →', 'Full reference →')}
         </a>
       </div>

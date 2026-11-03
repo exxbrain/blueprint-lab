@@ -36,6 +36,31 @@ export function worldTasks(level: TaskLevel): Task[] {
 }
 
 /** Следующая задача на карте: первая нерешённая в первом открытом непройденном мире */
+/**
+ * Следующее задание после текущего — по порядку на карте: дальше в этом же мире, потом пропущенные в нём,
+ * потом — первое нерешённое в открытых мирах. Так кнопка «Следующее задание» ведёт вперёд, а не в начало карты.
+ */
+export function nextAfter(p: Progress, key: string): Task | null {
+  for (const st of levelStatus(p)) {
+    if (!st.open) break
+    const list = worldTasks(st.level)
+    const i = list.findIndex((t) => t.key === key)
+    if (i < 0) continue
+    const open = (t: Task) => t.key !== key && !p.scenarios[t.key]
+    return list.slice(i + 1).find(open) ?? list.slice(0, i).find(open) ?? nextOther(p, key)
+  }
+  return nextOther(p, key)
+}
+
+function nextOther(p: Progress, key: string): Task | null {
+  for (const st of levelStatus(p)) {
+    if (!st.open) return null
+    const t = worldTasks(st.level).find((x) => x.key !== key && !p.scenarios[x.key])
+    if (t) return t
+  }
+  return null
+}
+
 export function nextTask(p: Progress): Task | null {
   for (const st of levelStatus(p)) {
     if (!st.open) return null

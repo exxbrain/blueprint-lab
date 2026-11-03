@@ -33,7 +33,10 @@ import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
 import { sideColumn, usePhone, usePopoverReflow } from '../components/popover'
-import { PanZoomField, Scrim, Sheet, Tool, Workspace, ZoomMenu, usePanZoom } from '../components/Workspace'
+import { Scrim, Sheet, Tool, Workspace } from '../components/Workspace'
+import { useViewport, type Viewport } from '../components/editor/useViewport'
+import { ZoomMenu } from '../components/editor/ZoomMenu'
+import { EditorBar } from '../components/editor/EditorBar'
 import { PopoverDialog } from '../components/PopoverDialog'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
@@ -223,7 +226,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   // условие при входе — модальным окном (на телефоне); паттерны, проблемы и трафик — шторками
   const [panelOpen, setPanelOpen] = useState(true)
   const [sheet, setSheet] = useState<'patterns' | 'problems' | 'traffic' | null>(null)
-  const pz = usePanZoom(W, layout(project.modules.length).H, { interactive: '.mmod, .mdep, .dep-chip' })
+  // масштаб и сдвиг — общие для всех редакторов; на телефоне при входе схема вписывается в экран
+  const vp = useViewport({ width: W, height: layout(project.modules.length).H, autoFit: phone })
   const openDep = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     // на телефоне окно связи — шторка, место на холсте ему не нужно (и холста-обёртки там нет)
@@ -469,6 +473,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
               setSelected(null)
             }}
             traces={traffic.inFlight}
+            vp={vp}
           />
     </>
   const trafficEl = <>
@@ -577,7 +582,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           }
           right={
             <>
-              <ZoomMenu pz={pz} />
+              <ZoomMenu vp={vp} />
               <button className="icon ws-btn" onClick={undo} disabled={!history.length} title={tr('Отменить', 'Undo')} aria-label={tr('Отменить', 'Undo')}>
                 ↶
               </button>
@@ -596,7 +601,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             </>
           }
         >
-          <PanZoomField pz={pz}>{canvasEl}</PanZoomField>
+          {canvasEl}
           {refEl}
         </Workspace>
         {sheet === 'patterns' && (
@@ -632,7 +637,10 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       {helpEl}
       <div className="mono-grid">
         <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
-          {canvasEl}
+          <EditorBar vp={vp} />
+          <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
+            {canvasEl}
+          </div>
           {trafficEl}
           {modPopEl}
           {depPopEl}
@@ -1120,11 +1128,14 @@ function MonolithCanvas({
   onDepClick,
   onBackground,
   traces,
+  vp,
 }: {
   project: Project
   state: State
   metrics: Metrics
   traces?: LiveTrace[]
+  /** Масштаб и сдвиг — общие для всех редакторов схем */
+  vp: Viewport
   selected: ModuleId | null
   onSelect: (id: ModuleId) => void
   activeDep: string | null
@@ -1171,11 +1182,21 @@ function MonolithCanvas({
 
   return (
     <svg
-      className="builder-canvas mono-canvas"
-      viewBox={`0 0 ${W} ${H}`}
+      ref={vp.svgRef}
+      className={'builder-canvas mono-canvas' + (vp.zoomed ? ' zoomed' : '')}
+      viewBox={vp.viewBox}
       onClick={(e) => {
         if (e.target === e.currentTarget) onBackground()
       }}
+      onPointerDownCapture={vp.onPointerDownCapture}
+      onPointerDown={(e) => {
+        // пустое место (не модуль и не связь) — сдвиг приближенной схемы, в том числе внутри коробки монолита
+        if (!(e.target as Element).closest?.('.mmod, .mdep, .dep-chip')) vp.onBackgroundDown(e)
+      }}
+      onPointerMove={(e) => vp.onMove(e)}
+      onPointerUp={(e) => vp.onUp(e)}
+      onPointerCancel={(e) => vp.onUp(e)}
+      onContextMenu={(e) => vp.onContextMenu(e)}
     >
       {/* клиенты и фасад */}
       <g>
@@ -1585,7 +1606,7 @@ function ModulePopover({ wrap, id, label, onClose, children }: { wrap: HTMLDivEl
   usePopoverReflow()
   const el = wrap?.querySelector(`.mmod[data-id="${id}"]`)
   const r = el?.getBoundingClientRect()
-  const style: React.CSSProperties = r ? sideColumn(r.left, r.right, 330) : { left: 8, top: 72, bottom: 8 }
+  const style: React.CSSProperties = r ? sideColumn(r.left, r.right, 330, r.top) : { left: 8, top: 72 }
   return (
     <PopoverDialog
       label={label}

@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
+import { useViewport, type Rect, type Viewport } from '../../components/editor/useViewport'
 import { KINDS, WORKLOADS, isStorage, scaleText, type BEdge, type BNode, type Result } from './model'
 import type { SpanStatus, Trace } from './emulate'
 
 export const NODE_W = 150
 export const NODE_H = 74
-/** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от «весь холст» до 400% */
-const MAX_SCALE = 4
-type View = { x: number; y: number; w: number }
-/** Фокус в поле ввода: клавиши достаются ему, а не схеме */
-const typing = (t: EventTarget | null) => {
-  const el = t as HTMLElement | null
-  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+
+/** Рамка вокруг блоков (с отступом) — для «вписать схему» и «к выбранному» */
+export function nodesBox(ns: BNode[], pad: number): Rect | null {
+  if (!ns.length) return null
+  const x = Math.min(...ns.map((n) => n.x)) - pad
+  const y = Math.min(...ns.map((n) => n.y)) - pad
+  return { x, y, w: Math.max(...ns.map((n) => n.x + NODE_W)) + pad - x, h: Math.max(...ns.map((n) => n.y + NODE_H)) + pad - y }
 }
 
 interface Props {
@@ -34,11 +35,8 @@ interface Props {
   fit?: boolean
   /** Только что добавленный блок: показать его — прокрутить к нему и подсветить */
   reveal?: string | null
-  /** Рабочий экран на телефоне: слева сверху — своя плашка (назад, название, задача), справа рядом с масштабом — свои кнопки */
-  lead?: ReactNode
-  extra?: ReactNode
-  /** При открытии вписать схему в экран */
-  autoFit?: boolean
+  /** Масштаб и сдвиг — общие для всех редакторов схем (useViewport на странице); без него — свой, для витрины */
+  vp?: Viewport
   width?: number
   height?: number
 }
@@ -99,180 +97,17 @@ export function BuilderCanvas({
   onDragging,
   fit,
   reveal,
-  lead,
-  extra,
-  autoFit,
+  vp: outer,
   width = 1000,
   height = 540,
 }: Props) {
   const rpsText = (v: number) => (hideLoad ? '?' : fmt(v))
-  const svgRef = useRef<SVGSVGElement>(null)
   /** Нажатие на блок: щелчок открывает окно, а сдвиг больше 4 px — это перетаскивание, окно не открываем */
   const drag = useRef<{ id: string; dx: number; dy: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
   /** Нажатие на связь: окно открываем при отпускании без сдвига — иначе это начало жеста двумя пальцами */
   const tap = useRef<{ id: string; pid: number; x: number; y: number } | null>(null)
-  /** Все указатели, что сейчас нажаты на холсте: второй палец превращает любое касание в масштаб и сдвиг */
-  const pointers = useRef(new Map<number, { x: number; y: number; touch?: boolean }>())
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
 
-  // ---- масштаб, как в Figma: видимая часть холста; null — весь холст. Пропорции как у холста, высота не прыгает
-  const [view, setView] = useState<View | null>(null)
-  const viewRef = useRef(view)
-  viewRef.current = view
-  /** Размер холста на экране: на компьютере — 1000×540, на телефоне — весь экран любой формы */
-  const [box, setBox] = useState({ w: 0, h: 0 })
-  useEffect(() => {
-    const svg = svgRef.current
-    if (!svg) return
-    const ro = new ResizeObserver(() => {
-      const w = svg.clientWidth
-      const h = svg.clientHeight
-      if (!w || !h) return
-      // холст сменил форму (растянулся на весь экран, телефон повернули): видимая часть сохраняет свой центр
-      const was = aspectRef.current
-      aspectRef.current = h / w
-      if (Math.abs(was - h / w) > 1e-6) setView((v) => v && clampView({ x: v.x, y: v.y + (v.w * (was - h / w)) / 2, w: v.w }))
-      setBox({ w, h })
-    })
-    ro.observe(svg)
-    return () => ro.disconnect()
-    // clampView читает пропорции через ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  // пропорции видимой части — как у холста на экране; через ref: колесо и клавиши читают свежие
-  const aspectRef = useRef(height / width)
-  aspectRef.current = box.w && box.h ? box.h / box.w : height / width
-  const A = () => aspectRef.current
-  /** Самая крупная видимая часть: весь холст целиком, по центру */
-  const maxW = () => Math.max(width, height / A())
-  const whole = (): View => {
-    const w = maxW()
-    return { x: (width - w) / 2, y: (height - w * A()) / 2, w }
-  }
-  // окно параметров стоит у блока: при смене масштаба ему нужно пересчитать место
-  useEffect(() => {
-    window.dispatchEvent(new Event('canvas-view'))
-  }, [view])
-  const minW = () => (svgRef.current?.clientWidth || width) / MAX_SCALE
-  const clampView = (v: View): View | null => {
-    const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), v.w))
-    if (w >= maxW() - 1) return null
-    const h = w * A()
-    // видимая часть меньше холста — не выходит за холст; больше — держит холст целиком в кадре,
-    // но может сдвинуться, чтобы посередине оказалась схема, а не пустой край холста
-    const along = (pos: number, size: number, total: number) =>
-      size <= total ? Math.max(0, Math.min(total - size, pos)) : Math.max(total - size, Math.min(0, pos))
-    return { x: along(v.x, w, width), y: along(v.y, h, height), w }
-  }
-  /** Приблизить в k раз, держа точку at (координаты холста) на месте; без at — относительно середины */
-  const zoomBy = (k: number, at?: { x: number; y: number }) =>
-    setView((v) => {
-      const c = v ?? whole()
-      const p = at ?? { x: c.x + c.w / 2, y: c.y + (c.w * A()) / 2 }
-      const w = c.w / k
-      return clampView({ x: p.x - (p.x - c.x) * (w / c.w), y: p.y - (p.y - c.y) * (w / c.w), w })
-    })
-  /** Показать прямоугольник схемы целиком и как можно крупнее */
-  const fitBoxView = (x0: number, y0: number, x1: number, y1: number, maxScale = MAX_SCALE) => {
-    const cw = svgRef.current?.clientWidth || width
-    // ширину ограничиваем сразу, до расчёта угла: иначе упор в предел масштаба сдвигает схему от центра
-    const raw = Math.max(x1 - x0, (y1 - y0) / A(), cw / maxScale)
-    const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), raw))
-    setView(clampView({ x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - (w * A()) / 2, w }))
-  }
-  /** Shift+1 — вписать схему; при входе — не крупнее 100%, чтобы одиночный блок не раздувался на весь экран */
-  const fitNodes = (maxScale = MAX_SCALE) => {
-    if (!nodes.length) return setView(null)
-    const pad = 30
-    fitBoxView(
-      Math.min(...nodes.map((n) => n.x)) - pad,
-      Math.min(...nodes.map((n) => n.y)) - pad,
-      Math.max(...nodes.map((n) => n.x + NODE_W)) + pad,
-      Math.max(...nodes.map((n) => n.y + NODE_H)) + pad,
-      maxScale,
-    )
-  }
-  /** Shift+2 — к выбранному блоку или связи */
-  const fitSelection = () => {
-    const sel = nodes.find((n) => n.id === selected)
-    const e = edges.find((x) => x.id === selected)
-    const ends = sel ? [sel] : e ? nodes.filter((n) => n.id === e.from || n.id === e.to) : []
-    if (!ends.length) return
-    const pad = 60
-    fitBoxView(
-      Math.min(...ends.map((n) => n.x)) - pad,
-      Math.min(...ends.map((n) => n.y)) - pad,
-      Math.max(...ends.map((n) => n.x + NODE_W)) + pad,
-      Math.max(...ends.map((n) => n.y + NODE_H)) + pad,
-    )
-  }
-  /** Shift+0 — 100%: одна единица схемы на пиксель, вокруг середины видимой части */
-  const zoomTo100 = () => {
-    const c = viewRef.current ?? whole()
-    zoomBy(c.w / (svgRef.current?.clientWidth || width))
-  }
-  const cur = view ?? whole()
-  // ширина на экране: из наблюдателя размера, а до его первого отклика — прямым замером
-  const scale = (box.w || svgRef.current?.clientWidth || width) / cur.w
-  // рабочий экран: при открытии схема вписывается в экран, как только известен его размер
-  const fitted = useRef(false)
-  useEffect(() => {
-    if (!autoFit || fitted.current || !box.w) return
-    fitted.current = true
-    fitNodes(1)
-    // только один раз, когда стал известен размер
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFit, box.w])
-  const [zoomMenu, setZoomMenu] = useState(false)
-  const zoomRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!zoomMenu) return
-    const close = (e: PointerEvent) => !zoomRef.current?.contains(e.target as Node) && setZoomMenu(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setZoomMenu(false)
-    document.addEventListener('pointerdown', close, true)
-    window.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('pointerdown', close, true)
-      window.removeEventListener('keydown', esc)
-    }
-  }, [zoomMenu])
-
-  // жесты: одним пальцем или мышью по пустому месту — сдвиг приближенной схемы; двумя пальцами где угодно — масштаб и сдвиг;
-  // пробел + перетаскивание и средняя кнопка мыши — сдвиг откуда угодно
-  const touches = useRef(new Map<number, { x: number; y: number }>())
-  const gesture = useRef<{ view: View; mid: { x: number; y: number }; dist: number; rect: DOMRect } | null>(null)
-  const [panning, setPanning] = useState(false)
-  const startGesture = () => {
-    const pts = [...touches.current.values()]
-    setPanning(pts.length > 0)
-    if (!pts.length || !svgRef.current) return (gesture.current = null)
-    const two = pts.length >= 2
-    gesture.current = {
-      view: viewRef.current ?? whole(),
-      mid: two ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0],
-      dist: two ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0,
-      rect: svgRef.current.getBoundingClientRect(),
-    }
-  }
-  const moveGesture = () => {
-    const g = gesture.current
-    const pts = [...touches.current.values()]
-    if (!g || !pts.length) return
-    const two = pts.length >= 2 && g.dist > 0
-    const mid = two ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0]
-    const w = two ? g.view.w * (g.dist / Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y))) : g.view.w
-    // точка холста под пальцами в начале жеста остаётся под пальцами
-    const s0 = g.rect.width / g.view.w
-    const px = g.view.x + (g.mid.x - g.rect.left) / s0
-    const py = g.view.y + (g.mid.y - g.rect.top) / s0
-    const s = g.rect.width / w
-    setView(clampView({ x: px - (mid.x - g.rect.left) / s, y: py - (mid.y - g.rect.top) / s, w }))
-  }
-  const endTouch = (id: number) => {
-    if (!touches.current.delete(id)) return false
-    startGesture()
-    return true
-  }
   /** Второй палец: начатое перетаскивание блока или связи отменяется, блок возвращается на место */
   const cancelDrag = () => {
     const d = drag.current
@@ -282,95 +117,19 @@ export function BuilderCanvas({
     tap.current = null
     setLink(null)
   }
-  const resetPointers = () => {
-    touches.current.clear()
-    pointers.current.clear()
-    gesture.current = null
-    setPanning(false)
-  }
-
-  // колесо, как в Figma: Ctrl/⌘ или щипок на тачпаде — масштаб у курсора; без них — сдвиг приближенной схемы
-  // (Shift — вбок). Если схеме двигаться некуда, колесо листает страницу
+  // масштаб, сдвиг, клавиши и жесты — общие для всех редакторов схем; страница передаёт свой, витрина — без масштаба
+  const own = useViewport({ width, height, disabled: fit || !!outer, content: () => nodesBox(nodes, 30) })
+  const vp = outer ?? own
   useEffect(() => {
-    const svg = svgRef.current
-    if (!svg || fit) return
-    const onWheel = (e: WheelEvent) => {
-      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-        zoomBy(Math.exp(-e.deltaY * unit * 0.003), toSvg(e))
-        return
-      }
-      const v = viewRef.current
-      if (!v) return
-      let dx = e.deltaX * unit
-      let dy = e.deltaY * unit
-      if (e.shiftKey && !dx) [dx, dy] = [dy, 0]
-      const k = v.w / svg.clientWidth
-      const next = clampView({ x: v.x + dx * k, y: v.y + dy * k, w: v.w })
-      if (!next || (Math.abs(next.x - v.x) < 0.01 && Math.abs(next.y - v.y) < 0.01)) return
-      e.preventDefault()
-      setView(next)
-    }
-    svg.addEventListener('wheel', onWheel, { passive: false })
-    return () => svg.removeEventListener('wheel', onWheel)
-    // zoomBy, clampView и toSvg читают состояние через ref и setView с функцией
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fit])
-
-  // клавиши, как в Figma: Shift+1 — вписать, Shift+2 — к выбранному, Shift+0 — 100%, +/− — масштаб,
-  // пробел + перетаскивание — сдвиг. Ctrl/⌘ + = и − перехватываем, только пока мышь над схемой
-  const hover = useRef(false)
-  const spaceRef = useRef(false)
-  const [space, setSpace] = useState(false)
-  const keys = useRef<(e: KeyboardEvent) => void>(() => {})
-  keys.current = (e: KeyboardEvent) => {
-    if (fit || typing(e.target) || e.altKey) return
-    const mod = e.ctrlKey || e.metaKey
-    if (e.shiftKey && !mod && e.code === 'Digit1') fitNodes()
-    else if (e.shiftKey && !mod && e.code === 'Digit2') fitSelection()
-    else if (e.shiftKey && !mod && e.code === 'Digit0') zoomTo100()
-    else if ((e.key === '+' || e.key === '=') && (!mod || hover.current)) zoomBy(1.5)
-    else if ((e.key === '-' || e.key === '_') && (!mod || hover.current)) zoomBy(1 / 1.5)
-    else if (e.code === 'Space' && hover.current && !mod && !(document.activeElement instanceof HTMLButtonElement) && !(document.activeElement instanceof HTMLAnchorElement)) {
-      if (!e.repeat) {
-        spaceRef.current = true
-        setSpace(true)
-      }
-    } else return
-    e.preventDefault()
-  }
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => keys.current(e)
-    const up = (e: KeyboardEvent) => {
-      if (e.code !== 'Space') return
-      spaceRef.current = false
-      setSpace(false)
-    }
-    const blur = () => {
-      spaceRef.current = false
-      setSpace(false)
-    }
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
-    window.addEventListener('blur', blur)
-    return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
-      window.removeEventListener('blur', blur)
-    }
-  }, [])
+    vp.secondFinger.current = cancelDrag
+  })
+  const svgRef = vp.svgRef
   // новый блок: если схема приближена и блок вне видимой части — сдвинуть к нему; прокрутить страницу и подсветить
   useEffect(() => {
     if (!reveal) return
     const n = nodes.find((x) => x.id === reveal)
     if (!n) return
-    setView((v) => {
-      if (!v) return v
-      const h = v.w * A()
-      const inside = n.x >= v.x && n.x + NODE_W <= v.x + v.w && n.y >= v.y && n.y + NODE_H <= v.y + h
-      return inside ? v : clampView({ x: n.x + NODE_W / 2 - v.w / 2, y: n.y + NODE_H / 2 - h / 2, w: v.w })
-    })
+    vp.reveal({ x: n.x, y: n.y, w: NODE_W, h: NODE_H })
     const raf = requestAnimationFrame(() => {
       const el = svgRef.current?.querySelector(`[data-id="${reveal}"]`)
       if (!el) return
@@ -383,26 +142,14 @@ export function BuilderCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal])
 
-  const toSvg = (e: { clientX: number; clientY: number }) => {
-    const svg = svgRef.current!
-    const pt = svg.createSVGPoint()
-    pt.x = e.clientX
-    pt.y = e.clientY
-    const p = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-    return { x: p.x, y: p.y }
-  }
+  const toSvg = vp.toSvg
+  const capture = vp.capture
 
   const nodeAt = (x: number, y: number) =>
     nodes.find((n) => x >= n.x && x <= n.x + NODE_W && y >= n.y && y <= n.y + NODE_H)
 
   const onPointerMove = (e: RPointerEvent) => {
-    const was = pointers.current.get(e.pointerId)
-    if (was) pointers.current.set(e.pointerId, { ...was, x: e.clientX, y: e.clientY })
-    if (touches.current.has(e.pointerId)) {
-      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      moveGesture()
-      return
-    }
+    if (vp.onMove(e)) return
     const p = toSvg(e)
     if (drag.current) {
       if (!drag.current.moved) {
@@ -419,18 +166,9 @@ export function BuilderCanvas({
     }
   }
 
-  const capture = (id: number) => {
-    try {
-      svgRef.current?.setPointerCapture(id)
-    } catch {
-      // указатель уже отпущен — захватывать нечего
-    }
-  }
-
   const onPointerUp = (e: RPointerEvent) => {
     if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
-    pointers.current.delete(e.pointerId)
-    if (endTouch(e.pointerId)) return
+    if (vp.onUp(e)) return
     // связь: отпустили почти там же, где нажали, — это щелчок, открыть или закрыть её окно
     const t = tap.current
     if (t && t.pid === e.pointerId) {
@@ -454,97 +192,20 @@ export function BuilderCanvas({
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
 
   return (
-    <div
-      className={'canvas-stage' + (space ? ' space' : '') + (panning ? ' panning' : '')}
-      onPointerEnter={() => (hover.current = true)}
-      onPointerLeave={() => (hover.current = false)}
-    >
-    {!fit && (
-      <div className={'canvas-zoom' + (lead ? ' ws-bar' : '')}>
-      {lead && <div className="ws-pill ws-left">{lead}</div>}
-      <div className="ws-pill ws-right" role="group" aria-label={tr('Масштаб схемы', 'Diagram zoom')} ref={zoomRef}>
-        <button
-          className="zoom-pct"
-          onClick={() => setZoomMenu(!zoomMenu)}
-          aria-expanded={zoomMenu}
-          aria-haspopup="menu"
-          title={tr('Масштаб: на телефоне — двумя пальцами, на компьютере — Ctrl/⌘ + колесо или щипок', 'Zoom: two fingers on a phone, Ctrl/⌘ + wheel or pinch on a computer')}
-        >
-          {Math.round(scale * 100)}% ▾
-        </button>
-        {zoomMenu && (
-          <div className="panel zoom-menu" role="menu">
-            {(
-              [
-                [tr('Приблизить', 'Zoom in'), '+', () => zoomBy(1.5), scale < MAX_SCALE - 0.01],
-                [tr('Отдалить', 'Zoom out'), '−', () => zoomBy(1 / 1.5), !!view],
-                [tr('Вписать схему', 'Zoom to fit'), 'Shift+1', () => fitNodes(), nodes.length > 0],
-                [tr('К выбранному', 'Zoom to selection'), 'Shift+2', fitSelection, !!selected],
-                // 100% недостижимо, если весь холст и так крупнее (широкий экран)
-                ['100%', 'Shift+0', zoomTo100, (svgRef.current?.clientWidth || width) / maxW() < 1],
-                [tr('Весь холст', 'Whole canvas'), '', () => setView(null), !!view],
-              ] as const
-            ).map(([label, key, act, ok]) => (
-              <button
-                key={label}
-                role="menuitem"
-                disabled={!ok}
-                onClick={() => {
-                  act()
-                  setZoomMenu(false)
-                }}
-              >
-                <span>{label}</span>
-                <kbd>{key}</kbd>
-              </button>
-            ))}
-            <p className="small muted">
-              {tr('Сдвиг: колесо, пробел + перетаскивание, средняя кнопка мыши; на телефоне — пальцем.', 'Pan: wheel, space + drag, middle mouse button; on a phone, drag with a finger.')}
-            </p>
-          </div>
-        )}
-        {extra}
-      </div>
-      </div>
-    )}
     <svg
       ref={svgRef}
-      className={'builder-canvas' + (view ? ' zoomed' : '')}
-      viewBox={fit && nodes.length ? fitBox(nodes) : `${cur.x} ${cur.y} ${cur.w} ${cur.w * A()}`}
+      className={'builder-canvas' + (vp.zoomed ? ' zoomed' : '')}
+      viewBox={fit && nodes.length ? fitBox(nodes) : vp.viewBox}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onPointerLeave={(e) => {
         // при захвате указателя «уход» с холста не конец жеста
-        if (!touches.current.has(e.pointerId)) onPointerUp(e)
+        if (!vp.holds(e.pointerId)) onPointerUp(e)
       }}
-      onContextMenu={(e) => {
-        // долгое касание пальцем — не меню: перетаскивание блока продолжается
-        if ([...pointers.current.values()].some((p) => p.touch)) {
-          e.preventDefault()
-          return
-        }
-        // меню браузера забирает указатель мыши: отпускания может не быть — жест не должен «залипнуть»
-        cancelDrag()
-        resetPointers()
-      }}
-      onPointerDownCapture={(e) => {
-        if (fit) return
-        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' })
-        const mouse = e.pointerType === 'mouse'
-        const panMouse = mouse && (e.button === 1 || (e.button === 0 && spaceRef.current))
-        const secondFinger = !mouse && pointers.current.size >= 2
-        if (!panMouse && !secondFinger) return
-        // сдвиг или щипок перехватывают нажатие у блоков и связей
-        e.stopPropagation()
-        e.preventDefault()
-        if (secondFinger) {
-          cancelDrag()
-          touches.current = new Map(pointers.current)
-        } else touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-        capture(e.pointerId)
-        startGesture()
-      }}
+      // долгое касание пальцем — не меню; меню мыши забирает отпускание — перетаскивание сбрасывается
+      onContextMenu={(e) => vp.onContextMenu(e, cancelDrag)}
+      onPointerDownCapture={vp.onPointerDownCapture}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes(PALETTE_MIME)) {
           e.preventDefault()
@@ -563,10 +224,7 @@ export function BuilderCanvas({
         if (t !== svgRef.current && !t.classList?.contains('canvas-bg')) return
         if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
         onSelect(null)
-        if (fit) return
-        touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-        capture(e.pointerId)
-        startGesture()
+        vp.onBackgroundDown(e)
       }}
     >
       <defs>
@@ -603,6 +261,7 @@ export function BuilderCanvas({
         return (
           <g
             key={e.id}
+            data-id={e.id}
             className={'bedge' + (selected === e.id ? ' selected' : '')}
             onPointerDown={(ev) => {
               ev.stopPropagation()
@@ -748,7 +407,6 @@ export function BuilderCanvas({
       })}
       {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} />}
     </svg>
-    </div>
   )
 }
 

@@ -182,7 +182,13 @@ export function reviewPartition(t: PartitionTask, s: PartitionState, hintsUsed: 
   const misplaced = t.cards.filter((c) => s.place[c.id] && major[s.place[c.id]] !== c.ctx)
   if (solved)
     for (const c of misplaced)
-      items.push({ tone: 'bad', text: tr(`«${c.name}» — это про «${ctxName(c.ctx)}»: ${c.why}`, `“${c.name}” belongs to “${ctxName(c.ctx)}”: ${c.why}`) })
+      items.push({
+        tone: 'bad',
+        text: tr(
+          `«${c.name}» лежит в группе «${groupName(s.place[c.id])}», где в основном «${ctxName(major[s.place[c.id]]!)}», а относится к «${ctxName(c.ctx)}»: ${c.why}`,
+          `“${c.name}” sits in group “${groupName(s.place[c.id])}”, which is mostly “${ctxName(major[s.place[c.id]]!)}”, but it belongs to “${ctxName(c.ctx)}”: ${c.why}`,
+        ),
+      })
   else if (misplaced.length) {
     items.push({
       tone: 'bad',
@@ -202,17 +208,28 @@ export function reviewPartition(t: PartitionTask, s: PartitionState, hintsUsed: 
         ),
       })
   }
-  // контекст эталона потерялся внутри чужой группы
+  // стикеры одного контекста смешаны с чужими: называем группу игрока и сами стикеры, а не контекст эталона
   for (const ctx of t.contexts) {
-    const has = t.cards.some((c) => c.ctx === ctx.id && s.place[c.id])
-    if (has && !s.groups.some((g) => major[g.id] === ctx.id))
-      items.push({
-        tone: 'warn',
-        text: tr(
-          `Нет отдельного контекста для «${ctx.name}» (${ctx.desc.toLowerCase()}) — его карточки растворились в других группах`,
-          `There is no separate context for “${ctx.name}” (${ctx.desc.toLowerCase()}); its cards dissolved into other groups`,
-        ),
-      })
+    const mine = t.cards.filter((c) => c.ctx === ctx.id && s.place[c.id])
+    if (!mine.length || s.groups.some((g) => major[g.id] === ctx.id)) continue
+    // группа, где этих стикеров больше всего
+    const counts: Record<string, number> = {}
+    for (const c of mine) counts[s.place[c.id]] = (counts[s.place[c.id]] ?? 0) + 1
+    const gid = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+    const names = mine.filter((c) => s.place[c.id] === gid).slice(0, 2).map((c) => `«${c.name}»`).join(tr(' и ', ' and '))
+    const scattered = Object.keys(counts).length > 1
+    items.push({
+      tone: 'warn',
+      text: scattered
+        ? tr(
+            `${names} и похожие стикеры разбросаны по разным группам и везде в меньшинстве — у них свой язык и свои данные, соберите их в отдельный контекст`,
+            `${names} and similar stickies are scattered across groups and are a minority everywhere; they have their own language and data, so gather them into a separate context`,
+          )
+        : tr(
+            `В группе «${groupName(gid)}» смешаны два контекста: ${names} живут по своим правилам — вынесите их в отдельную группу`,
+            `Group “${groupName(gid)}” mixes two contexts: ${names} follow their own rules, so move them into a separate group`,
+          ),
+    })
   }
   // до решения — не больше одного намёка про контексты, иначе замечания перечислят весь ответ
   if (!solved) {

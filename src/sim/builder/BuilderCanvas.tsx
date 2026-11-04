@@ -246,7 +246,7 @@ export function BuilderCanvas({
       {/* пустое место схемы — по нему жмут, чтобы сдвинуть схему */}
       <rect className="canvas-bg" data-viewport-ignore="" x={vb[0] - vb[2]} y={vb[1] - vb[3]} width={vb[2] * 3} height={vb[3] * 3} fill="transparent" />
       {/* сетка — часть холста: при масштабе и сдвиге она движется вместе со схемой */}
-      <path className="canvas-grid-line" data-viewport-ignore="" d={grid.d} style={{ strokeWidth: grid.hair }} />
+      <path className="canvas-grid-line" data-viewport-ignore="" d={grid} />
       {/* границы холста: за них блоки не уходят — на вытянутом экране видно, где можно строить */}
       {!fit && <rect className="canvas-frame" x={0} y={0} width={width} height={height} rx={6} />}
 
@@ -601,15 +601,13 @@ function TrafficLayer({ traces, nodes, edges, paused }: { traces: LiveTrace[]; n
  * Сетка холста — отдельными линиями только по видимой части: в редакторе вид совпадает с экраном, хватает запаса
  * в одну клетку; у витрины на главной (fit) по бокам бывают поля — там запас в размер вида на каждую сторону. Не SVG-узором: узор рисует клетку картинкой и повторяет её, а на телефоне клетка не ложится
  * в целые пиксели — линии выходят разной толщины и складываются в ложную крупную сетку, которая плывёт при сдвиге.
- * Шаг — 20, 100 или 500 единиц, чтобы клетка на экране была не мельче 14 px; толщина — целое число пикселей экрана.
+ * Шаг — 20, 100 или 500 единиц, чтобы клетка на экране была не мельче 14 px.
  */
 function useGrid(viewBox: string, vp: Viewport, fit: boolean) {
   const vb = viewBox.split(/[\s,]+/).map(Number)
   // пикселей на единицу схемы: у масштаба вида — свой viewBox, у витрины на главной — рамка по блокам
   const px = vp.scale * (Number(vp.viewBox.split(/[\s,]+/)[2]) || vb[2]) / vb[2]
   const step = [20, 100, 500].find((s) => s * px >= 14) ?? 500
-  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
-  const hair = Math.max(1, Math.round(dpr)) / dpr
   const d = useMemo(() => {
     const mx = fit ? vb[2] : step
     const my = fit ? vb[3] : step
@@ -623,7 +621,7 @@ function useGrid(viewBox: string, vp: Viewport, fit: boolean) {
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewBox, step, fit])
-  return { d, hair }
+  return d
 }
 
 function fitBox(nodes: BNode[]): string {

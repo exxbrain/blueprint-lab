@@ -3504,8 +3504,9 @@ body.ws-mode .page { animation: none; }
 .ddd-tray-count { flex: none; padding: 0 6px; font-size: 0.7rem; color: var(--muted); }
 .ws .ws-tools .ddd-card { flex: none; max-width: 150px; margin: 0; font-size: 0.75rem; white-space: normal; text-align: left; }
 /* стикер, который тащат пальцем: едет под пальцем; на месте остаётся бледная тень; цель подсвечена */
-/* .ddd-card.ddd-ghost — специфичнее .ddd-card:nth-child(2n), иначе поворот стикеров перебивал бы сдвиг над пальцем */
-.ddd-card.ddd-ghost {
+/* :nth-child(n) совпадает всегда и только поднимает специфичность (0,3,0) над .ddd-card:nth-child(2n) (0,2,0):
+   иначе поворот стикеров перебивал бы сдвиг над пальцем, где бы правило ни стояло в файле */
+.ddd-card.ddd-ghost:nth-child(n) {
   position: fixed;
   z-index: 60;
   width: max-content;

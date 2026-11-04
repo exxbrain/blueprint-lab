@@ -956,6 +956,11 @@ table.cmp th {
   user-select: none;
   -webkit-touch-callout: none;
 }
+/* у холста конструктора своя сетка, она движется вместе со схемой. Сквозь полупрозрачную панель просвечивала бы
+   неподвижная сетка страницы, и при сдвиге и масштабе две сетки ехали бы друг по другу. Поэтому под схемой — сплошной
+   цвет панели (как панель поверх фона страницы). На телефоне рабочий экран и так непрозрачный */
+.builder-canvas.has-grid { background: #0e2a49; }
+.ws .builder-canvas.has-grid { background: none; }
 /* сетка холста рисуется в SVG и масштабируется вместе со схемой; линии — всегда в 1 px */
 .canvas-grid-line { fill: none; stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .canvas-stage { position: relative; }

@@ -132,8 +132,6 @@ function Exercise({ ex }: { ex: C4Exercise }) {
       window.removeEventListener('blur', clear)
     }
   }, [])
-  const selectedNow = useRef(selected)
-  selectedNow.current = selected
   const hintState = useHints(`c4/${ex.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<DiagramState | null>(null)
@@ -427,10 +425,10 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             onPointerUpCapture={(e) => {
               const t = tapStart.current
               tapStart.current = null
-              // касание одним пальцем почти без сдвига, и элемент выбран — открыть его свойства
-              if (t && t.onItem && t.id === e.pointerId && t.n === 1 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
-                // выбор уже обновлён: нажатие — отдельное событие, React отрисовал его до отпускания
-                selectedNow.current && setPropsOpen(true)
+              // касание одним пальцем почти без сдвига — открыть свойства. Связь выбрана ещё при нажатии,
+              // элемент поле выберет при этом же отпускании; если элемент успели потащить, поле сняло выбор — шторки нет
+              if (t && t.onItem && t.id === e.pointerId && t.n === 1 && !dragging && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
+                setPropsOpen(true)
             }}
             onPointerCancelCapture={() => {
               tapStart.current = null

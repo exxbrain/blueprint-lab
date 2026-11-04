@@ -34,7 +34,7 @@ function edgePoint(p: Placed, tx: number, ty: number) {
 }
 
 export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, onDropCard, vp, onDragging }: Props) {
-  const drag = useRef<{ card: string; dx: number; dy: number; ox: number; oy: number; moved: boolean } | null>(null)
+  const drag = useRef<{ card: string; dx: number; dy: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
   const cardOf = (id: string) => ex.cards.find((c) => c.id === id)!
   const byCard = new Map(diagram.placed.map((p) => [p.card, p]))
@@ -58,8 +58,13 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
     if (vp.onMove(e)) return
     const p = toSvg(e)
     if (drag.current) {
-      if (!drag.current.moved) onDragging?.(true)
-      drag.current.moved = true
+      // как в конструкторе: сдвиг больше 4 px — перетаскивание, выбор снимается, окно свойств после броска не открывается
+      if (!drag.current.moved) {
+        if (Math.hypot(e.clientX - drag.current.sx, e.clientY - drag.current.sy) < 4) return
+        drag.current.moved = true
+        onSelect(null)
+        onDragging?.(true)
+      }
       const x = Math.max(0, Math.min(CANVAS.w - EL_W, p.x - drag.current.dx))
       const y = Math.max(0, Math.min(CANVAS.h - EL_H, p.y - drag.current.dy))
       onMove(drag.current.card, Math.round(x / 10) * 10, Math.round(y / 10) * 10)
@@ -68,6 +73,8 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
   const onPointerUp = (e: RPointerEvent) => {
     if (vp.onUp(e)) return
     if (drag.current?.moved || link) onDragging?.(false)
+    // щелчок без сдвига — выбрать элемент и открыть его свойства
+    if (drag.current && !drag.current.moved) onSelect(drag.current.card)
     if (link) {
       const p = toSvg(e)
       const target = at(p.x, p.y)
@@ -197,9 +204,8 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
               // правая кнопка и Ctrl+щелчок на Mac — меню браузера, а не перетаскивание
               if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
               const pt = toSvg(e)
-              drag.current = { card: p.card, dx: pt.x - p.x, dy: pt.y - p.y, ox: p.x, oy: p.y, moved: false }
+              drag.current = { card: p.card, dx: pt.x - p.x, dy: pt.y - p.y, sx: e.clientX, sy: e.clientY, ox: p.x, oy: p.y, moved: false }
               vp.capture(e.pointerId)
-              onSelect(p.card)
             }}
           >
             <rect width={EL_W} height={EL_H} rx={kind === 'person' ? 22 : 8} className="c4-el-box" />

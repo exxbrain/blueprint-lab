@@ -59,6 +59,12 @@ function freePlace(d: DiagramState, within?: Rect): { x: number; y: number } {
   const onCanvas = (s: { x: number; y: number }) => s.x >= 0 && s.y >= 0 && s.x + EL_W <= CANVAS.w && s.y + EL_H <= CANVAS.h
   const inside = (s: { x: number; y: number }) =>
     !within || (s.x >= within.x && s.y >= within.y && s.x + EL_W <= within.x + within.w && s.y + EL_H <= within.y + within.h)
+  // карточка не ложится на линию границы системы: она целиком внутри границы или целиком снаружи
+  const straddles = (s: { x: number; y: number }) => {
+    const overlaps = s.x < BOUNDARY.x + BOUNDARY.w && s.x + EL_W > BOUNDARY.x && s.y < BOUNDARY.y + BOUNDARY.h && s.y + EL_H > BOUNDARY.y
+    const inBox = s.x >= BOUNDARY.x && s.y >= BOUNDARY.y && s.x + EL_W <= BOUNDARY.x + BOUNDARY.w && s.y + EL_H <= BOUNDARY.y + BOUNDARY.h
+    return overlaps && !inBox
+  }
   const spots: { x: number; y: number }[] = []
   for (let y = 10; y <= 560; y += 90) for (const x of [30, 810]) spots.push({ x, y })
   for (let x = 230; x <= 640; x += 180) spots.push({ x, y: 10 }, { x, y: 560 })
@@ -73,7 +79,7 @@ function freePlace(d: DiagramState, within?: Rect): { x: number; y: number } {
     for (let y = Math.ceil(within.y / 10) * 10; y + EL_H <= within.y + within.h; y += 20)
       for (let x = Math.ceil(within.x / 10) * 10; x + EL_W <= within.x + within.w; x += 20) grid.push({ x, y })
     grid.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))
-    const near = grid.find((s) => onCanvas(s) && fits(s))
+    const near = grid.find((s) => onCanvas(s) && fits(s) && !straddles(s))
     if (near) return near
   }
   return spots.find(fits) ?? { x: 30, y: 10 }
@@ -147,7 +153,20 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const card = (id: string) => ex.cards.find((c) => c.id === id)!
 
   const place = (cardId: string, pos?: { x: number; y: number }) => {
-    const at = pos ?? freePlace(d, vp.visibleRect())
+    const seen = vp.visibleRect()
+    const at = pos ?? freePlace(d, seen)
+    // видимая часть занята и карточка встала за её краем — показать её, как конструктор показывает новый блок
+    if (!pos && (at.x < seen.x || at.y < seen.y || at.x + EL_W > seen.x + seen.w || at.y + EL_H > seen.y + seen.h)) {
+      vp.reveal({ x: at.x, y: at.y, w: EL_W, h: EL_H })
+      requestAnimationFrame(() => {
+        const el = vp.svgRef.current?.querySelector(`[data-id="${CSS.escape(cardId)}"]`)
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const bar = vp.svgRef.current?.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
+        const top = Math.max(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
+        if (r.top < top || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      })
+    }
     setD({ ...d, placed: [...d.placed, { card: cardId, x: Math.round(at.x / 10) * 10, y: Math.round(at.y / 10) * 10, kind: null, tech: '' }] })
     setSelected(cardId)
   }

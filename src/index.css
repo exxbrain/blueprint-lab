@@ -3540,8 +3540,8 @@ body.ws-mode .page { animation: none; }
 .editor-bar.on-canvas .add-btn:hover { filter: brightness(1.08); }
 .editor-bar.on-canvas .add-menu {
   top: calc(100% + 6px);
-  /* в низком окне меню прокручивается, а не уходит за край экрана */
-  max-height: calc(100vh - var(--topbar-h, 56px) - 80px);
+  /* прежний потолок, а в низком окне (панель прилипла) — не ниже края экрана; дальше меню прокручивается */
+  max-height: min(70vh, 560px, calc(100vh - var(--topbar-h, 56px) - 80px));
   overflow-y: auto;
 }
 /* сообщение под панелью: «так связать нельзя…» — рядом с тем местом, где человек работает */

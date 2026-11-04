@@ -35,8 +35,21 @@ export function Workspace({
     document.body.classList.add('ws-mode')
     return () => document.body.classList.remove('ws-mode')
   }, [])
+  // высота нижней панели — в переменную: листаемое поле оставляет под ней место, и последнее в поле не уходит под панель
+  // (лента стикеров бывает выше обычной панели кнопок)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const toolsRef = useRef<HTMLDivElement>(null)
+  const hasTools = !!bottom
+  useEffect(() => {
+    const root = rootRef.current
+    const tools = toolsRef.current
+    if (!root || !tools) return
+    const ro = new ResizeObserver(() => root.style.setProperty('--ws-tools-h', `${tools.offsetHeight}px`))
+    ro.observe(tools)
+    return () => ro.disconnect()
+  }, [hasTools])
   return (
-    <div className="ws wsx">
+    <div className="ws wsx" ref={rootRef}>
       <div className={'wsx-field' + (scroll ? ' scroll' : '')}>{children}</div>
       <div className="wsx-top">
         <div className="ws-pill ws-left">
@@ -58,7 +71,7 @@ export function Workspace({
         </button>
       )}
       {bottom && (
-        <div className="ws-tools" role="toolbar">
+        <div className="ws-tools" role="toolbar" ref={toolsRef}>
           {bottom}
         </div>
       )}

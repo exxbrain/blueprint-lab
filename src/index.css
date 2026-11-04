@@ -936,7 +936,10 @@ table.cmp th {
   display: block;
   border-radius: 8px;
   touch-action: none;
+  /* схему не выделяют как текст: с префиксом — для Safari (в режиме разработки префикс сам не добавляется) */
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 /* сетка холста рисуется в SVG и масштабируется вместе со схемой; линии — всегда в 1 px */
 .canvas-grid-line { fill: none; stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; }

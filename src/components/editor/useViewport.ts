@@ -236,6 +236,16 @@ export function useViewport(o: ViewportOptions) {
     if (o.disabled) return
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' })
     const mouse = e.pointerType === 'mouse'
+    // нажатие мышью по схеме — не начало выделения текста: иначе при перетаскивании браузер выделяет холст
+    // и всё вокруг, и подсветка мигает. Поля ввода (если они есть на схеме) остаются как есть
+    if (mouse && e.button === 0 && !(e.target as Element).closest?.('input, textarea, select, [contenteditable="true"]')) {
+      e.preventDefault()
+      const sel = window.getSelection()
+      if (sel && !sel.isCollapsed) sel.removeAllRanges()
+      // без действия по умолчанию фокус сам не уходит из поля ввода — уводим, как при обычном щелчке
+      const active = document.activeElement as HTMLElement | null
+      if (active && active !== document.body && active.matches('input, textarea, select, [contenteditable="true"]')) active.blur()
+    }
     const panMouse = mouse && (e.button === 1 || (e.button === 0 && spaceRef.current))
     const twoFingers = !mouse && pointers.current.size >= 2
     if (!panMouse && !twoFingers) return

@@ -3,6 +3,10 @@ import { menuOpen } from '../popover'
 
 /** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от «весь холст» до 400% */
 export const MAX_SCALE = 4
+/** Запас вокруг холста: отдалить можно ещё в столько раз мельче, чем «весь холст» */
+export const ZOOM_OUT = 3
+/** Запас при сдвиге: схему можно увести от края вида на такую долю вида — чтобы она не упиралась в края и панели */
+export const PAN_MARGIN = 0.5
 
 /** Прямоугольник в координатах схемы */
 export interface Rect {
@@ -38,10 +42,10 @@ export interface ViewportOptions {
 /**
  * Общая для всех редакторов схем (конструктор, C4, распил) работа с полем, как в Figma.
  * Видимая часть задаётся viewBox: схема остаётся векторной и попадание по элементам точное.
- * - проценты масштаба, «вписать», «к выбранному», 100%, «весь холст»;
- * - колесо: с Ctrl/⌘ и щипок на тачпаде — масштаб у курсора, без — сдвиг приближенной схемы (иначе листается страница);
+ * - проценты масштаба, «вписать», «к выбранному», 100%, «весь холст»; отдалить можно и мельче всего холста — вокруг него запас;
+ * - колесо: с Ctrl/⌘ и щипок на тачпаде — масштаб у курсора, без — сдвиг схемы, если вид сдвинут или приближен (иначе листается страница);
  * - пробел + перетаскивание и средняя кнопка мыши — сдвиг откуда угодно;
- * - пальцы: одним по пустому месту — сдвиг приближенной схемы, двумя где угодно — масштаб и сдвиг;
+ * - пальцы и мышь: по пустому месту — сдвиг схемы (с запасом за краями холста), двумя пальцами где угодно — масштаб и сдвиг;
  * - клавиши: Shift+1, Shift+2, Shift+0, +/−.
  * Поле может быть любой формы (на телефоне — весь экран): пропорции видимой части берутся из размера svg на экране.
  */
@@ -66,7 +70,10 @@ export function useViewport(o: ViewportOptions) {
   const aspectRef = useRef(height / width)
   aspectRef.current = box.w && box.h ? box.h / box.w : height / width
   const A = () => aspectRef.current
+  /** Ширина вида «весь холст» */
   const maxW = () => Math.max(width, height / A())
+  /** Самый мелкий масштаб — с запасом вокруг холста */
+  const outW = () => maxW() * ZOOM_OUT
   const minW = () => (svgRef.current?.clientWidth || width) / MAX_SCALE
   /** Весь холст целиком, по центру */
   const whole = (): View => {
@@ -74,13 +81,18 @@ export function useViewport(o: ViewportOptions) {
     return { x: (width - w) / 2, y: (height - w * A()) / 2, w }
   }
   const clampView = (v: View): View | null => {
-    const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), v.w))
-    if (w >= maxW() - 1) return null
+    const w = Math.max(Math.min(minW(), maxW()), Math.min(outW(), v.w))
     const h = w * A()
-    // меньше холста — не выходит за холст; больше — держит холст в кадре, но может встать серединой на схему
-    const along = (pos: number, size: number, total: number) =>
-      size <= total ? Math.max(0, Math.min(total - size, pos)) : Math.max(total - size, Math.min(0, pos))
-    return { x: along(v.x, w, width), y: along(v.y, h, height), w }
+    // вид может уйти за край холста на долю своего размера: схему можно отодвинуть от краёв и панелей;
+    // меньше холста — край холста не дальше этого запаса, больше — холст не уходит из кадра дальше него
+    const along = (pos: number, size: number, total: number) => {
+      const m = size * PAN_MARGIN
+      return size <= total ? Math.max(-m, Math.min(total - size + m, pos)) : Math.max(total - size - m, Math.min(m, pos))
+    }
+    const next = { x: along(v.x, w, width), y: along(v.y, h, height), w }
+    // ровно «весь холст» по центру — вид по умолчанию
+    const all = whole()
+    return Math.abs(w - all.w) < 1 && Math.abs(next.x - all.x) < 0.5 && Math.abs(next.y - all.y) < 0.5 ? null : next
   }
 
   // размер svg на экране; сменил форму (растянулся на экран, повернули телефон) — видимая часть держит центр
@@ -261,7 +273,7 @@ export function useViewport(o: ViewportOptions) {
     capture(e.pointerId)
     startGesture()
   }
-  /** Нажатие по пустому месту схемы: одним пальцем или мышью — сдвиг (если схема приближена) */
+  /** Нажатие по пустому месту схемы: одним пальцем или мышью — сдвиг схемы */
   const onBackgroundDown = (e: RPointerEvent) => {
     if (o.disabled || e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
     touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -438,6 +450,8 @@ export function useViewport(o: ViewportOptions) {
     zoomed: !!view,
     scale,
     canZoomIn: scale < MAX_SCALE - 0.01,
+    /** Отдалить можно и дальше «всего холста» — до запаса вокруг него */
+    canZoomOut: cur.w < outW() - 1,
     /** 100% недостижимо, если весь холст и так крупнее (широкий экран) */
     can100: wholeScale < 1,
     hasSelection: () => !!opts.current.selection?.(),

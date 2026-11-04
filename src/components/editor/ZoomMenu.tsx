@@ -30,7 +30,7 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
   }, [open])
   const items: [string, string, () => void, boolean][] = [
     [tr('Приблизить', 'Zoom in', '放大'), '+', () => vp.zoomBy(1.5), vp.canZoomIn],
-    [tr('Отдалить', 'Zoom out', '缩小'), '−', () => vp.zoomBy(1 / 1.5), vp.zoomed],
+    [tr('Отдалить', 'Zoom out', '缩小'), '−', () => vp.zoomBy(1 / 1.5), vp.canZoomOut],
     [tr('Вписать схему', 'Zoom to fit', '缩放以适应图表'), 'Shift+1', () => vp.fit(), true],
     [tr('К выбранному', 'Zoom to selection', '缩放到所选内容'), 'Shift+2', vp.fitSelection, vp.hasSelection()],
     ['100%', 'Shift+0', vp.to100, vp.can100],
@@ -65,7 +65,7 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
           ))}
           <p className="small muted">
             {phone
-              ? tr('Двумя пальцами — масштаб и сдвиг, одним по пустому месту — сдвиг приближенной схемы.', 'Two fingers zoom and pan; one finger on empty space pans a zoomed diagram.', '双指可缩放和平移；放大后，单指在空白处拖动即可平移图表。')
+              ? tr('Двумя пальцами — масштаб и сдвиг, одним по пустому месту — сдвиг схемы.', 'Two fingers zoom and pan; one finger on empty space pans the diagram.', '双指可缩放和平移；单指在空白处拖动即可平移图表。')
               : tr('Сдвиг: колесо, пробел + перетаскивание, средняя кнопка мыши.', 'Pan: wheel, space + drag, middle mouse button.', '平移：滚轮、按住空格拖动，或按住鼠标中键拖动。')}
           </p>
         </div>

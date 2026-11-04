@@ -194,12 +194,17 @@ export function BuilderCanvas({
 
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
   const busy = moving || vp.panning
+  const viewBox = fit && nodes.length ? fitBox(nodes) : vp.viewBox
+  /** Видимая часть схемы: x, y, ширина, высота */
+  const vb = viewBox.split(/[\s,]+/).map(Number)
+  // клетка сетки на экране мельче 8 px — сетка реже (в витрине на главной масштаб свой, там её не трогаем)
+  const coarse = !fit && 20 * vp.scale < 8
 
   return (
     <svg
       ref={vp.bindSvg}
       className={'builder-canvas has-grid' + (vp.zoomed ? ' zoomed' : '') + (busy ? ' busy' : '')}
-      viewBox={fit && nodes.length ? fitBox(nodes) : vp.viewBox}
+      viewBox={viewBox}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
@@ -242,9 +247,15 @@ export function BuilderCanvas({
         <pattern id="canvas-grid" width="20" height="20" patternUnits="userSpaceOnUse">
           <path d="M 20 0 L 0 0 0 20" className="canvas-grid-line" />
         </pattern>
+        {/* при мелком масштабе — каждая пятая линия: частая сетка сливается в сплошную и дорого рисуется */}
+        <pattern id="canvas-grid-coarse" width="100" height="100" patternUnits="userSpaceOnUse">
+          <path d="M 100 0 L 0 0 0 100" className="canvas-grid-line" />
+        </pattern>
       </defs>
-      {/* сетка с большим запасом: её хватает и на самый мелкий масштаб (ZOOM_OUT), и на вытянутый экран телефона */}
-      <rect className="canvas-bg" x={-width * 10} y={-height * 20} width={width * 21} height={height * 41} fill="url(#canvas-grid)" />
+      {/* сетка — только вокруг видимой части (с запасом в её размер на каждую сторону: хватает и на поля вытянутого экрана).
+          Прямоугольник на десятки досок телефон не успевал перерисовать при сдвиге и масштабе — рисовал его кусками
+          и показывал сетку прежнего масштаба */}
+      <rect className="canvas-bg" data-viewport-ignore="" x={vb[0] - vb[2]} y={vb[1] - vb[3]} width={vb[2] * 3} height={vb[3] * 3} fill={coarse ? 'url(#canvas-grid-coarse)' : 'url(#canvas-grid)'} />
       {/* границы холста: за них блоки не уходят — на вытянутом экране видно, где можно строить */}
       {!fit && <rect className="canvas-frame" x={0} y={0} width={width} height={height} rx={6} />}
 

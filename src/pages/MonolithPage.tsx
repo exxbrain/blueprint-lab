@@ -1203,8 +1203,18 @@ function MonolithCanvas({
       b = dbCenter(d.to)
     }
     if (isBroken) cls = 'mflow mflow-broken'
-    const cx = (a.x + b.x) / 2
-    const cy = (a.y + b.y) / 2 - (crosses(state, d) ? 30 : 0)
+    let cx = (a.x + b.x) / 2
+    let cy = (a.y + b.y) / 2 - (crosses(state, d) ? 30 : 0)
+    // событие идёт не напрямую, а через брокер: самая нижняя точка кривой — в полосе Kafka внизу.
+    // Для квадратичной кривой с концами на высотах a.y и b.y низ на высоте ky даёт контрольная точка
+    // cy = ky + √((ky − a.y)(ky − b.y)); x контрольной точки подбирается так, чтобы низ пришёлся на kx
+    if ((mode === 'async' || mode === 'saga' || mode === 'replica') && has(state.infra, 'kafka')) {
+      const kx = Math.max(600, Math.min(1140, (a.x + b.x) / 2))
+      const ky = H - 26
+      cy = ky + Math.sqrt(Math.max(0, (ky - a.y) * (ky - b.y)))
+      const t = (a.y - cy) / (a.y - 2 * cy + b.y)
+      cx = (kx - (1 - t) * (1 - t) * a.x - t * t * b.x) / (2 * t * (1 - t))
+    }
     // середина квадратичной кривой Безье (t = 0.5)
     const mid = { x: 0.25 * a.x + 0.5 * cx + 0.25 * b.x, y: 0.25 * a.y + 0.5 * cy + 0.25 * b.y }
     const path = `M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}`

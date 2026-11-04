@@ -114,14 +114,15 @@ function dropAt(x: number, y: number): DropTarget {
 }
 
 /**
- * Перетаскивание стикера пальцем на телефоне. Движение поперёк прокрутки сразу берёт стикер, вдоль — листает:
- * в ленте внизу (листается вбок) стикер тащат вверх-вниз, на доске (листается вверх-вниз) — вбок.
+ * Перетаскивание стикера из ленты внизу пальцем на телефоне: движение вверх-вниз сразу берёт стикер,
+ * вбок — листает ленту. Стикеры на доске касание не перехватывают — доска листается как обычно,
+ * а переложить такой стикер можно касанием и выбором контекста.
  * Браузер сам листает в разрешённую сторону (touch-action), а в другую отдаёт движение нам.
  * Мышь — как раньше, перетаскиванием браузера.
  */
 function useFingerDrag(onDrop: (cardId: string, target: string | null) => void) {
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; over: DropTarget } | null>(null)
-  const g = useRef<{ id: string; pid: number; sx: number; sy: number; axis: 'x' | 'y'; started: boolean } | null>(null)
+  const g = useRef<{ id: string; pid: number; sx: number; sy: number; started: boolean } | null>(null)
   const at = useRef({ x: 0, y: 0 })
   /** Только что бросили — щелчок, который браузер может прислать следом, не выбирает стикер */
   const dropped = useRef(false)
@@ -148,19 +149,20 @@ function useFingerDrag(onDrop: (cardId: string, target: string | null) => void) 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [dragging])
-  const props = (cardId: string, axis: 'x' | 'y'): FingerProps => ({
-    style: { touchAction: axis === 'y' ? 'pan-x' : 'pan-y' },
+  const props = (cardId: string): FingerProps => ({
+    // вбок лента листается сама (браузер), вверх-вниз движение отдаётся нам
+    style: { touchAction: 'pan-x' },
     onPointerDown: (e) => {
       dropped.current = false
       if (e.pointerType === 'mouse' || !e.isPrimary) return
-      g.current = { id: cardId, pid: e.pointerId, sx: e.clientX, sy: e.clientY, axis, started: false }
+      g.current = { id: cardId, pid: e.pointerId, sx: e.clientX, sy: e.clientY, started: false }
     },
     onPointerMove: (e) => {
       const d = g.current
       if (!d || d.pid !== e.pointerId) return
       if (!d.started) {
-        const along = Math.abs(d.axis === 'y' ? e.clientY - d.sy : e.clientX - d.sx)
-        const across = Math.abs(d.axis === 'y' ? e.clientX - d.sx : e.clientY - d.sy)
+        const along = Math.abs(e.clientY - d.sy)
+        const across = Math.abs(e.clientX - d.sx)
         if (along < 6 || along <= across) return
         d.started = true
         try {
@@ -413,8 +415,6 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                       selected={picked === c.id}
                       wrong={wrongIds.has(c.id)}
                       onClick={() => setPicked(picked === c.id ? null : c.id)}
-                      finger={phone ? finger.props(c.id, 'x') : undefined}
-                      lifted={finger.drag?.id === c.id}
                     />
                   ))}
                   {!cards.length && <p className="small muted">{tr('Перетащите сюда стикеры или выберите стикер и нажмите на контекст', 'Drag stickies here, or select a sticky and tap the context', '把便签拖到这里，或先选中便签再点按这个上下文')}</p>}
@@ -482,7 +482,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                   c={c}
                   selected={picked === c.id}
                   onClick={() => setPicked(picked === c.id ? null : c.id)}
-                  finger={finger.props(c.id, 'y')}
+                  finger={finger.props(c.id)}
                   lifted={finger.drag?.id === c.id}
                 />
               ))}

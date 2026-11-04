@@ -39,6 +39,7 @@ import { Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
 import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
+import { nextId } from '../components/editor/nextId'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -51,17 +52,6 @@ const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хра
   Трафик: tr('Трафик', 'Traffic', '流量'),
   Вычисления: tr('Вычисления', 'Compute', '计算'),
   Хранилища: tr('Хранилища', 'Storage', '存储'),
-}
-
-let uid = 100
-/**
- * Новый id блока или связи, которого ещё нет на схеме. Счётчик живёт в модуле и может начаться заново
- * (перезагрузка модуля в разработке), а схема в состоянии остаётся — повтор id склеил бы два блока в один
- */
-const nextId = (p: string, taken: { id: string }[]) => {
-  let id = `${p}${++uid}`
-  while (taken.some((x) => x.id === id)) id = `${p}${++uid}`
-  return id
 }
 
 /** Источник сюжета: задача по мотивам System Design Primer — ссылка на разбор, автор, лицензия CC BY 4.0 и пометка об изменениях */

@@ -27,8 +27,7 @@ import { Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport, type Rect } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
 import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
-
-let uid = 1000
+import { nextId } from '../components/editor/nextId'
 
 export default function C4Page({ id }: { id?: string }) {
   const progress = useProgress()
@@ -160,7 +159,9 @@ function Exercise({ ex }: { ex: C4Exercise }) {
     // новую карточку из меню всегда показываем, как конструктор — новый блок (вид и страница — только если нужно)
     if (!pos) vp.show({ x: at.x, y: at.y, w: EL_W, h: EL_H }, cardId)
     setD({ ...d, placed: [...d.placed, { card: cardId, x: Math.round(at.x / 10) * 10, y: Math.round(at.y / 10) * 10, kind: null, tech: '' }] })
-    setSelected(cardId)
+    // из меню — сразу свойства (тип и технология); брошенную на холст карточку не выбираем, как блок в конструкторе:
+    // окно свойств не выскакивает над местом, куда её только что положили
+    setSelected(pos ? null : cardId)
   }
   const patchEl = (cardId: string, patch: Partial<DiagramState['placed'][number]>) =>
     setD({ ...d, placed: d.placed.map((p) => (p.card === cardId ? { ...p, ...patch } : p)) })
@@ -281,7 +282,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             onMove={(cardId, x, y) => patchEl(cardId, { x, y })}
             onConnect={(from, to) => {
               if (d.rels.some((r) => r.from === from && r.to === to)) return
-              const id = `u${++uid}`
+              const id = nextId('u', d.rels)
               setD({ ...d, rels: [...d.rels, { id, from, to, label: '', tech: '' }] })
               setSelected(id)
             }}

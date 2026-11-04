@@ -624,7 +624,15 @@ console.log('\nВход по логину и паролю')
   const file = (l: string) => new URL(`../.check-sig-${run}-${l}.txt`, import.meta.url)
   if (!run) {
     if (lang === 'zh') console.log('\nРазбор одинаков на всех языках\n- сверка пропущена: отдельный проход — полная проверка: npm run check')
-  } else writeFileSync(file(lang), signature.join('\n') + '\n')
+  } else {
+    // подписи запусков, прерванных до установки обработчика выхода (ошибка загрузки, Ctrl+C), — старше 10 минут — убрать
+    const { readdirSync, statSync } = await import('node:fs')
+    const root = new URL('../', import.meta.url)
+    for (const f of readdirSync(root))
+      if (/^\.check-sig-.+\.txt$/.test(f) && !f.startsWith(`.check-sig-${run}-`) && Date.now() - statSync(new URL(f, root)).mtimeMs > 10 * 60_000)
+        rmSync(new URL(f, root), { force: true })
+    writeFileSync(file(lang), signature.join('\n') + '\n')
+  }
   if (run && lang === 'zh') {
     console.log('\nРазбор одинаков на всех языках')
     for (const other of ['ru', 'en']) {

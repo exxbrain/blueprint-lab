@@ -435,15 +435,15 @@ function NodeShape({ kind, color }: { kind: NodeKind; color: string }) {
     case 'cache':
       return (
         <>
-          <path {...box} d={`M0,9 A${W / 2},9 0 0,1 ${W},9 V${H - 9} A${W / 2},9 0 0,1 0,${H - 9} Z`} />
-          <path {...deco} d={`M0,9 A${W / 2},9 0 0,0 ${W},9`} />
+          <path {...box} d={`M0,6 A${W / 2},6 0 0,1 ${W},6 V${H - 6} A${W / 2},6 0 0,1 0,${H - 6} Z`} />
+          <path {...deco} d={`M0,6 A${W / 2},6 0 0,0 ${W},6`} />
         </>
       )
     case 's3':
       return (
         <>
-          <path {...box} d={`M0,9 A${W / 2},9 0 0,1 ${W},9 L${W - 8},${H - 7} A${W / 2 - 8},7 0 0,1 8,${H - 7} Z`} />
-          <path {...deco} d={`M0,9 A${W / 2},9 0 0,0 ${W},9`} />
+          <path {...box} d={`M0,6 A${W / 2},6 0 0,1 ${W},6 L${W - 8},${H - 6} A${W / 2 - 8},6 0 0,1 8,${H - 6} Z`} />
+          <path {...deco} d={`M0,6 A${W / 2},6 0 0,0 ${W},6`} />
         </>
       )
     case 'queue':
@@ -505,13 +505,15 @@ export function freeSpot(nodes: BNode[], x: number, y: number, within?: Rect): {
     const sx = strict ? 40 : NODE_W + 30
     const sy = strict ? 30 : NODE_H + 26
     for (let r = 0; r < (strict ? 30 : 12); r++) {
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
-          const cx = snap(x + dx * sx)
-          const cy = snap(y + dy * sy)
-          if ((!strict || inside(cx, cy)) && isFree(nodes, cx, cy)) return { x: cx, y: cy }
-        }
+      // клетки кольца — от ближайшей к желаемой точке, а не с левого верхнего угла
+      const ring: [number, number][] = []
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([dx * sx, dy * sy])
+      ring.sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]))
+      for (const [ox, oy] of ring) {
+        const cx = snap(x + ox)
+        const cy = snap(y + oy)
+        if ((!strict || inside(cx, cy)) && isFree(nodes, cx, cy)) return { x: cx, y: cy }
       }
     }
   }

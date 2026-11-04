@@ -393,7 +393,9 @@ export function useViewport(o: ViewportOptions) {
     if (!svg) return whole
     const r = svg.getBoundingClientRect()
     if (!r.width || !r.height) return whole
-    const top = Math.max(r.top, document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0)
+    // сверху видимое закрывают шапка сайта и прилипшая панель инструментов холста
+    const bar = svg.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
+    const top = Math.max(r.top, document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
     const bottom = Math.min(r.bottom, window.innerHeight)
     const left = Math.max(r.left, 0)
     const right = Math.min(r.right, window.innerWidth)

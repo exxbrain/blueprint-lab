@@ -925,11 +925,6 @@ table.cmp th {
 .builder-stats .metric {
   min-width: 110px;
 }
-.flash {
-  color: var(--warn);
-  font-size: 0.85rem;
-  animation: page-in 0.3s;
-}
 .builder-canvas {
   width: 100%;
   height: auto;
@@ -3403,7 +3398,7 @@ body.ws-mode .page { animation: none; }
   right: 8px;
   margin: 0;
 }
-.ws .ws-toast { padding: 8px 12px; border-radius: 10px; background: rgba(13, 39, 66, 0.95); border: 1px solid var(--warn); color: var(--warn); font-size: 0.85rem; }
+.ws .ws-toast { padding: 8px 12px; border-radius: 10px; background: rgba(13, 39, 66, 0.95); border: 1px solid var(--warn); color: var(--warn); font-size: 0.85rem; pointer-events: none; }
 /* задача и трафик — модальными шторками поверх схемы */
 .ws .ws-panel,
 .ws .ws-traffic { display: none; }
@@ -3524,39 +3519,30 @@ body.ws-mode .page { animation: none; }
 
 /* общая строка над схемой: «＋ Добавить» слева, масштаб и подсказки справа */
 .editor-bar { position: relative; }
-/* панель инструментов прямо на холсте (компьютер): плавает над схемой и остаётся видна при прокрутке страницы */
+/* панель инструментов вверху холста (компьютер): своя строка над схемой — ничего не закрывает —
+   и прилипает под шапкой сайта, пока холст прокручивается */
 .canvas-stage > .editor-bar.on-canvas {
   position: sticky;
-  top: calc(var(--topbar-h, 56px) + 8px);
+  top: var(--topbar-h, 56px);
   z-index: 15;
-  height: 0;
-  margin: 0;
-  padding: 0 10px;
-  align-items: flex-start;
-  pointer-events: none;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(10, 25, 45, 0.85);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.canvas-stage > .editor-bar.on-canvas > * { pointer-events: auto; }
-.editor-bar.on-canvas > :first-child,
-.editor-bar.on-canvas .editor-bar-right { margin-top: 10px; }
 .editor-bar.on-canvas .add-btn {
   background: var(--accent);
   color: #06223d;
   border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 .editor-bar.on-canvas .add-btn:hover { filter: brightness(1.08); }
-.editor-bar.on-canvas > .small.muted {
-  margin-top: 10px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(10, 25, 45, 0.75);
-}
-.editor-bar.on-canvas .editor-bar-right > * { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
-.editor-bar.on-canvas .add-menu { top: 52px; }
+.editor-bar.on-canvas .add-menu { top: calc(100% + 6px); }
 /* сообщение под панелью: «так связать нельзя…» — рядом с тем местом, где человек работает */
 .editor-bar-note {
   position: absolute;
-  top: 56px;
+  top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   max-width: min(560px, 90%);

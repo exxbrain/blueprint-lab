@@ -127,9 +127,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '接下来瓶颈会落到数据库上。增加副本很贵。注意：目录被读取的次数远多于被修改的次数，而且同样的商品会被成千上万的人浏览。',
       ),
       tr(
-        'Нужен компонент, который запоминает недавние ответы базы и отдаёт их из памяти, а в базу пропускает только то, чего ещё не видел. Ему место рядом с каталогом: каталог сначала спрашивает его и идёт в базу только при промахе.',
-        'You need a component that remembers recent database answers and serves them from memory, passing only unseen requests through to the database. It belongs next to the catalog: the catalog asks it first and goes to the database only on a miss.',
-        '你需要一个组件：它记住数据库最近的应答，直接从内存返回，只把没见过的请求放行到数据库。它应该放在目录服务旁边：目录先问它，未命中时才去数据库。',
+        'Нужен компонент, который держит недавние ответы базы в памяти и отдаёт их сам. Ему место рядом с каталогом: каталог сначала спрашивает его, идёт в базу только при промахе и кладёт ответ ему же.',
+        'You need a component that keeps recent database answers in memory and serves them itself. It belongs next to the catalog: the catalog asks it first, goes to the database only on a miss, and puts the answer into it.',
+        '你需要一个组件：把数据库最近的应答保存在内存里，并直接返回。它应该放在目录服务旁边：目录先问它，未命中时才去数据库，再把结果放进去。',
       ),
     ],
     debrief: [
@@ -623,9 +623,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '数据库收到 5,000 rps，却只能处理 1,000。不过看看数据：首页对所有人都一样，而且每隔几分钟才变一次。',
       ),
       tr(
-        'Нужен компонент, который держит готовые ответы в памяти и отвечает за миллисекунду, а в базу пропускает только то, чего ещё нет в памяти. Реплики базы не влезут в бюджет.',
-        'You need a component that keeps ready answers in memory and replies in a millisecond, letting only what is not in memory through to the database. Database replicas won\'t fit the budget.',
-        '你需要一个组件：它把现成的应答保存在内存里，一毫秒就能回复，只有内存里没有的请求才会放行到数据库。数据库副本放不进预算。',
+        'Нужен компонент, который держит готовые ответы в памяти и отвечает за миллисекунду; в базу сервис идёт только за тем, чего там ещё нет. Реплики базы не влезут в бюджет.',
+        'You need a component that keeps ready answers in memory and replies in a millisecond; the service goes to the database only for what is not in memory yet. Database replicas won\'t fit the budget.',
+        '你需要一个组件：它把现成的应答保存在内存里，一毫秒就能回复；只有内存里还没有的内容，服务才会去数据库取。数据库副本放不进预算。',
       ),
       tr(
         'Подключите его к сервису витрины рядом с базой: сервис сначала спросит его, а при промахе пойдёт в базу.',

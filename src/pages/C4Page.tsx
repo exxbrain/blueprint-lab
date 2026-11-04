@@ -54,13 +54,15 @@ export default function C4Page({ id }: { id?: string }) {
  * within — видимая часть холста (масштаб, сдвиг, прокрутка страницы, прилипшая панель): сначала ищем место в ней,
  * чтобы карточка не оказалась под шапкой или за краем экрана
  */
-function freePlace(d: DiagramState, within?: Rect): { x: number; y: number } {
+function freePlace(d: DiagramState, within?: Rect, boundary = false): { x: number; y: number } {
   const fits = (s: { x: number; y: number }) => d.placed.every((p) => Math.abs(p.x - s.x) >= EL_W + 6 || Math.abs(p.y - s.y) >= EL_H + 6)
   const onCanvas = (s: { x: number; y: number }) => s.x >= 0 && s.y >= 0 && s.x + EL_W <= CANVAS.w && s.y + EL_H <= CANVAS.h
   const inside = (s: { x: number; y: number }) =>
     !within || (s.x >= within.x && s.y >= within.y && s.x + EL_W <= within.x + within.w && s.y + EL_H <= within.y + within.h)
   // карточка не ложится на линию границы системы: она целиком внутри границы или целиком снаружи
+  // (только в упражнениях, где граница на холсте есть)
   const straddles = (s: { x: number; y: number }) => {
+    if (!boundary) return false
     const overlaps = s.x < BOUNDARY.x + BOUNDARY.w && s.x + EL_W > BOUNDARY.x && s.y < BOUNDARY.y + BOUNDARY.h && s.y + EL_H > BOUNDARY.y
     const inBox = s.x >= BOUNDARY.x && s.y >= BOUNDARY.y && s.x + EL_W <= BOUNDARY.x + BOUNDARY.w && s.y + EL_H <= BOUNDARY.y + BOUNDARY.h
     return overlaps && !inBox
@@ -153,20 +155,9 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const card = (id: string) => ex.cards.find((c) => c.id === id)!
 
   const place = (cardId: string, pos?: { x: number; y: number }) => {
-    const seen = vp.visibleRect()
-    const at = pos ?? freePlace(d, seen)
-    // видимая часть занята и карточка встала за её краем — показать её, как конструктор показывает новый блок
-    if (!pos && (at.x < seen.x || at.y < seen.y || at.x + EL_W > seen.x + seen.w || at.y + EL_H > seen.y + seen.h)) {
-      vp.reveal({ x: at.x, y: at.y, w: EL_W, h: EL_H })
-      requestAnimationFrame(() => {
-        const el = vp.svgRef.current?.querySelector(`[data-id="${CSS.escape(cardId)}"]`)
-        if (!el) return
-        const r = el.getBoundingClientRect()
-        const bar = vp.svgRef.current?.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
-        const top = Math.max(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
-        if (r.top < top || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      })
-    }
+    const at = pos ?? freePlace(d, vp.visibleRect(), !!ex.boundary)
+    // новую карточку из меню всегда показываем, как конструктор — новый блок (вид и страница — только если нужно)
+    if (!pos) vp.show({ x: at.x, y: at.y, w: EL_W, h: EL_H }, cardId)
     setD({ ...d, placed: [...d.placed, { card: cardId, x: Math.round(at.x / 10) * 10, y: Math.round(at.y / 10) * 10, kind: null, tech: '' }] })
     setSelected(cardId)
   }

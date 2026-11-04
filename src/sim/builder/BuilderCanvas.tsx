@@ -131,16 +131,7 @@ export function BuilderCanvas({
     if (!reveal) return
     const n = nodes.find((x) => x.id === reveal)
     if (!n) return
-    vp.reveal({ x: n.x, y: n.y, w: NODE_W, h: NODE_H })
-    const raf = requestAnimationFrame(() => {
-      const el = svgRef.current?.querySelector(`[data-id="${reveal}"]`)
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      // сверху видимое закрывают шапка сайта и прилипшая панель инструментов холста
-      const bar = svgRef.current?.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
-      const top = Math.max(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
-      if (r.top < top || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    })
+    const raf = vp.show({ x: n.x, y: n.y, w: NODE_W, h: NODE_H }, reveal)
     return () => cancelAnimationFrame(raf)
     // только при появлении нового блока
     // eslint-disable-next-line react-hooks/exhaustive-deps

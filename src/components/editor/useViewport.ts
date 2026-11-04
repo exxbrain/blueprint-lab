@@ -408,6 +408,23 @@ export function useViewport(o: ViewportOptions) {
     return { x: r.x + r.w / 2, y: r.y + r.h / 2 }
   }
 
+  /**
+   * Показать только что добавленный элемент схемы (общий для редакторов): сдвинуть вид, если он за краем,
+   * и прокрутить страницу, если элемент под шапкой, под прилипшей панелью или ниже окна. Возвращает id кадра для отмены
+   */
+  const show = (rect: Rect, dataId: string): number => {
+    reveal(rect)
+    return requestAnimationFrame(() => {
+      const svg = svgRef.current
+      const el = svg?.querySelector(`[data-id="${CSS.escape(dataId)}"]`)
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const bar = svg?.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
+      const top = Math.max(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
+      if (r.top < top || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+  }
+
   /** Последний сдвиг пальцем или мышью был только что: щелчок «по пустому месту» после него — не щелчок */
   const recentlyPanned = () => Date.now() - lastPan.current < 350
   return {
@@ -417,6 +434,7 @@ export function useViewport(o: ViewportOptions) {
     viewBox: `${cur.x} ${cur.y} ${cur.w} ${cur.w * A()}`,
     visibleCenter,
     visibleRect,
+    show,
     zoomed: !!view,
     scale,
     canZoomIn: scale < MAX_SCALE - 0.01,

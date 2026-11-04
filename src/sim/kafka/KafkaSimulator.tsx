@@ -348,15 +348,17 @@ function PartitionRow({
           const idx = pos - start
           const lag = sim.lag(g, p.id)
           const left = idx < 0 ? 0 : Math.min(idx, win)
+          const tail = idx < 0 ? tr(` ◀ лаг ${lag}`, ` ◀ lag ${lag}`, ` ◀ 积压 ${lag}`) : lag > 0 ? ` (${lag})` : ''
+          // у правого края ряда подпись уходит влево от отметки: иначе вылезла бы за панель и раздвинула страницу на телефоне
+          const flip = left > win / 2
           return (
             <span
               key={g.id}
-              className={'gmark g' + (gi % 4)}
+              className={'gmark g' + (gi % 4) + (flip ? ' flip' : '')}
               style={{ left: `calc(${left} * var(--cell))`, top: gi * 14 }}
               title={tr(`${g.name}: позиция ${pos}, лаг ${lag}`, `${g.name}: position ${pos}, lag ${lag}`, `${g.name}：位置 ${pos}，积压 ${lag}`)}
             >
-              ▲{g.name}
-              {idx < 0 ? tr(` ◀ лаг ${lag}`, ` ◀ lag ${lag}`, ` ◀ 积压 ${lag}`) : lag > 0 ? ` (${lag})` : ''}
+              {flip ? `${g.name}${tail}▲` : `▲${g.name}${tail}`}
             </span>
           )
         })}

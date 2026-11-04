@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { HintDock } from './HintDock'
@@ -60,10 +60,27 @@ function Hints({ hints, used, take }: { hints: string[]; used: number; take: () 
   )
 }
 
-function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; onClick: () => void; wrong?: boolean }) {
+function Card({
+  c,
+  selected,
+  onClick,
+  wrong,
+  finger,
+  lifted,
+}: {
+  c: DddCard
+  selected: boolean
+  onClick: () => void
+  wrong?: boolean
+  /** Перетаскивание пальцем (телефон) */
+  finger?: FingerProps
+  /** Стикер сейчас тащат пальцем — на месте остаётся его тень */
+  lifted?: boolean
+}) {
   return (
     <button
-      className={`ddd-card kind-${c.kind}` + (selected ? ' selected' : '') + (wrong ? ' wrong' : '')}
+      className={`ddd-card kind-${c.kind}` + (selected ? ' selected' : '') + (wrong ? ' wrong' : '') + (lifted ? ' lifted' : '')}
+      {...finger}
       onClick={(e) => {
         e.stopPropagation()
         onClick()
@@ -81,11 +98,106 @@ function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; 
   )
 }
 
+/** Куда бросили стикер: id контекста, null — обратно в стопку, undefined — мимо */
+type DropTarget = string | null | undefined
+type FingerProps = Pick<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onClickCapture' | 'style'
+>
+
+/** Что под пальцем: контекст (data-drop = id) или стопка (data-drop = «pool») */
+function dropAt(x: number, y: number): DropTarget {
+  const el = document.elementFromPoint(x, y)?.closest('[data-drop]')
+  if (!el) return undefined
+  const v = el.getAttribute('data-drop')
+  return v === 'pool' ? null : v
+}
+
+/**
+ * Перетаскивание стикера пальцем на телефоне. Движение поперёк прокрутки сразу берёт стикер, вдоль — листает:
+ * в ленте внизу (листается вбок) стикер тащат вверх-вниз, на доске (листается вверх-вниз) — вбок.
+ * Браузер сам листает в разрешённую сторону (touch-action), а в другую отдаёт движение нам.
+ * Мышь — как раньше, перетаскиванием браузера.
+ */
+function useFingerDrag(onDrop: (cardId: string, target: string | null) => void) {
+  const [drag, setDrag] = useState<{ id: string; x: number; y: number; over: DropTarget } | null>(null)
+  const g = useRef<{ id: string; pid: number; sx: number; sy: number; axis: 'x' | 'y'; started: boolean } | null>(null)
+  const at = useRef({ x: 0, y: 0 })
+  /** Только что бросили — щелчок, который браузер может прислать следом, не выбирает стикер */
+  const dropped = useRef(false)
+  const dragging = drag !== null
+  // у края экрана доска сама листается под пальцем
+  useEffect(() => {
+    if (!dragging) return
+    let raf = 0
+    const tick = () => {
+      const field = document.querySelector('.wsx-field.scroll')
+      const { x, y } = at.current
+      const tools = document.querySelector('.ws-tools')?.getBoundingClientRect().top ?? window.innerHeight
+      const dy = y < 140 ? -10 : y > tools - 30 && y < tools ? 10 : 0
+      if (field && dy) {
+        field.scrollBy(0, dy)
+        setDrag((d) => d && { ...d, over: dropAt(x, y) })
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [dragging])
+  const props = (cardId: string, axis: 'x' | 'y'): FingerProps => ({
+    style: { touchAction: axis === 'y' ? 'pan-x' : 'pan-y' },
+    onPointerDown: (e) => {
+      dropped.current = false
+      if (e.pointerType === 'mouse' || !e.isPrimary) return
+      g.current = { id: cardId, pid: e.pointerId, sx: e.clientX, sy: e.clientY, axis, started: false }
+    },
+    onPointerMove: (e) => {
+      const d = g.current
+      if (!d || d.pid !== e.pointerId) return
+      if (!d.started) {
+        const along = Math.abs(d.axis === 'y' ? e.clientY - d.sy : e.clientX - d.sx)
+        const across = Math.abs(d.axis === 'y' ? e.clientX - d.sx : e.clientY - d.sy)
+        if (along < 6 || along <= across) return
+        d.started = true
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          // палец уже отпущен — захватывать нечего
+        }
+      }
+      at.current = { x: e.clientX, y: e.clientY }
+      setDrag({ id: d.id, x: e.clientX, y: e.clientY, over: dropAt(e.clientX, e.clientY) })
+    },
+    onPointerUp: (e) => {
+      const d = g.current
+      g.current = null
+      if (!d || d.pid !== e.pointerId || !d.started) return
+      dropped.current = true
+      setDrag(null)
+      const t = dropAt(e.clientX, e.clientY)
+      if (t !== undefined) onDrop(d.id, t)
+    },
+    // браузер забрал жест себе (листает ленту или доску) — стикер не тащим
+    onPointerCancel: () => {
+      g.current = null
+      setDrag(null)
+    },
+    onClickCapture: (e) => {
+      if (!dropped.current) return
+      dropped.current = false
+      e.stopPropagation()
+      e.preventDefault()
+    },
+  })
+  return { drag, props }
+}
+
 function PartitionView({ task, progressKey, onNext, nextLabel }: { task: PartitionTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
   // черновик: разложенные стикеры переживают перезагрузку страницы
-  const draftSig = signature(task.cards.map((c) => c.id))
+  // в подписи — язык: названия контекстов («Контекст 1») хранятся в черновике
+  const draftSig = signature(task.cards.map((c) => c.id), true)
   const [state, setState] = useState<PartitionState>(() => {
-    const saved = loadDraft<PartitionState>(progressKey, draftSig)
+    const saved = loadDraft<PartitionState>(progressKey, draftSig, (w) => Array.isArray(w.groups) && typeof w.place === 'object' && w.place !== null)
     if (saved) return saved
     const first = newGroup(1, [])
     return { groups: [first, newGroup(2, [first])], place: {} }
@@ -123,6 +235,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
     update({ ...state, place })
     setPicked(null)
   }
+  const finger = useFingerDrag(placeCard)
+  const dragCard = finger.drag && task.cards.find((c) => c.id === finger.drag?.id)
   const addGroup = () => {
     const g = newGroup(state.groups.length + 1, state.groups)
     const next = { ...state, groups: [...state.groups, g] }
@@ -199,6 +313,18 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           </button>
         )}
         {!viewingRef && <button onClick={toggleRef} title={referenceNote()}>👁 {tr('Показать эталон', 'Show reference', '查看参考答案')}</button>}
+        {/* разбиение сохраняется между перезагрузками — начать с чистого листа можно здесь */}
+        {!viewingRef && (
+          <button
+            onClick={() => {
+              const first = newGroup(1, [])
+              update({ groups: [first, newGroup(2, [first])], place: {} })
+              setPicked(null)
+            }}
+          >
+            {tr('↺ Заново', '↺ Start over', '↺ 重新开始')}
+          </button>
+        )}
         {picked && <span className="small muted">{tr('Выберите контекст для карточки или нажмите на стопку, чтобы вернуть её', 'Pick a context for the card, or tap the pile to put it back', '为卡片选择一个上下文，或点按卡堆把它放回去')}</span>}
       </div>
     </>
@@ -247,7 +373,13 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           {state.groups.map((g) => {
             const cards = task.cards.filter((c) => state.place[c.id] === g.id)
             return (
-              <div key={g.id} className={'panel ddd-group' + (picked ? ' target' : '')} onClick={() => picked && placeCard(picked, g.id)} {...dropProps(g.id)}>
+              <div
+                key={g.id}
+                data-drop={g.id}
+                className={'panel ddd-group' + (picked ? ' target' : '') + (finger.drag?.over === g.id ? ' drop-over' : '')}
+                onClick={() => picked && placeCard(picked, g.id)}
+                {...dropProps(g.id)}
+              >
                 <div className="ddd-group-head">
                   <input
                     value={g.name}
@@ -271,7 +403,15 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
                 </div>
                 <div className="ddd-cards">
                   {cards.map((c) => (
-                    <Card key={c.id} c={c} selected={picked === c.id} wrong={wrongIds.has(c.id)} onClick={() => setPicked(picked === c.id ? null : c.id)} />
+                    <Card
+                      key={c.id}
+                      c={c}
+                      selected={picked === c.id}
+                      wrong={wrongIds.has(c.id)}
+                      onClick={() => setPicked(picked === c.id ? null : c.id)}
+                      finger={phone ? finger.props(c.id, 'x') : undefined}
+                      lifted={finger.drag?.id === c.id}
+                    />
                   ))}
                   {!cards.length && <p className="small muted">{tr('Перетащите сюда стикеры или выберите стикер и нажмите на контекст', 'Drag stickies here, or select a sticky and tap the context', '把便签拖到这里，或先选中便签再点按这个上下文')}</p>}
                 </div>
@@ -324,12 +464,23 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
             </>
           }
           bottom={
-            <div className={'ddd-tray' + (picked && state.place[picked] ? ' target' : '')} onClick={() => picked && placeCard(picked, null)}>
+            <div
+              data-drop="pool"
+              className={'ddd-tray' + (picked && state.place[picked] ? ' target' : '') + (finger.drag?.over === null ? ' drop-over' : '')}
+              onClick={() => picked && placeCard(picked, null)}
+            >
               <span className="ddd-tray-count">
                 {tr('Стикеры', 'Stickies', '便签')} {pool.length}
               </span>
               {pool.map((c) => (
-                <Card key={c.id} c={c} selected={picked === c.id} onClick={() => setPicked(picked === c.id ? null : c.id)} />
+                <Card
+                  key={c.id}
+                  c={c}
+                  selected={picked === c.id}
+                  onClick={() => setPicked(picked === c.id ? null : c.id)}
+                  finger={finger.props(c.id, 'y')}
+                  lifted={finger.drag?.id === c.id}
+                />
               ))}
               {!pool.length && <span className="small muted">{tr('Все разложены — проверьте', 'All placed: check now', '已全部归类，快来检查吧')}</span>}
             </div>
@@ -344,6 +495,12 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           {groupsEl}
           {pickerEl}
         </Workspace>
+        {dragCard && finger.drag && (
+          <div className={`ddd-card kind-${dragCard.kind} ddd-ghost`} style={{ left: finger.drag.x, top: finger.drag.y }} aria-hidden>
+            <span className="ddd-kind">{CARD_KIND[dragCard.kind].title}</span>
+            {dragCard.name}
+          </div>
+        )}
         {resultEl}
       </>
     )
@@ -384,7 +541,13 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
 function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
   // черновик: выбранные паттерны (и число неверных проверок — от них зависят звёзды) переживают перезагрузку
   const draftSig = signature(task.relations.map((r) => r.id))
-  const [saved] = useState(() => loadDraft<{ answers: Record<string, MapPattern | undefined>; wrongChecks: number }>(progressKey, draftSig))
+  const [saved] = useState(() =>
+    loadDraft<{ answers: Record<string, MapPattern | undefined>; wrongChecks: number }>(
+      progressKey,
+      draftSig,
+      (w) => typeof w.answers === 'object' && w.answers !== null && typeof w.wrongChecks === 'number',
+    ),
+  )
   const [answers, setAnswers] = useState<Record<string, MapPattern | undefined>>(saved?.answers ?? {})
   const [checked, setChecked] = useState(false)
   const [wrongChecks, setWrongChecks] = useState(saved?.wrongChecks ?? 0)
@@ -469,6 +632,17 @@ function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; prog
         >
           {showRef ? '↩ ' + tr('Скрыть ответы', 'Hide answers', '隐藏答案') : '👁 ' + tr('Показать ответы', 'Show answers', '显示答案')}
         </button>
+        {/* ответы сохраняются между перезагрузками; число неверных проверок (от него звёзды) остаётся */}
+        {!showRef && (
+          <button
+            onClick={() => {
+              setAnswers({})
+              setChecked(false)
+            }}
+          >
+            {tr('↺ Заново', '↺ Start over', '↺ 重新开始')}
+          </button>
+        )}
       </div>
     </>
   const resultEl = <>

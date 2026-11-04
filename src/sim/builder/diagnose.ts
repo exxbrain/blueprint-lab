@@ -180,7 +180,8 @@ export function diagnose(input: {
         continue
       }
       const repeatReads = (Object.keys(st.vec) as Workload[]).filter((w) => REPEATABLE.includes(w)).reduce((s0, w) => s0 + st.vec[w], 0) - st.writes
-      const shielded = parents(n.id).some((p) => p.kind === 'cache') || parents(n.id).some((p) => kids(p.id).some((k) => k.kind === 'cache'))
+      // кэш рядом: у кого-то из вызывающих есть кэш (cache-aside)
+      const shielded = parents(n.id).some((p) => kids(p.id).some((k) => k.kind === 'cache'))
       add({
         tone: 'bad',
         rank: 4,

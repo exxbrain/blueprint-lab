@@ -152,7 +152,7 @@ export const builderChallenges: BuilderChallenge[] = [
         n('k1', 'cache', 'Redis', 580, 120, { hitRatio: 0.8 }),
         n('d1', 'postgres', 'PostgreSQL', 760, 220),
       ],
-      edges: [...chain('c1', 's1', 'k1', 'd1')],
+      edges: [...chain('c1', 's1', 'k1'), ...chain('s1', 'd1')],
     },
   },
   {
@@ -635,9 +635,9 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     debrief: [
       tr(
-        'Redis — первое, что ставят перед базой при повторяющихся чтениях: 90% попаданий снимают с базы 90% нагрузки за цену одного небольшого инстанса.',
-        'Redis is the first thing you put in front of a database for repeated reads: a 90% hit ratio takes 90% of the load off the database for the price of one small instance.',
-        '面对重复读取，Redis 是放在数据库前面的首选：90% 的命中率只需一台小实例的价格，就能替数据库卸掉 90% 的负载。',
+        'Redis — первое, что добавляют при повторяющихся чтениях: сервис сначала смотрит в кэш и идёт в базу только при промахе. 90% попаданий снимают с базы 90% нагрузки за цену одного небольшого инстанса.',
+        'Redis is the first thing you add for repeated reads: the service checks the cache first and goes to the database only on a miss. A 90% hit ratio takes 90% of the load off the database for the price of one small instance.',
+        '面对重复读取，Redis 是首选：服务先查缓存，未命中时才去数据库。90% 的命中率只需一台小实例的价格，就能替数据库卸掉 90% 的负载。',
       ),
       tr(
         'Главные вопросы при внедрении кэша — инвалидация и TTL: что делать, когда маркетинг поменял баннер, и сколько секунд устаревших данных допустимо.',
@@ -1229,7 +1229,8 @@ export const builderChallenges: BuilderChallenge[] = [
       edges: [
         { id: 'a1', from: 'c1', to: 'l1' },
         { id: 'a2', from: 'c2', to: 'l1' },
-        ...chain('l1', 's1', 'k1', 'd1'),
+        ...chain('l1', 's1', 'k1'),
+        ...chain('s1', 'd1'),
       ],
     },
   },
@@ -1282,9 +1283,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '发布不能等到帖子放进每个关注者的信息流之后才返回。它需要把这项工作交给别人，由对方稍后完成，但必须可靠地完成。',
       ),
       tr(
-        'Для 11 тысяч rps на чтение нужны лёгкие сервисы и то, что отвечает на повторяющиеся запросы лент из памяти, перед хранилищем лент.',
-        'For 11,000 read rps you need light services and something that answers repeated feed requests from memory, in front of the feed store.',
-        '要支撑每秒 11,000 次读取，你需要“轻量无状态”类型的服务，还需要在信息流存储前面放一个能从内存直接回答重复请求的东西。',
+        'Для 11 тысяч rps на чтение нужны лёгкие сервисы и то, что отвечает на повторяющиеся запросы лент из памяти, чтобы до хранилища лент доходили только промахи.',
+        'For 11,000 read rps you need light services and something that answers repeated feed requests from memory, so that only misses reach the feed store.',
+        '要支撑每秒 11,000 次读取，你需要“轻量无状态”类型的服务，还需要一个能从内存直接回答重复请求的东西，让只有未命中的请求才到达信息流存储。',
       ),
     ],
     debrief: [
@@ -1314,7 +1315,8 @@ export const builderChallenges: BuilderChallenge[] = [
         n('s3', 'service', 'Fan-out', 620, 300, svc('fast')),
       ],
       edges: [
-        ...chain('c1', 'l1', 's1', 'k1', 'd1'),
+        ...chain('c1', 'l1', 's1', 'k1'),
+        ...chain('s1', 'd1'),
         ...chain('c2', 's2', 'd2'),
         ...chain('s2', 'q1', 's3', 'd1'),
       ],
@@ -1482,7 +1484,8 @@ export const builderChallenges: BuilderChallenge[] = [
         ...chain('c1', 'cdn', 's3'),
         ...chain('c2', 'up', 's3'),
         ...chain('up', 'q1', 'tr', 's3'),
-        ...chain('c3', 'ms', 'k1', 'pg'),
+        ...chain('c3', 'ms', 'k1'),
+        ...chain('ms', 'pg'),
       ],
     },
   },
@@ -1528,9 +1531,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '在 PostgreSQL 里做前缀搜索，就意味着 `LIKE` 加全表扫描。看看哪种存储把搜索当作原生负载类型。',
       ),
       tr(
-        'Популярные префиксы повторяются у миллионов людей: «пого…» → «погода». Ответы на них можно держать в памяти перед поиском.',
-        'Popular prefixes repeat across millions of people: "weat…" → "weather". Answers to them can be kept in memory in front of search.',
-        '热门前缀在数百万人之间反复出现：“天气…” → “天气预报”。这些前缀的答案可以放在搜索前面的内存里。',
+        'Популярные префиксы повторяются у миллионов людей: «пого…» → «погода». Ответы на них можно держать в памяти, чтобы поиск видел только промахи.',
+        'Popular prefixes repeat across millions of people: "weat…" → "weather". Answers to them can be kept in memory so that search sees only the misses.',
+        '热门前缀在数百万人之间反复出现：“天气…” → “天气预报”。这些前缀的答案可以放在内存里，让搜索只处理未命中的请求。',
       ),
       tr(
         'Тренды — это агрегаты по миллиардам запросов. Для них нужна база, которая читает только нужные столбцы, а не все строки целиком.',
@@ -1562,7 +1565,7 @@ export const builderChallenges: BuilderChallenge[] = [
         n('s2', 'service', 'Analytics API', 400, 400, svc('fast')),
         n('ch', 'clickhouse', 'ClickHouse', 700, 400),
       ],
-      edges: [...chain('c1', 'l1', 's1', 'k1', 'es'), ...chain('c2', 's2', 'ch')],
+      edges: [...chain('c1', 'l1', 's1', 'k1'), ...chain('s1', 'es'), ...chain('c2', 's2', 'ch')],
     },
   },
 ]

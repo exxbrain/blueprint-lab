@@ -647,7 +647,7 @@ export const COMPONENT_REF: RefEntry[] = [
     category: C.storage,
     summary: tr('Быстрая память для повторяющихся чтений.', 'Fast memory for repeated reads.', '用于重复读取的高速内存。'),
     problem: tr('Одни и те же данные читают из базы снова и снова.', 'The same data is read from the database again and again.', '同样的数据被一遍又一遍地从数据库读取。'),
-    solution: tr('Cache-aside: сервис сначала смотрит в кэш, при промахе идёт в БД и кладёт результат в кэш. Read-through: цепочка сервис → кэш → БД.', 'Cache-aside: the service checks the cache first, on a miss reads the DB and stores the result. Read-through: a chain service → cache → DB.', 'Cache-aside：服务先查缓存，未命中时读数据库，再把结果写入缓存。Read-through：服务 → 缓存 → 数据库的链式结构。'),
+    solution: tr('Cache-aside: сервис сначала смотрит в кэш, при промахе идёт в БД и кладёт результат в кэш; при записи — обновляет БД и удаляет ключ. Сам Redis в базу не ходит: read-through и write-through делает библиотека кэша в приложении.', 'Cache-aside: the service checks the cache first, on a miss reads the DB and stores the result; on a write it updates the DB and deletes the key. Redis itself never talks to the database: read-through and write-through are done by a caching library in the application.', 'Cache-aside：服务先查缓存，未命中时读数据库，再把结果写入缓存；写入时先更新数据库，再删除缓存键。Redis 本身不会访问数据库：read-through 和 write-through 由应用里的缓存库完成。'),
     when: tr('Read-heavy данные, которые меняются редко или терпят секунды устаревания.', 'Read-heavy data that changes rarely or tolerates seconds of staleness.', '读多写少的数据，很少变化，或者能容忍几秒钟的过时。'),
     avoid: tr('Кэш — не источник истины; продумайте инвалидацию и TTL.', 'A cache is not a source of truth; design invalidation and TTLs.', '缓存不是可信数据源（source of truth）；要设计好失效策略和 TTL。'),
     tools: 'Redis, Memcached, Valkey',

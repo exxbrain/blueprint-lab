@@ -8,7 +8,7 @@ import { computeMetrics, evaluate, initialState, solutionState, stateCost } from
 import { reviewMission } from '../src/sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order'
 import { builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
-import { KINDS, WORKLOADS, reaches, simulate, type BNode, type Workload } from '../src/sim/builder/model'
+import { KINDS, WORKLOADS, linkProblem, reaches, simulate, type BEdge, type BNode, type NodeKind, type Workload } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
 import { C4_EXERCISES } from '../src/sim/c4/exercises'
 import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
@@ -108,6 +108,12 @@ console.log('\nЛовушки конструктора')
   const trap = (id: string, name: string, patch: (n: N, e: E) => [N, E]) => {
     const c = builderChallenges.find((x) => x.id === id)!
     const [nodes, edges] = patch(structuredClone(c.solution.nodes), structuredClone(c.solution.edges))
+    // ловушка — то, что игрок может собрать: только возможные связи
+    const by = Object.fromEntries(nodes.map((x) => [x.id, x]))
+    for (const e of edges) {
+      const why = linkProblem(by[e.from].kind, by[e.to].kind)
+      if (why) fail(`ловушка «${c.title} / ${name}»: связь ${by[e.from].label} → ${by[e.to].label} невозможна`)
+    }
     const r = simulate(nodes, edges)
     const passes = c.goals.every((g) => g.check(r)) && r.cost <= c.budget && c.paths.every((pth) => reaches(edges, pth.from, pth.to))
     if (passes) fail(`ловушка «${c.title} / ${name}» решает задачу`)
@@ -143,8 +149,9 @@ console.log('\nЛовушки конструктора')
     [
       { id: 'e1', from: 'c1', to: 'g1' },
       { id: 'e2', from: 'g1', to: 's1' },
+      // Redis рядом с сервисом (cache-aside): записи билетов он не берёт на себя — они всё равно идут в базу
       { id: 'e3', from: 's1', to: 'k9' },
-      { id: 'e4', from: 'k9', to: 'd1' },
+      { id: 'e4', from: 's1', to: 'd1' },
     ],
   ])
   trap('tickets', 'без очереди, PostgreSQL на 8 шардах', (n) => [
@@ -180,6 +187,28 @@ console.log('\nЛовушки конструктора')
       fail(`«${c.title}» решается и без ${c.tool}`)
   }
   console.log(`- ${builderChallenges.filter((x) => x.tool).length} задач на инструмент не решаются без своего инструмента`)
+}
+
+// связи, которых не бывает (Redis → база, очередь → база, клиент → база…), нельзя провести в редакторе —
+// и ни старт, ни эталон задачи их не содержат
+console.log('\nТолько возможные связи')
+{
+  let n = 0
+  const states: [string, { nodes: BNode[]; edges: BEdge[] }][] = [['песочница', sandboxStart]]
+  for (const c of builderChallenges) states.push([`${c.title} (старт)`, c], [`${c.title} (эталон)`, c.solution])
+  for (const [name, g] of states) {
+    const by = Object.fromEntries(g.nodes.map((x) => [x.id, x]))
+    for (const e of g.edges) {
+      n++
+      const why = linkProblem(by[e.from].kind, by[e.to].kind)
+      if (why) fail(`${name}: связь ${by[e.from].label} → ${by[e.to].label} невозможна: ${why}`)
+    }
+  }
+  const no: [NodeKind, NodeKind][] = [['cache', 'postgres'], ['cache', 'cassandra'], ['queue', 'postgres'], ['client', 'postgres'], ['client', 'cache'], ['client', 'queue'], ['lb', 'postgres'], ['gateway', 'cache'], ['cdn', 'postgres'], ['service', 'gateway'], ['service', 'cdn'], ['postgres', 'service'], ['service', 'client']]
+  const yes: [NodeKind, NodeKind][] = [['client', 's3'], ['cdn', 's3'], ['service', 'cache'], ['service', 'postgres'], ['queue', 'service'], ['gateway', 'lb'], ['lb', 'service'], ['service', 'service']]
+  for (const [a, b] of no) if (!linkProblem(a, b)) fail(`связь ${a} → ${b} должна быть запрещена`)
+  for (const [a, b] of yes) if (linkProblem(a, b)) fail(`связь ${a} → ${b} должна быть разрешена`)
+  console.log(`- связей в стартах и эталонах проверено: ${n}; запрещённых пар: ${no.length}, разрешённых: ${yes.length}`)
 }
 
 // подсказки должны вести к решению через свойства, а не называть инструмент или паттерн

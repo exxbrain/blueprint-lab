@@ -165,7 +165,7 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     capacity: 40000,
     latency: 1,
     cost: 80,
-    desc: tr('Отвечает сам при попадании (OLTP, ключ, поиск), промахи передаёт дальше', 'Answers on a hit (OLTP, key-value, search), passes misses downstream', '命中时直接应答（OLTP、键值、搜索），未命中的请求转发到下游'),
+    desc: tr('Отвечает из памяти при попадании (OLTP, ключ, поиск). Сам в базу не ходит: при промахе сервис читает базу и кладёт ответ в кэш', 'Answers from memory on a hit (OLTP, key-value, search). It never calls the database itself: on a miss the service reads the database and puts the answer into the cache', '命中时直接从内存应答（OLTP、键值、搜索）。它自己不会访问数据库：未命中时由服务读取数据库，再把结果放入缓存'),
     maxInstances: 3,
     group: 'Хранилища',
   },
@@ -276,6 +276,70 @@ const WL = Object.keys(ZERO) as Workload[]
 
 export function isStorage(kind: NodeKind): boolean {
   return !!KINDS[kind].fit
+}
+
+/**
+ * Какие связи бывают на самом деле. null — так соединить можно, иначе — почему так не бывает.
+ * Редактор не даёт провести невозможную связь, check проверяет старт и эталон каждой задачи.
+ * Стрелка — направление запроса: кто кого вызывает.
+ */
+export function linkProblem(from: NodeKind, to: NodeKind): string | null {
+  if (to === 'client') return tr('Клиенты — только источник нагрузки', 'Clients are only a source of load', '客户端只能作为负载的来源')
+  if (isStorage(from))
+    return tr('Хранилище никого не вызывает: к нему обращаются, а не оно', 'A store does not call anything: others call it', '存储不会调用任何组件：只有别的组件调用它')
+  const entry = to === 'service' || to === 'lb' || to === 'gateway'
+  switch (from) {
+    case 'client':
+      return entry || to === 'cdn' || to === 's3'
+        ? null
+        : tr(
+            'Клиент (браузер, приложение) не ходит в базу, кэш или очередь напрямую: между ними нужен сервис. Напрямую можно только в объектное хранилище — по подписанной ссылке.',
+            'A client (browser, app) never talks to a database, cache or queue directly: a service sits in between. The only direct target is object storage, via a signed URL.',
+            '客户端（浏览器、App）不会直接访问数据库、缓存或队列：中间要有一个服务。唯一可以直连的是对象存储——通过签名 URL。',
+          )
+    case 'cdn':
+      return entry || to === 's3'
+        ? null
+        : tr(
+            'CDN забирает файлы и ответы у источника по HTTP: у сервиса, балансировщика, шлюза или из объектного хранилища. В базу, кэш и очередь он не ходит.',
+            'A CDN fetches files and responses from an origin over HTTP: a service, load balancer, gateway or object storage. It never talks to a database, cache or queue.',
+            'CDN 通过 HTTP 从源站获取文件和响应：服务、负载均衡器、网关或对象存储。它不会访问数据库、缓存或队列。',
+          )
+    case 'lb':
+    case 'gateway':
+      return to === 'service' || (to !== from && entry)
+        ? null
+        : tr(
+            `${KINDS[from].title} распределяет HTTP-запросы между экземплярами сервисов. В хранилища, кэш и очередь ходит сам сервис.`,
+            `${KINDS[from].title} routes HTTP requests to service instances. Stores, caches and queues are called by the service itself.`,
+            `${KINDS[from].title}把 HTTP 请求分发给服务实例。存储、缓存和队列由服务自己调用。`,
+          )
+    case 'service':
+      if (to === 'gateway')
+        return tr(
+          'Шлюз — вход для внешних клиентов. Сервисы вызывают друг друга напрямую или через балансировщик.',
+          'A gateway is the entry point for external clients. Services call each other directly or through a load balancer.',
+          '网关是外部客户端的入口。服务之间直接调用，或者通过负载均衡器调用。',
+        )
+      if (to === 'cdn')
+        return tr('CDN стоит перед сервисом, со стороны клиентов, а не за ним.', 'A CDN sits in front of a service, on the client side, not behind it.', 'CDN 位于服务前面、靠近客户端的一侧，而不是在服务后面。')
+      return null
+    case 'queue':
+      return to === 'service'
+        ? null
+        : tr(
+            'Очередь сама никуда не пишет и никого не вызывает: сообщения забирает потребитель — сервис. Подключите очередь к сервису-обработчику, а он уже запишет в хранилище.',
+            'A queue does not write anywhere or call anyone by itself: a consumer (a service) reads the messages. Connect the queue to a handler service, and that service writes to the store.',
+            '队列自己不会写入任何地方，也不会调用谁：消息由消费者（一个服务）来读取。把队列连接到处理服务，再由这个服务写入存储。',
+          )
+    case 'cache':
+      return tr(
+        'Redis сам в базу не ходит: при промахе сервис читает базу и кладёт ответ в кэш (cache-aside). Подключите к сервису и кэш, и базу.',
+        'Redis never calls the database itself: on a miss the service reads the database and puts the answer into the cache (cache-aside). Connect both the cache and the database to the service.',
+        'Redis 自己不会访问数据库：未命中时由服务读取数据库，再把结果放入缓存（cache-aside）。请把缓存和数据库都连接到服务上。',
+      )
+  }
+  return null
 }
 
 export function fitOf(kind: NodeKind, w: Workload): number {
@@ -572,11 +636,6 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           out = admitted
           outW = admittedW
           break
-        case 'cache':
-          // попадания закрывают только чтения; записи идут дальше в хранилище
-          out = Object.fromEntries(WL.map((w) => [w, CACHEABLE.includes(w) ? reads(w) * (1 - (n.hitRatio ?? 0.8)) + admittedW[w] : admitted[w]])) as Vec
-          outW = admittedW
-          break
         case 'cdn':
           out = { ...admitted, blob: reads('blob') * (1 - (n.hitRatio ?? 0.9)) + admittedW.blob }
           outW = admittedW
@@ -669,9 +728,8 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           }
           break
         }
-        case 'cache':
         case 'cdn': {
-          // доля промахов среди принятых запросов: только они идут дальше
+          // доля промахов среди принятых запросов: только они идут к источнику (кэш потомков не имеет — см. linkProblem)
           const passed = kidEdges.reduce((s, e) => s + res.edges[e.id].rps, 0) / kidEdges.length
           const admitted = inp * admitShare[id]
           const miss = admitted > 0 ? Math.min(1, passed / admitted) : 0

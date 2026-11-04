@@ -9,6 +9,7 @@ import {
   scaleText,
   writeCapacity,
   isStorage,
+  linkProblem,
   pathBetween,
   reaches,
   simulate,
@@ -179,7 +180,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const connect = (from: string, to: string) => {
     const a = nodes.find((n) => n.id === from)!
     const b = nodes.find((n) => n.id === to)!
-    if (b.kind === 'client') return say(tr('Клиенты — только источник нагрузки', 'Clients are only a source of load', '客户端只能作为负载的来源'))
+    // связи, которых не бывает, провести нельзя — с объяснением почему
+    const problem = linkProblem(a.kind, b.kind)
+    if (problem) return say(problem)
     if (edges.some((e) => e.from === from && e.to === to)) return say(tr('Такая связь уже есть', 'This connection already exists', '这条连接已经存在'))
     if (wouldCycle(nodes, edges, from, to)) {
       const label = (id: string) => nodes.find((x) => x.id === id)?.label ?? id
@@ -196,7 +199,6 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       )
     }
     setCycleNote(null)
-    if (isStorage(a.kind)) return say(tr('Хранилище никого не вызывает', 'Storage does not call anything', '存储不会调用任何组件'))
     setEdges([...edges, { id: nextId('e'), from, to }])
   }
 
@@ -444,20 +446,20 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                     Стрелка — это направление <b>запроса</b>: кто кого вызывает. Ответ возвращается по той же стрелке
                     сам, обратную рисовать не нужно. Если вы хотели <b>cache-aside</b> (сервис сначала смотрит в Redis, а
                     при промахе идёт в БД и кладёт результат в кэш) — соедините <b>сервис → Redis</b> и{' '}
-                    <b>сервис → БД</b>: в БД пойдут только промахи. Вариант <b>read-through</b> — цепочка сервис → Redis →
-                    БД.
+                    <b>сервис → БД</b>: в БД пойдут только промахи. Сам Redis в базу не ходит, поэтому связи Redis → БД
+                    не бывает.
                   </>,
                   <>
                     An arrow is the direction of a <b>request</b>: who calls whom. The response travels back along the
                     same arrow, so there is no need to draw a reverse one. If you meant <b>cache-aside</b> (the service
                     checks Redis first and, on a miss, goes to the DB and puts the result into the cache), connect{' '}
-                    <b>service → Redis</b> and <b>service → DB</b>: only misses will reach the DB. The{' '}
-                    <b>read-through</b> option is the chain service → Redis → DB.
+                    <b>service → Redis</b> and <b>service → DB</b>: only misses will reach the DB. Redis itself never
+                    calls the database, so there is no Redis → DB link.
                   </>,
                   <>
                     箭头表示<b>请求</b>的方向：谁调用谁。响应会沿着同一条箭头自动返回，不需要再画一条反向的箭头。如果你想要的是
                     <b>cache-aside</b>（服务先查 Redis，未命中时再去数据库，并把结果放入缓存），请连接 <b>服务 → Redis</b> 和
-                    <b>服务 → 数据库</b>：只有未命中的请求才会到达数据库。<b>read-through</b> 方案则是一条链：服务 → Redis → 数据库。
+                    <b>服务 → 数据库</b>：只有未命中的请求才会到达数据库。Redis 本身不会访问数据库，所以不存在 Redis → 数据库 这样的连接。
                   </>,
                 )}
               </div>

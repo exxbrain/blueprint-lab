@@ -433,7 +433,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         if (cacheable) {
           span.status = 'miss'
         }
-        // read-through: промах идёт дальше; cache-aside: решает сервис-родитель
+        // промах CDN идёт к источнику; у кэша потомков нет — при промахе в базу идёт сервис-родитель (cache-aside)
         if (out.length) wait = go(pick(out), t, async)
         break
       }
@@ -463,8 +463,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         let cur = t
         let hit = false
         // cache-aside: сначала кэш
-        const readThrough = !!cacheKid && kids(cacheKid.n.id).length > 0
-        if (cacheKid && (CACHEABLE.includes(w) || readThrough)) {
+        if (cacheKid && CACHEABLE.includes(w)) {
           const before = spans.length
           cur += go(cacheKid.e, cur, async, c.write ? 'del' : undefined)
           hit = spans[before]?.status === 'hit'
@@ -484,7 +483,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
           if (failed) break
         }
         // после промаха — положить ответ в кэш
-        if (cacheKid && CACHEABLE.includes(w) && !readThrough && !hit && !failed) cur += go(cacheKid.e, cur, async, c.write ? 'del' : 'set')
+        if (cacheKid && CACHEABLE.includes(w) && !hit && !failed) cur += go(cacheKid.e, cur, async, c.write ? 'del' : 'set')
         wait = cur - t
         break
       }

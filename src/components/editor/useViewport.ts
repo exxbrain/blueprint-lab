@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 import { menuOpen } from '../popover'
 
-/** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от «весь холст» до 400% */
+/** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от трети «всего холста» до 400% */
 export const MAX_SCALE = 4
 /** Запас вокруг холста: отдалить можно ещё в столько раз мельче, чем «весь холст» */
-export const ZOOM_OUT = 3
+const ZOOM_OUT = 3
 /**
  * Сдвиг не теряет схему: маленькая схема остаётся в кадре хотя бы наполовину и серединой не ближе EDGE вида к краю
  * (там панели рабочего экрана), а крупная занимает не меньше KEEP_IN_VIEW вида
  */
-export const KEEP_IN_VIEW = 0.5
+const KEEP_IN_VIEW = 0.5
 const EDGE = 0.15
 /** Сдвиг пальцем или мышью начинается, когда указатель ушёл дальше этого (px): дрожание при щелчке схему не двигает */
 const PAN_START = 4
@@ -86,17 +86,20 @@ export function useViewport(o: ViewportOptions) {
     const w = maxW()
     return { x: (width - w) / 2, y: (height - w * A()) / 2, w }
   }
-  const clampView = (v: View): View | null => {
+  /** from — вид, от которого идёт сдвиг: если он уже за пределом, к пределу не прыгаем, только не пускаем дальше */
+  const clampView = (v: View, from: View | null = viewRef.current ?? whole()): View | null => {
     const w = Math.max(Math.min(minW(), maxW()), Math.min(outW(), v.w))
     const h = w * A()
-    // схему (то, что нарисовано, а без неё — холст) можно отодвинуть от краёв вида, но не увести из кадра:
-    // keep — сколько её (в единицах схемы) остаётся видно у ближнего края вида
-    const thing = opts.current.content?.() ?? { x: 0, y: 0, w: width, h: height }
-    const along = (pos: number, size: number, start: number, len: number) => {
+    // схему (то, что нарисовано: content страницы или рамка всего, что в svg; без них — холст) можно отодвинуть
+    // от краёв вида, но не увести из кадра. keep — сколько её (в единицах схемы) остаётся видно у ближнего края вида
+    const thing = drawn() ?? { x: 0, y: 0, w: width, h: height }
+    const along = (pos: number, size: number, start: number, len: number, was?: number) => {
       const keep = Math.min(len / 2 + size * EDGE, size * KEEP_IN_VIEW)
-      return Math.max(start + keep - size, Math.min(start + len - keep, pos))
+      const lo = Math.min(start + keep - size, was ?? Infinity)
+      const hi = Math.max(start + len - keep, was ?? -Infinity)
+      return Math.max(lo, Math.min(hi, pos))
     }
-    const next = { x: along(v.x, w, thing.x, thing.w), y: along(v.y, h, thing.y, thing.h), w }
+    const next = { x: along(v.x, w, thing.x, thing.w, from?.x), y: along(v.y, h, thing.y, thing.h, from?.y), w }
     // ровно «весь холст» по центру — вид по умолчанию
     const all = whole()
     return Math.abs(w - all.w) < 1 && Math.abs(next.x - all.x) < 0.5 && Math.abs(next.y - all.y) < 0.5 ? null : next

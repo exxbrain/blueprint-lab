@@ -66,7 +66,7 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
           <p className="small muted">
             {phone
               ? tr('Двумя пальцами — масштаб и сдвиг, одним по пустому месту — сдвиг схемы.', 'Two fingers zoom and pan; one finger on empty space pans the diagram.', '双指可缩放和平移；单指在空白处拖动即可平移图表。')
-              : tr('Сдвиг: колесо, пробел + перетаскивание, средняя кнопка мыши.', 'Pan: wheel, space + drag, middle mouse button.', '平移：滚轮、按住空格拖动，或按住鼠标中键拖动。')}
+              : tr('Сдвиг: перетаскивание по пустому месту, пробел + перетаскивание, средняя кнопка мыши; колесо — у приближенной схемы.', 'Pan: drag on empty space, space + drag, middle mouse button; the wheel pans a zoomed-in diagram.', '平移：在空白处拖动、按住空格拖动，或按住鼠标中键拖动；放大后也可以用滚轮平移。')}
           </p>
         </div>
       )}

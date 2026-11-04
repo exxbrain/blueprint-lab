@@ -3,6 +3,7 @@ import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { HintDock } from './HintDock'
 import { usePhone } from './popover'
+import { RefBanner } from './RefBanner'
 import { Workspace } from './Workspace'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
@@ -171,16 +172,13 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
         </div>
       </div>
     </>
-  const refEl = <>
-      {viewingRef && (
-        <div className="ref-banner">
-          {tr('👁 Вы смотрите эталонное разбиение — в зачёт оно не идёт.', '👁 You are viewing the reference split; it does not count toward completion.', '👁 你正在查看参考答案的划分方式，它不计入完成进度。')}
-          <button className="primary" onClick={toggleRef}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution', '返回我的方案')}
-          </button>
-        </div>
-      )}
-    </>
+  const refEl = viewingRef && (
+    <RefBanner
+      compact={phone}
+      onBack={toggleRef}
+      text={tr('👁 Вы смотрите эталонное разбиение — в зачёт оно не идёт.', '👁 You are viewing the reference split; it does not count toward completion.', '👁 你正在查看参考答案的划分方式，它不计入完成进度。')}
+    />
+  )
   const actionsEl = <>
       <div className="row review-actions">
         {solved && !viewingRef ? (

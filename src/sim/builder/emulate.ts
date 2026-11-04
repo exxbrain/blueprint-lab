@@ -173,6 +173,8 @@ function requestFor(c: Ctx): string {
   } else {
     // пользователь загружает картинку (в свободном режиме у клиента «файлы» по умолчанию есть доля записи)
     if (c.domain === 'static') return `PUT /static/uploads/${c.code}.png  (300 KB)`
+    if (c.domain === 'feed') return `POST /api/posts  {"author":${c.user},"text":"…"}`
+    if (c.domain === 'suggest') return `PUT /suggest/terms  {"term":"${c.word}"}`
     if (c.domain === 'profile') return `PATCH /api/users/${c.user}/profile  {"city":"…"}`
     if (c.domain === 'card') return `PUT /api/cards/${c.id}  {"price":${c.price}}`
     if (c.domain === 'kv') return `PUT /kv/${c.code}`
@@ -265,6 +267,8 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
         : `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') IF NOT EXISTS`
     if (c.domain === 'crawl') return `INSERT INTO pages (url, body) VALUES ('https://${site(c)}/page/${c.id}', '…')  -- 500 KB`
     if (c.domain === 'static') return `INSERT INTO files (name, data) VALUES ('uploads/${c.code}.png', '\\x89504e47…')  -- 300 KB`
+    if (c.domain === 'feed') return `INSERT INTO posts (author_id, text) VALUES (${c.user}, '…')`
+    if (c.domain === 'suggest') return `INSERT INTO search_terms (term) VALUES ('${c.word}') ON CONFLICT DO NOTHING`
   }
   switch (c.domain) {
     case 'order':
@@ -353,7 +357,7 @@ function opFor(n: BNode, c: Ctx, phase?: Phase, async = false): string {
         return `POST /${TABLE[c.domain]}/_search {"size":0,"aggs":{"by":{"terms":{"field":"${c.domain === 'spending' ? 'category' : c.domain === 'ranking' ? 'product_id' : 'region'}"}}}}`
       if (c.domain === 'crawl' && c.write) return `POST /pages/_doc {"url":"https://${site(c)}/page/${c.id}","title":"…","body":"…"}`
       if (c.domain === 'crawl') return `POST /frontier/_search {"query":{"term":{"status":"queued"}},"sort":[{"priority":"desc"}],"size":1}`
-      if (c.domain === 'suggest') return `POST /items/_search {"suggest":{"s":{"prefix":"${c.word.slice(0, 3)}","completion":{"field":"title.suggest"}}}}`
+      if (c.domain === 'suggest' && !c.write) return `POST /items/_search {"suggest":{"s":{"prefix":"${c.word.slice(0, 3)}","completion":{"field":"title.suggest"}}}}`
       if (c.write) return `POST /${TABLE[c.domain]}/_doc {…}`
       return `POST /items/_search {"query":{"match":{"title":"${c.word}"}}}`
     case 'clickhouse':

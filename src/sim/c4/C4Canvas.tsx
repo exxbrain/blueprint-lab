@@ -92,7 +92,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
       onContextMenu={(e) => vp.onContextMenu(e, cancelDrag)}
       onPointerDownCapture={vp.onPointerDownCapture}
       onPointerDown={(e) => {
-        // пустое место (не элемент и не связь): снять выбор и, если схема приближена, двигать её
+        // пустое место (не элемент и не связь): снять выбор и двигать схему
         if ((e.target as Element).closest?.('.c4-el, .c4-rel')) return
         if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
         onSelect(null)

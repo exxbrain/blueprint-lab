@@ -4,8 +4,21 @@ import { tr } from '../i18n'
  * Плашка «Вы смотрите эталон» с кнопкой возврата — для конструктора, распила (решение) и C4 (диаграмма).
  * На рабочем экране телефона она лежит поверх схемы, поэтому там короткая, в одну строку и непрозрачная.
  */
-export function RefBanner({ compact, onBack, diagram = false }: { compact: boolean; onBack: () => void; diagram?: boolean }) {
-  const full = diagram
+export function RefBanner({
+  compact,
+  onBack,
+  diagram = false,
+  text,
+}: {
+  compact: boolean
+  onBack: () => void
+  diagram?: boolean
+  /** Полный текст плашки, если он особый (например, «эталонное разбиение» на карте контекстов) */
+  text?: string
+}) {
+  const full = text
+    ? text
+    : diagram
     ? tr(
         <>
           👁 Вы смотрите <b>эталонную диаграмму</b> — в зачёт она не идёт.

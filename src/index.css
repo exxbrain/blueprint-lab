@@ -2388,7 +2388,7 @@ tr.muted td {
   word-break: break-all;
 }
 .wf-op code, .log-line code { font-size: 11px; color: #c8defa; }
-.wf-status { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
+.wf-status { font-size: 10.5px; font-weight: 700; margin-left: 4px; white-space: nowrap; word-break: normal; }
 .wf-status.ok { color: var(--ok); }
 .wf-status.hit { color: var(--ok); }
 .wf-status.miss, .wf-status.slow { color: var(--warn); }

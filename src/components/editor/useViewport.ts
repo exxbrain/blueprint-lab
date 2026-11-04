@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
-import { inMenu } from '../popover'
+import { menuOpen } from '../popover'
 
 /** Масштаб как в Figma: 100% — 1 единица схемы на 1 пиксель экрана; от «весь холст» до 400% */
 export const MAX_SCALE = 4
@@ -327,7 +327,7 @@ export function useViewport(o: ViewportOptions) {
   // Ctrl/⌘ + = и − перехватываем, только пока мышь над схемой
   const keys = useRef<(e: KeyboardEvent) => void>(() => {})
   keys.current = (e: KeyboardEvent) => {
-    if (o.disabled || typing(e.target) || inMenu(e.target) || e.altKey) return
+    if (o.disabled || typing(e.target) || menuOpen() || e.altKey) return
     const mod = e.ctrlKey || e.metaKey
     if (e.shiftKey && !mod && e.code === 'Digit1') fit()
     else if (e.shiftKey && !mod && e.code === 'Digit2') fitSelection()

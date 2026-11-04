@@ -115,7 +115,8 @@ export function Sheet({ title, onClose, children }: { title: ReactNode; onClose:
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     ref.current?.focus({ preventScroll: true })
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current()
+    // Esc из открытого меню (масштаб) закрывает только меню
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && close.current()
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)

@@ -21,7 +21,7 @@ import { ReviewPanel } from '../components/ReviewPanel'
 import { markScenario, recordStars, useProgress, cappedStars, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
-import { inMenu, usePhone } from '../components/popover'
+import { menuOpen, usePhone } from '../components/popover'
 import { Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
@@ -146,7 +146,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || inMenu(e.target)) return
+      if (e.defaultPrevented || menuOpen()) return
       const t = e.target as HTMLElement
       if ((e.key === 'Delete' || e.key === 'Backspace') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) remove()
       if (e.key === 'Escape') {

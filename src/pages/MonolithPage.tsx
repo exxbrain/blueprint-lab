@@ -238,7 +238,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      // Esc при открытом меню масштаба закрывает только меню (оно помечает событие обработанным)
+      if (e.key !== 'Escape' || e.defaultPrevented) return
       setPopover(null)
       setSelected(null)
     }

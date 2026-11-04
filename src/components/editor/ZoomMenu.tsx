@@ -21,10 +21,11 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
       setOpen(false)
     }
     document.addEventListener('pointerdown', close, true)
-    window.addEventListener('keydown', esc)
+    // в фазе погружения — раньше обработчиков страницы, куда бы ни был фокус
+    window.addEventListener('keydown', esc, true)
     return () => {
       document.removeEventListener('pointerdown', close, true)
-      window.removeEventListener('keydown', esc)
+      window.removeEventListener('keydown', esc, true)
     }
   }, [open])
   const items: [string, string, () => void, boolean][] = [

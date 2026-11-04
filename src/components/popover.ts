@@ -124,11 +124,12 @@ export function useBottomSheet(root: RefObject<HTMLElement | null>, body: RefObj
 }
 
 /**
- * Клавиша нажата в открытом меню (язык, масштаб, добавление) или на кнопке, которая его открыла
- * (у меню масштаба и «Добавить» фокус после открытия остаётся на кнопке): она для меню, а не для схемы
+ * Открыто меню (язык, масштаб, добавление): клавиши — для меню, а не для схемы. Проверяем документ, а не цель нажатия:
+ * фокус может быть где угодно (в Safari и Firefox щелчок не даёт кнопке фокус, Tab уводит его из меню).
+ * Меню рисуются только открытыми; Esc меню ловят в фазе погружения и помечают обработанным (defaultPrevented)
  */
-export function inMenu(t: EventTarget | null): boolean {
-  return !!(t as Element | null)?.closest?.('[role="menu"], [aria-haspopup="menu"][aria-expanded="true"]')
+export function menuOpen(): boolean {
+  return !!document.querySelector('[role="menu"]')
 }
 
 /** Фокус в поле ввода или списке: клавиши достаются ему, а не схеме */

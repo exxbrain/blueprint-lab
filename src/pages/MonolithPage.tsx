@@ -32,7 +32,7 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { href } from '../router'
 import { DddStage } from '../components/DddStage'
-import { sideColumn, usePhone, usePopoverReflow } from '../components/popover'
+import { menuOpen, modalAbove, sideColumn, usePhone, usePopoverReflow } from '../components/popover'
 import { Scrim, Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport, type Viewport } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
@@ -239,7 +239,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Esc при открытом меню масштаба закрывает только меню (оно помечает событие обработанным)
-      if (e.key !== 'Escape' || e.defaultPrevented) return
+      // Esc закрывает верхний слой: окно поверх (карточка справочника), потом меню, и только потом окно модуля
+      if (e.key !== 'Escape' || e.defaultPrevented || menuOpen() || modalAbove()) return
       setPopover(null)
       setSelected(null)
     }

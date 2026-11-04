@@ -640,6 +640,12 @@ console.log('\nВход по логину и паролю')
 }
 
 if (failed) {
+  // запуск прерывается — подписи его проходов больше не понадобятся
+  const run = process.env.BLUEPRINT_RUN
+  if (run) {
+    const { rmSync } = await import('node:fs')
+    for (const l of ['ru', 'en', 'zh']) rmSync(new URL(`../.check-sig-${run}-${l}.txt`, import.meta.url), { force: true })
+  }
   console.log(`\nОшибок проверки: ${failed}`)
   process.exit(1)
 }

@@ -381,6 +381,27 @@ export function useViewport(o: ViewportOptions) {
     }
   }, [o.disabled])
 
+  /**
+   * Центр той части схемы, которую человек сейчас видит: пересечение текущего вида (масштаб и сдвиг)
+   * с видимой на экране частью холста (без шапки сайта). Холст целиком за краем экрана — центр вида
+   */
+  const visibleCenter = (): { x: number; y: number } => {
+    const svg = svgRef.current
+    const v = cur
+    const h = v.w * A()
+    const mid = { x: v.x + v.w / 2, y: v.y + h / 2 }
+    if (!svg) return mid
+    const r = svg.getBoundingClientRect()
+    if (!r.width || !r.height) return mid
+    const top = Math.max(r.top, document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0)
+    const bottom = Math.min(r.bottom, window.innerHeight)
+    const left = Math.max(r.left, 0)
+    const right = Math.min(r.right, window.innerWidth)
+    if (bottom - top < 40 || right - left < 40) return mid
+    const k = v.w / r.width
+    return { x: v.x + ((left + right) / 2 - r.left) * k, y: v.y + ((top + bottom) / 2 - r.top) * k }
+  }
+
   /** Последний сдвиг пальцем или мышью был только что: щелчок «по пустому месту» после него — не щелчок */
   const recentlyPanned = () => Date.now() - lastPan.current < 350
   return {
@@ -388,6 +409,7 @@ export function useViewport(o: ViewportOptions) {
     bindSvg,
     recentlyPanned,
     viewBox: `${cur.x} ${cur.y} ${cur.w} ${cur.w * A()}`,
+    visibleCenter,
     zoomed: !!view,
     scale,
     canZoomIn: scale < MAX_SCALE - 0.01,

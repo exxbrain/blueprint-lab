@@ -773,15 +773,18 @@ function PlatformStrip({ state }: { state: State }) {
   const [refId, setRefId] = useState<string | null>(null)
   if (!enabled.length) return null
   return (
-    <div className="platform-strip" aria-label={tr('Применённые паттерны', 'Applied patterns', '已应用的模式')}>
+    <>
+      {/* карточка — рядом со строкой, а не внутри: у строки на телефоне свой слой, и окно осталось бы под панелями экрана */}
       {refId && <RefModal id={refId} kind="pattern" onClose={() => setRefId(null)} />}
-      <span className="platform-strip-title">🧩 {tr('Платформа', 'Platform', '平台')}</span>
-      {enabled.map((k) => (
-        <button key={k} type="button" className="platform-chip" onClick={() => setRefId(k)} title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，什么时候该用')}>
-          {PATTERNS[k].icon} {PATTERNS[k].title}
-        </button>
-      ))}
-    </div>
+      <div className="platform-strip" aria-label={tr('Применённые паттерны', 'Applied patterns', '已应用的模式')}>
+        <span className="platform-strip-title">🧩 {tr('Платформа', 'Platform', '平台')}</span>
+        {enabled.map((k) => (
+          <button key={k} type="button" className="platform-chip" onClick={() => setRefId(k)} title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，什么时候该用')}>
+            {PATTERNS[k].icon} {PATTERNS[k].title}
+          </button>
+        ))}
+      </div>
+    </>
   )
 }
 

@@ -1030,15 +1030,17 @@ table.cmp th {
   fill: #163e66;
   filter: drop-shadow(0 0 8px rgba(124, 196, 255, 0.6));
 }
-/* перегруженный блок мигает толщиной рамки, а не свечением: SVG-фильтр в бесконечной анимации
-   перерисовывается каждый кадр и тормозит страницу на телефоне */
 .bnode.overloaded .bnode-box {
-  animation: overload 1.2s ease-in-out infinite;
+  animation: overload 0.8s ease-in-out infinite;
 }
 @keyframes overload {
   50% {
-    stroke-width: 4;
+    filter: drop-shadow(0 0 10px rgba(255, 107, 122, 0.9));
   }
+}
+/* живая схема на главной за краем экрана — её анимации стоят и не тратят кадры */
+.hub-demo.offscreen * {
+  animation-play-state: paused !important;
 }
 .bnode-title {
   fill: var(--text);
@@ -2690,20 +2692,10 @@ a.map-node:active .node-circle { transform: translateY(3px); box-shadow: 0 2px 0
   box-shadow: 0 6px 0 #18222f;
 }
 .map-node.locked .node-label b { color: var(--muted); }
-/* пульс следующего узла — кольцом, которое растёт и гаснет (transform и opacity не перерисовывают страницу, в отличие от box-shadow) */
-.map-node.next .node-circle { position: relative; }
-.map-node.next .node-circle::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 3px solid color-mix(in srgb, var(--world) 60%, transparent);
-  pointer-events: none;
-  animation: node-pulse 1.6s ease-out infinite;
-}
+.map-node.next .node-circle { animation: node-pulse 1.6s ease-in-out infinite; }
 @keyframes node-pulse {
-  from { transform: scale(1); opacity: 1; }
-  to { transform: scale(1.4); opacity: 0; }
+  0%, 100% { box-shadow: 0 6px 0 color-mix(in srgb, var(--world) 35%, #04101e), 0 0 0 0 color-mix(in srgb, var(--world) 60%, transparent); }
+  50% { box-shadow: 0 6px 0 color-mix(in srgb, var(--world) 35%, #04101e), 0 0 0 14px transparent; }
 }
 .node-stars { margin-top: 6px; font-size: 0.85rem; letter-spacing: 1px; color: rgba(255, 255, 255, 0.18); line-height: 1; }
 .node-stars .on { color: #ffd166; text-shadow: 0 0 6px rgba(255, 209, 102, 0.7); }

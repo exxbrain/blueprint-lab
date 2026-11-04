@@ -137,7 +137,7 @@ function LiveDemo() {
   const calmLog = useCalm(traffic.log)
   const noop = () => {}
   return (
-    <div className="panel hub-demo" ref={ref}>
+    <div className={'panel hub-demo' + (visible ? '' : ' offscreen')} ref={ref}>
       <div className="row hub-demo-head">
         <b>{ch.title}</b>
         <div className="row tabs">

@@ -3505,6 +3505,20 @@ body.ws-mode .page { animation: none; }
   animation: sheet-in 0.22s ease-out;
 }
 .ws .ref-banner { position: absolute; z-index: 3; left: 8px; right: 8px; top: calc(92px + env(safe-area-inset-top)); margin: 0; }
+/* на телефоне плашка лежит поверх схемы: короткая, в одну строку, непрозрачная и по ширине содержимого */
+.ws .ref-banner.compact {
+  right: auto;
+  max-width: calc(100% - 16px);
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 3px 3px 3px 10px;
+  font-size: 0.8rem;
+  border-radius: 10px;
+  background: rgba(13, 39, 66, 0.95);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.ref-banner.compact .ref-banner-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-banner.compact button { flex: none; padding: 4px 10px; font-size: 0.8rem; white-space: nowrap; }
 .ws-note { margin-bottom: 10px; }
 .ws-tap { position: absolute; inset: 0; }
 /* кандидаты C4 в шторке: с описаниями и отступами — подсказки по наведению на телефоне нет */

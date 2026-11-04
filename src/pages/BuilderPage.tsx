@@ -29,6 +29,7 @@ import {
 } from '../sim/builder/challenges'
 import { BOARD_H, BOARD_W } from '../sim/builder/layout'
 import { Rich } from '../components/Rich'
+import { RefBanner } from '../components/RefBanner'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
 import { RefModal } from '../components/RefCard'
@@ -358,26 +359,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         </div>
       )}
     </>
-  const refEl = <>
-      {viewingRef && (
-        <div className="ref-banner">
-          {tr(
-            <>
-              👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
-            </>,
-            <>
-              👁 You are viewing the <b>reference solution</b>; it does not count toward completion.
-            </>,
-            <>
-              👁 你正在查看<b>参考答案</b>，它不计入完成进度。
-            </>,
-          )}
-          <button className="primary" onClick={toggleReference}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution', '恢复我的方案')}
-          </button>
-        </div>
-      )}
-    </>
+  const refEl = viewingRef && <RefBanner compact={ws} onBack={toggleReference} />
   const actionsEl = <>
       {challenge && (
         <div className="row review-actions">

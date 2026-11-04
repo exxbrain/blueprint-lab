@@ -27,6 +27,7 @@ import { reviewMission } from '../sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder, type SprintMark } from '../sim/monolith/order'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { RefModal } from '../components/RefCard'
+import { RefBanner } from '../components/RefBanner'
 import { PATTERNS, PATTERN_GROUPS, has, type PatternId } from '../sim/monolith/patterns'
 import { markScenario, recordStars, useProgress, cappedStars, useHints, referenceNote } from '../progress'
 import { TaskGate, TaskLevelTag } from '../components/Level'
@@ -298,26 +299,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         </div>
       </div>
     </>
-  const refEl = <>
-      {viewingRef && (
-        <div className="ref-banner">
-          {tr(
-            <>
-              👁 Вы смотрите <b>эталонное решение</b> — в зачёт оно не идёт.
-            </>,
-            <>
-              👁 You are viewing the <b>reference solution</b> — it does not count toward your progress.
-            </>,
-            <>
-              👁 你正在查看<b>参考答案</b>——它不计入你的进度。
-            </>,
-          )}
-          <button className="primary" onClick={toggleReference}>
-            ↩ {tr('Вернуть моё решение', 'Back to my solution', '回到我的方案')}
-          </button>
-        </div>
-      )}
-    </>
+  const refEl = viewingRef && <RefBanner compact={phone} onBack={toggleReference} />
   const actionsEl = <>
       <div className="row review-actions">
         {solved && !viewingRef ? (

@@ -40,7 +40,7 @@ function EsLab({ task }: { task: EsTask }) {
   // черновик: выбранные настройки переживают перезагрузку страницы
   const draftKey = `data/es/${task.id}`
   const draftSig = signature(Object.keys(task.start).sort())
-  const [cfg, setCfg] = useState<EsConfig>(() => loadDraft<EsConfig>(draftKey, draftSig, (w) => typeof w === 'object') ?? task.start)
+  const [cfg, setCfg] = useState<EsConfig>(() => loadDraft<EsConfig>(draftKey, draftSig, (w) => typeof w === 'object' && Object.keys(task.start).every((k) => k in w)) ?? task.start)
   const hintState = useHints(`data/es/${task.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<EsConfig | null>(null)

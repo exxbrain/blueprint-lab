@@ -45,7 +45,7 @@ function Lab({ task }: { task: K8sTask }) {
   // черновик: выбранные настройки переживают перезагрузку страницы
   const draftKey = k8sKey(task.id)
   const draftSig = signature(Object.keys(task.start).sort())
-  const [cfg, setCfg] = useState<K8sConfig>(() => loadDraft<K8sConfig>(draftKey, draftSig, (w) => typeof w === 'object') ?? task.start)
+  const [cfg, setCfg] = useState<K8sConfig>(() => loadDraft<K8sConfig>(draftKey, draftSig, (w) => typeof w === 'object' && Object.keys(task.start).every((k) => k in w)) ?? task.start)
   const [mine, setMine] = useState<K8sConfig | null>(null)
   // пока смотрим эталон, в черновике — свои настройки
   useSaveDraft(draftKey, draftSig, mine ?? cfg)
@@ -130,7 +130,17 @@ function Lab({ task }: { task: K8sTask }) {
               </button>
             )}
             {/* выбор сохраняется между перезагрузками — начать с чистого листа можно здесь */}
-            {!mine && <button onClick={() => setCfg(task.start)}>{tr('↺ Заново', '↺ Start over', '↺ 重新开始')}</button>}
+            {!mine && (
+              <button
+                onClick={() => {
+                  setCfg(task.start)
+                  setPos(0)
+                  setPlaying(true)
+                }}
+              >
+                {tr('↺ Заново', '↺ Start over', '↺ 重新开始')}
+              </button>
+            )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>

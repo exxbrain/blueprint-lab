@@ -40,7 +40,7 @@ function CapLab({ task }: { task: CapTask }) {
   // черновик: выбранные настройки переживают перезагрузку страницы
   const draftKey = `data/cap/${task.id}`
   const draftSig = signature(Object.keys(task.start).sort())
-  const [cfg, setCfg] = useState<CapConfig>(() => loadDraft<CapConfig>(draftKey, draftSig, (w) => typeof w === 'object') ?? task.start)
+  const [cfg, setCfg] = useState<CapConfig>(() => loadDraft<CapConfig>(draftKey, draftSig, (w) => typeof w === 'object' && Object.keys(task.start).every((k) => k in w)) ?? task.start)
   const [pos, setPos] = useState(0)
   const [playing, setPlaying] = useState(false)
   const hintState = useHints(`data/cap/${task.id}`)
@@ -127,7 +127,17 @@ function CapLab({ task }: { task: CapTask }) {
               </button>
             )}
             {/* выбор сохраняется между перезагрузками — начать с чистого листа можно здесь */}
-            {!mine && <button onClick={() => setCfg(task.start)}>{tr('↺ Заново', '↺ Start over', '↺ 重新开始')}</button>}
+            {!mine && (
+              <button
+                onClick={() => {
+                  setCfg(task.start)
+                  setPos(0)
+                  setPlaying(false)
+                }}
+              >
+                {tr('↺ Заново', '↺ Start over', '↺ 重新开始')}
+              </button>
+            )}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>

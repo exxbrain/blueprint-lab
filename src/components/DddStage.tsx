@@ -130,11 +130,15 @@ function useFingerDrag(onDrop: (cardId: string, target: string | null) => void) 
   useEffect(() => {
     if (!dragging) return
     let raf = 0
+    // вниз доска листается, только когда палец уже побывал выше полосы автопрокрутки: стикер, который
+    // вынимают из ленты, проходит через эту полосу, и доска не должна от этого уезжать
+    let armed = false
     const tick = () => {
       const field = document.querySelector('.wsx-field.scroll')
       const { x, y } = at.current
       const tools = document.querySelector('.ws-tools')?.getBoundingClientRect().top ?? window.innerHeight
-      const dy = y < 140 ? -10 : y > tools - 30 && y < tools ? 10 : 0
+      if (y < tools - 60) armed = true
+      const dy = y < 140 ? -10 : armed && y > tools - 30 && y < tools ? 10 : 0
       if (field && dy) {
         field.scrollBy(0, dy)
         setDrag((d) => d && { ...d, over: dropAt(x, y) })
@@ -496,7 +500,12 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
           {pickerEl}
         </Workspace>
         {dragCard && finger.drag && (
-          <div className={`ddd-card kind-${dragCard.kind} ddd-ghost`} style={{ left: finger.drag.x, top: finger.drag.y }} aria-hidden>
+          <div
+            className={`ddd-card kind-${dragCard.kind} ddd-ghost`}
+            // у края экрана стикер прижимается к нему, а не уходит наполовину за экран (ширина стикера — до 160 px)
+            style={{ left: Math.min(Math.max(finger.drag.x, 84), window.innerWidth - 84), top: finger.drag.y }}
+            aria-hidden
+          >
             <span className="ddd-kind">{CARD_KIND[dragCard.kind].title}</span>
             {dragCard.name}
           </div>

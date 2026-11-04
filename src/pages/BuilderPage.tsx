@@ -40,6 +40,7 @@ import { useViewport } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
 import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
 import { nextId } from '../components/editor/nextId'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { HintDock } from '../components/HintDock'
 import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -107,17 +108,24 @@ export default function BuilderPage({ id }: { id?: string }) {
 function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const [refId, setRefId] = useState<string | null>(null)
   const start = challenge ?? sandboxStart
-  const [nodes, setNodes] = useState<BNode[]>(start.nodes)
-  const [edges, setEdges] = useState<BEdge[]>(start.edges)
+  // черновик: собранная схема переживает перезагрузку страницы
+  const draftKey = `builder/${challenge?.id ?? 'sandbox'}`
+  const draftSig = signature([start.nodes.map((n) => [n.id, n.kind]), start.edges.map((e) => [e.from, e.to])])
+  const [saved] = useState(() => loadDraft<{ nodes: BNode[]; edges: BEdge[]; estimated: boolean }>(draftKey, draftSig))
+  const [nodes, setNodes] = useState<BNode[]>(saved?.nodes ?? start.nodes)
+  const [edges, setEdges] = useState<BEdge[]>(saved?.edges ?? start.edges)
   const [selected, setSelected] = useState<string | null>(null)
   const hintState = useHints(`builder/${challenge?.id ?? 'sandbox'}`)
   const hints = hintState.used
   const [flash, setFlash] = useState<string | null>(null)
-  const [estimated, setEstimated] = useState(!challenge?.estimate)
+  const [estimated, setEstimated] = useState(saved?.estimated ?? !challenge?.estimate)
   const [showReview, setShowReview] = useState(false)
   /** Пока смотрим эталон, своё решение лежит здесь */
   const [mine, setMine] = useState<{ nodes: BNode[]; edges: BEdge[] } | null>(null)
   const viewingRef = mine !== null
+  // пока смотрим эталон, в черновике — своё решение
+  const work = useMemo(() => ({ nodes: mine?.nodes ?? nodes, edges: mine?.edges ?? edges, estimated }), [mine, nodes, edges, estimated])
+  useSaveDraft(draftKey, draftSig, work)
   const result = useMemo(() => simulate(nodes, edges), [nodes, edges])
   const traffic = useLiveTraffic(nodes, edges, result, estimated)
 
@@ -362,18 +370,30 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     </>
   const refEl = viewingRef && <RefBanner compact={ws} onBack={toggleReference} />
   const actionsEl = <>
-      {challenge && (
-        <div className="row review-actions">
-          {solved && !viewingRef ? (
+      <div className="row review-actions">
+        {challenge &&
+          (solved && !viewingRef ? (
             <ResultButton solved onClick={() => result$.setOpen(true)} />
           ) : (
             <button onClick={() => setShowReview(!showReview)}>
               📋 {showReview ? tr('Скрыть оценку', 'Hide assessment', '隐藏评估') : tr('Оценить решение', 'Assess solution', '评估方案')}
             </button>
-          )}
-          {!viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas', '在画布上显示参考答案')}</button>}
-        </div>
-      )}
+          ))}
+        {challenge && !viewingRef && <button onClick={toggleReference} title={referenceNote()}>👁 {tr('Показать эталон на схеме', 'Show reference on canvas', '在画布上显示参考答案')}</button>}
+        {/* схема сохраняется между перезагрузками — начать с чистого листа можно только здесь */}
+        {!viewingRef && (
+          <button
+            onClick={() => {
+              setNodes(start.nodes)
+              setEdges(start.edges)
+              setSelected(null)
+              setShowReview(false)
+            }}
+          >
+            {tr('↺ Заново', '↺ Start over', '↺ 重新开始')}
+          </button>
+        )}
+      </div>
     </>
   const reviewEl = <>
       {review && showReview && !(solved && !viewingRef) && (

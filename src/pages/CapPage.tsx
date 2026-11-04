@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { CAP_TASKS, dcOf, latencyFor, runCap, type CapConfig, type CapTask, type Dc, type StepResult } from '../sim/cap/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
@@ -36,12 +37,17 @@ const STEP_LABEL: Record<StepResult['step']['t'], string> = {
 }
 
 function CapLab({ task }: { task: CapTask }) {
-  const [cfg, setCfg] = useState<CapConfig>(task.start)
+  // черновик: выбранные настройки переживают перезагрузку страницы
+  const draftKey = `data/cap/${task.id}`
+  const draftSig = signature(Object.keys(task.start).sort())
+  const [cfg, setCfg] = useState<CapConfig>(() => loadDraft<CapConfig>(draftKey, draftSig) ?? task.start)
   const [pos, setPos] = useState(0)
   const [playing, setPlaying] = useState(false)
   const hintState = useHints(`data/cap/${task.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<CapConfig | null>(null)
+  // пока смотрим эталон, в черновике — свои настройки
+  useSaveDraft(draftKey, draftSig, mine ?? cfg)
   const run = useMemo(() => runCap(cfg, task.steps), [cfg, task.steps])
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
   const solved = goals.every((g) => g.ok)

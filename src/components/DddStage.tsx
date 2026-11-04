@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { tr } from '../i18n'
 import { Rich } from './Rich'
 import { HintDock } from './HintDock'
@@ -6,6 +6,7 @@ import { usePhone } from './popover'
 import { RefBanner } from './RefBanner'
 import { Workspace } from './Workspace'
 import { nextId } from './editor/nextId'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -81,7 +82,11 @@ function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; 
 }
 
 function PartitionView({ task, progressKey, onNext, nextLabel }: { task: PartitionTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
+  // черновик: разложенные стикеры переживают перезагрузку страницы
+  const draftSig = signature(task.cards.map((c) => c.id))
   const [state, setState] = useState<PartitionState>(() => {
+    const saved = loadDraft<PartitionState>(progressKey, draftSig)
+    if (saved) return saved
     const first = newGroup(1, [])
     return { groups: [first, newGroup(2, [first])], place: {} }
   })
@@ -94,6 +99,8 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
   const [checked, setChecked] = useState(false)
   const [mine, setMine] = useState<PartitionState | null>(null)
   const viewingRef = mine !== null
+  // пока смотрим эталон, в черновике — своё разбиение
+  useSaveDraft(progressKey, draftSig, mine ?? state)
   const review = checked ? reviewPartition(task, state, Math.min(hints, task.hints.length)) : null
   const solved = checked && partitionSolved(task, state)
   const result$ = useResultModal(solved, !viewingRef)
@@ -375,9 +382,14 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
 }
 
 function MapView({ task, progressKey, onNext, nextLabel }: { task: MapTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
-  const [answers, setAnswers] = useState<Record<string, MapPattern | undefined>>({})
+  // черновик: выбранные паттерны (и число неверных проверок — от них зависят звёзды) переживают перезагрузку
+  const draftSig = signature(task.relations.map((r) => r.id))
+  const [saved] = useState(() => loadDraft<{ answers: Record<string, MapPattern | undefined>; wrongChecks: number }>(progressKey, draftSig))
+  const [answers, setAnswers] = useState<Record<string, MapPattern | undefined>>(saved?.answers ?? {})
   const [checked, setChecked] = useState(false)
-  const [wrongChecks, setWrongChecks] = useState(0)
+  const [wrongChecks, setWrongChecks] = useState(saved?.wrongChecks ?? 0)
+  const work = useMemo(() => ({ answers, wrongChecks }), [answers, wrongChecks])
+  useSaveDraft(progressKey, draftSig, work)
   const hintState = useHints(progressKey)
   const hints = hintState.used
   const [showRef, setShowRef] = useState(false)

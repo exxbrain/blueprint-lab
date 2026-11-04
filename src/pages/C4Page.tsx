@@ -28,6 +28,7 @@ import { useViewport, type Rect } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
 import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
 import { nextId } from '../components/editor/nextId'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 
 export default function C4Page({ id }: { id?: string }) {
   const progress = useProgress()
@@ -89,7 +90,10 @@ function freePlace(d: DiagramState, within?: Rect, boundary = false): { x: numbe
 
 function Exercise({ ex }: { ex: C4Exercise }) {
   const initial: DiagramState = ex.start ? structuredClone(ex.start) : { placed: [], rels: [] }
-  const [d, setD] = useState<DiagramState>(initial)
+  // черновик: диаграмма переживает перезагрузку страницы
+  const draftKey = `c4/${ex.id}`
+  const draftSig = signature([ex.cards.map((c) => c.id), ex.start?.placed.map((p) => p.card), ex.start?.rels.map((r) => [r.from, r.to])])
+  const [d, setD] = useState<DiagramState>(() => loadDraft<DiagramState>(draftKey, draftSig) ?? initial)
   const [selected, setSelected] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const phone = usePhone()
@@ -135,6 +139,8 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const hintState = useHints(`c4/${ex.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<DiagramState | null>(null)
+  // пока смотрим эталон, в черновике — своя диаграмма
+  useSaveDraft(draftKey, draftSig, mine ?? d)
   const viewingRef = mine !== null
   const review = reviewDiagram(ex, d)
   const showReview = checked || review.solved

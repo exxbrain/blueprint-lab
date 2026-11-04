@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { tr } from '../i18n'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
@@ -41,8 +42,13 @@ const PHASE_CLASS: Record<Phase, string> = {
 }
 
 function Lab({ task }: { task: K8sTask }) {
-  const [cfg, setCfg] = useState<K8sConfig>(task.start)
+  // черновик: выбранные настройки переживают перезагрузку страницы
+  const draftKey = k8sKey(task.id)
+  const draftSig = signature(Object.keys(task.start).sort())
+  const [cfg, setCfg] = useState<K8sConfig>(() => loadDraft<K8sConfig>(draftKey, draftSig) ?? task.start)
   const [mine, setMine] = useState<K8sConfig | null>(null)
+  // пока смотрим эталон, в черновике — свои настройки
+  useSaveDraft(draftKey, draftSig, mine ?? cfg)
   const hintState = useHints(k8sKey(task.id))
   const hints = hintState.used
   const [pos, setPos] = useState(0)

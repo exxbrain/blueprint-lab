@@ -41,6 +41,7 @@ import { EditorBar } from '../components/editor/EditorBar'
 import { PopoverDialog } from '../components/PopoverDialog'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
 import { DDD_STAGES } from '../sim/ddd/tasks'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { tr } from '../i18n'
 import { CLIENT, GATEWAY, KAFKA, MONO_DB, emulateMono } from '../sim/monolith/emulate'
 import { NodeLog, TrafficPanel } from '../sim/builder/TrafficPanel'
@@ -133,11 +134,22 @@ interface Snapshot {
   spent: number
 }
 
+interface MissionDraft {
+  state: State
+  spent: number
+  history: Snapshot[]
+  log: LogEntry[]
+}
+
 function MissionView({ project, mission }: { project: Project; mission: Mission }) {
-  const [state, setState] = useState<State>(() => initialState(project))
-  const [spent, setSpent] = useState(0)
-  const [history, setHistory] = useState<Snapshot[]>([])
-  const [log, setLog] = useState<LogEntry[]>([])
+  // черновик: сделанные шаги распила переживают перезагрузку страницы
+  const draftKey = `monolith/${project.id}/${mission.id}`
+  const draftSig = signature([project.modules.map((m) => m.id), Object.keys(PATTERNS)])
+  const [saved] = useState(() => loadDraft<MissionDraft>(draftKey, draftSig))
+  const [state, setState] = useState<State>(() => saved?.state ?? initialState(project))
+  const [spent, setSpent] = useState(saved?.spent ?? 0)
+  const [history, setHistory] = useState<Snapshot[]>(saved?.history ?? [])
+  const [log, setLog] = useState<LogEntry[]>(saved?.log ?? [])
   const [selected, setSelected] = useState<ModuleId | null>(null)
   const metrics = useMemo(() => evaluate(project, state, spent, mission.budget), [project, state, spent, mission.budget])
   const traffic = useMonoTraffic(project, state, metrics)
@@ -150,8 +162,11 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
   const [showReview, setShowReview] = useState(false)
   /** Пока смотрим эталон, своё решение лежит здесь */
-  const [mine, setMine] = useState<{ state: State; spent: number; history: Snapshot[]; log: LogEntry[] } | null>(null)
+  const [mine, setMine] = useState<MissionDraft | null>(null)
   const viewingRef = mine !== null
+  // пока смотрим эталон, в черновике — свой распил
+  const work = useMemo(() => mine ?? { state, spent, history, log }, [mine, state, spent, history, log])
+  useSaveDraft(draftKey, draftSig, work)
 
   useEffect(() => {
     if (solved && !viewingRef) markScenario(`monolith/${project.id}/${mission.id}`)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { ES_TASKS, type EsConfig, type EsTask } from '../sim/es/model'
 import { Rich } from '../components/Rich'
 import { ResultButton, ResultModal, useResultModal } from '../components/ResultModal'
@@ -36,10 +37,15 @@ const MARK_LABEL: Record<string, string> = {
 }
 
 function EsLab({ task }: { task: EsTask }) {
-  const [cfg, setCfg] = useState<EsConfig>(task.start)
+  // черновик: выбранные настройки переживают перезагрузку страницы
+  const draftKey = `data/es/${task.id}`
+  const draftSig = signature(Object.keys(task.start).sort())
+  const [cfg, setCfg] = useState<EsConfig>(() => loadDraft<EsConfig>(draftKey, draftSig) ?? task.start)
   const hintState = useHints(`data/es/${task.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<EsConfig | null>(null)
+  // пока смотрим эталон, в черновике — свои настройки
+  useSaveDraft(draftKey, draftSig, mine ?? cfg)
   const run = task.run(cfg)
   const goals = task.goals.map((g) => ({ text: g.text, ok: g.check(run, cfg) }))
   const solved = goals.every((g) => g.ok)

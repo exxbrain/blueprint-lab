@@ -589,15 +589,15 @@ console.log('\nВход по логину и паролю')
   if (lang === 'zh') {
     console.log('\nРазбор одинаков на всех языках')
     for (const other of ['ru', 'en']) {
-      if (!existsSync(file(other))) {
-        console.log(`- сверка с ${other} пропущена: нет .check-sig-${other}.txt — полная проверка: npm run check`)
+      const head = existsSync(file(other)) ? readFileSync(file(other), 'utf8').split('\n', 1)[0] : undefined
+      if (head !== `# запуск ${run}` || !run) {
+        const why = head === undefined ? `нет .check-sig-${other}.txt` : `подпись ${other} от другого запуска`
+        // внутри npm run check (номер запуска задан) сверка обязана состояться: пропуск — ошибка, а не строчка в логе
+        if (run) fail(`сверка с ${other} не состоялась: ${why} (например, BLUEPRINT_LANG задан на весь npm run check)`)
+        else console.log(`- сверка с ${other} пропущена: ${why} — полная проверка: npm run check`)
         continue
       }
-      const [head, ...theirs] = readFileSync(file(other), 'utf8').trimEnd().split('\n')
-      if (!run || head !== `# запуск ${run}`) {
-        console.log(`- сверка с ${other} пропущена: подпись ${other} от другого запуска — полная проверка: npm run check`)
-        continue
-      }
+      const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n').slice(1)
       if (theirs.length !== signature.length) {
         fail(`разбор на zh и ${other}: разное число строк подписи (${signature.length} и ${theirs.length})`)
         continue

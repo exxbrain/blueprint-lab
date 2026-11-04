@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { tr } from './i18n'
+import { clearDrafts } from './drafts'
 
 export interface Progress {
   lessons: Record<string, boolean>
@@ -145,4 +146,5 @@ export function recordQuiz(id: string, score: number) {
 
 export function resetProgress() {
   save(empty)
+  clearDrafts()
 }

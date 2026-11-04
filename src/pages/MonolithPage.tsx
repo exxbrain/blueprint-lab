@@ -144,8 +144,11 @@ interface MissionDraft {
 function MissionView({ project, mission }: { project: Project; mission: Mission }) {
   // черновик: сделанные шаги распила переживают перезагрузку страницы
   const draftKey = `monolith/${project.id}/${mission.id}`
-  const draftSig = signature([project.modules.map((m) => m.id), Object.keys(PATTERNS)])
-  const [saved] = useState(() => loadDraft<MissionDraft>(draftKey, draftSig))
+  // в подписи — язык: журнал спринтов хранится в черновике текстом
+  const draftSig = signature([project.modules.map((m) => m.id), Object.keys(PATTERNS)], true)
+  const [saved] = useState(() =>
+    loadDraft<MissionDraft>(draftKey, draftSig, (w) => !!w.state?.extracted && typeof w.spent === 'number' && Array.isArray(w.history) && Array.isArray(w.log)),
+  )
   const [state, setState] = useState<State>(() => saved?.state ?? initialState(project))
   const [spent, setSpent] = useState(saved?.spent ?? 0)
   const [history, setHistory] = useState<Snapshot[]>(saved?.history ?? [])

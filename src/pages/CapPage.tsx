@@ -40,7 +40,7 @@ function CapLab({ task }: { task: CapTask }) {
   // черновик: выбранные настройки переживают перезагрузку страницы
   const draftKey = `data/cap/${task.id}`
   const draftSig = signature(Object.keys(task.start).sort())
-  const [cfg, setCfg] = useState<CapConfig>(() => loadDraft<CapConfig>(draftKey, draftSig) ?? task.start)
+  const [cfg, setCfg] = useState<CapConfig>(() => loadDraft<CapConfig>(draftKey, draftSig, (w) => typeof w === 'object') ?? task.start)
   const [pos, setPos] = useState(0)
   const [playing, setPlaying] = useState(false)
   const hintState = useHints(`data/cap/${task.id}`)
@@ -126,6 +126,8 @@ function CapLab({ task }: { task: CapTask }) {
                 {tr('👁 Показать эталон', '👁 Show reference', '👁 查看参考答案')}
               </button>
             )}
+            {/* выбор сохраняется между перезагрузками — начать с чистого листа можно здесь */}
+            {!mine && <button onClick={() => setCfg(task.start)}>{tr('↺ Заново', '↺ Start over', '↺ 重新开始')}</button>}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>

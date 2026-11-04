@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
+import { lang } from './i18n'
 
 /**
  * Черновики задач: то, что игрок собрал на схеме, переживает случайную перезагрузку страницы.
  *
  * Черновик лежит в localStorage под ключом задачи. К нему приложена подпись старта задачи:
  * если задачу с тех пор поменяли (обновление игры), старый черновик к ней не подходит и не подхватывается.
- * Подпись строится только из того, что не зависит от языка (id, виды блоков, связи), — смена языка черновик не теряет.
+ * Где в черновике есть тексты игры (подписи блоков, названия контекстов, журнал), в подпись входит и язык:
+ * после смены языка задача начинается заново, как и до черновиков, — иначе на экране смешались бы два языка.
  */
 const PREFIX = 'blueprint-lab-draft:'
 /** Меняется, если меняется формат самих черновиков */
@@ -17,15 +19,27 @@ interface Stored<T> {
   work: T
 }
 
-/** Черновик задачи, если он есть и задача с тех пор не менялась */
-export function loadDraft<T>(key: string, sig: string): T | undefined {
+/**
+ * Черновик задачи, если он есть, задача с тех пор не менялась и черновик по форме годится (valid):
+ * испорченный черновик не должен ронять страницу — тогда задача просто начинается с начала.
+ */
+export function loadDraft<T>(key: string, sig: string, valid: (w: T) => boolean = () => true): T | undefined {
   try {
     const raw = localStorage.getItem(PREFIX + key)
     if (!raw) return undefined
     const d = JSON.parse(raw) as Stored<T>
-    return d.v === VERSION && d.sig === sig ? d.work : undefined
+    return d.v === VERSION && d.sig === sig && d.work != null && valid(d.work) ? d.work : undefined
   } catch {
     return undefined
+  }
+}
+
+/** Удалить все черновики (сброс прогресса: решённый черновик иначе снова засчитал бы задачу) */
+export function clearDrafts() {
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith(PREFIX)) localStorage.removeItem(k)
+  } catch {
+    // хранилище недоступно — и черновиков в нём нет
   }
 }
 
@@ -73,9 +87,9 @@ export function useSaveDraft(key: string, sig: string, work: unknown) {
   }, [])
 }
 
-/** Подпись старта задачи: стабильная строка из того, что не зависит от языка */
-export function signature(parts: unknown): string {
-  const s = JSON.stringify(parts)
+/** Подпись старта задачи. withLang — в черновике есть тексты игры на текущем языке */
+export function signature(parts: unknown, withLang = false): string {
+  const s = JSON.stringify(withLang ? [lang, parts] : parts)
   // короткий хэш (FNV-1a): ключ черновика не раздувает хранилище
   let h = 0x811c9dc5
   for (let i = 0; i < s.length; i++) {

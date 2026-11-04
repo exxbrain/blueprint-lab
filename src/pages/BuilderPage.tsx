@@ -110,8 +110,11 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const start = challenge ?? sandboxStart
   // черновик: собранная схема переживает перезагрузку страницы
   const draftKey = `builder/${challenge?.id ?? 'sandbox'}`
-  const draftSig = signature([start.nodes.map((n) => [n.id, n.kind]), start.edges.map((e) => [e.from, e.to])])
-  const [saved] = useState(() => loadDraft<{ nodes: BNode[]; edges: BEdge[]; estimated: boolean }>(draftKey, draftSig))
+  // подпись — весь старт задачи (нагрузка, мощности, связи), кроме подписей блоков, и язык: подписи хранятся в черновике
+  const draftSig = signature([start.nodes.map(({ label: _label, ...rest }) => rest), start.edges], true)
+  const [saved] = useState(() =>
+    loadDraft<{ nodes: BNode[]; edges: BEdge[]; estimated: boolean }>(draftKey, draftSig, (w) => Array.isArray(w.nodes) && Array.isArray(w.edges)),
+  )
   const [nodes, setNodes] = useState<BNode[]>(saved?.nodes ?? start.nodes)
   const [edges, setEdges] = useState<BEdge[]>(saved?.edges ?? start.edges)
   const [selected, setSelected] = useState<string | null>(null)

@@ -40,7 +40,7 @@ function EsLab({ task }: { task: EsTask }) {
   // черновик: выбранные настройки переживают перезагрузку страницы
   const draftKey = `data/es/${task.id}`
   const draftSig = signature(Object.keys(task.start).sort())
-  const [cfg, setCfg] = useState<EsConfig>(() => loadDraft<EsConfig>(draftKey, draftSig) ?? task.start)
+  const [cfg, setCfg] = useState<EsConfig>(() => loadDraft<EsConfig>(draftKey, draftSig, (w) => typeof w === 'object') ?? task.start)
   const hintState = useHints(`data/es/${task.id}`)
   const hints = hintState.used
   const [mine, setMine] = useState<EsConfig | null>(null)
@@ -98,6 +98,8 @@ function EsLab({ task }: { task: EsTask }) {
                 {tr('👁 Показать эталон', '👁 Show reference', '👁 查看参考答案')}
               </button>
             )}
+            {/* выбор сохраняется между перезагрузками — начать с чистого листа можно здесь */}
+            {!mine && <button onClick={() => setCfg(task.start)}>{tr('↺ Заново', '↺ Start over', '↺ 重新开始')}</button>}
           </div>
         </div>
         <div className={'panel goal' + (solved ? ' success' : '')}>

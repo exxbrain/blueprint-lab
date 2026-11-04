@@ -92,8 +92,9 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const initial: DiagramState = ex.start ? structuredClone(ex.start) : { placed: [], rels: [] }
   // черновик: диаграмма переживает перезагрузку страницы
   const draftKey = `c4/${ex.id}`
-  const draftSig = signature([ex.cards.map((c) => c.id), ex.start?.placed.map((p) => p.card), ex.start?.rels.map((r) => [r.from, r.to])])
-  const [d, setD] = useState<DiagramState>(() => loadDraft<DiagramState>(draftKey, draftSig) ?? initial)
+  // в подписи — язык: подписи связей хранятся в черновике
+  const draftSig = signature([ex.cards.map((c) => c.id), ex.start], true)
+  const [d, setD] = useState<DiagramState>(() => loadDraft<DiagramState>(draftKey, draftSig, (w) => Array.isArray(w.placed) && Array.isArray(w.rels)) ?? initial)
   const [selected, setSelected] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
   const phone = usePhone()

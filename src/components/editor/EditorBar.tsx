@@ -25,7 +25,12 @@ export function EditorBar({
     if (!add?.open) return
     // в фазе погружения: элементы схемы останавливают всплытие, а меню должно закрыться и от щелчка по ним
     const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen.current?.(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen.current?.(false)
+    // Esc закрывает только меню: событие помечено обработанным, страница (окно блока, выделение) его пропускает
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen.current?.(false)
+    }
     document.addEventListener('pointerdown', close, true)
     window.addEventListener('keydown', esc)
     return () => {

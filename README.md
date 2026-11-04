@@ -57,8 +57,8 @@ npm run check
 
 Every mission and exercise has a reference solution. `scripts/check.ts` runs them through the models in all three
 languages and fails if a reference misses a goal, exceeds the budget, a known trap solves a task, or a task is
-already solved in its initial state. The last pass also checks that the builder's on-canvas hints come out the same in
-every language.
+already solved in its initial state. The last pass also checks that text parsing gives the same result in every
+language: the builder's on-canvas hints and the kind of requests a client sends in live traffic (from its name).
 
 ## Translations
 

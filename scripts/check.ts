@@ -8,7 +8,7 @@ import { computeMetrics, evaluate, initialState, solutionState, stateCost } from
 import { reviewMission } from '../src/sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order'
 import { builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
-import { KINDS, WORKLOADS, reaches, simulate, type Workload } from '../src/sim/builder/model'
+import { KINDS, WORKLOADS, reaches, simulate, type BNode, type Workload } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
 import { C4_EXERCISES } from '../src/sim/c4/exercises'
 import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
@@ -497,16 +497,22 @@ for (const p of PROJECTS) {
 
 // живой трафик должен показывать то же, что предсказывает модель: доля ошибок в эмуляции ≈ модельной
 console.log('\nЭмуляция трафика конструктора')
-// что делают запросы клиента в живом трафике, разбирается по его названию — на всех языках одинаково
+// что делают запросы клиента в живом трафике, разбирается по его названию — на всех языках одинаково.
+// В подпись идёт правило, а не розыгрыш: домен при крайних значениях случая (0 и 0.99) — у сработавшего ключевого
+// слова они совпадают, у клиента без ключевых слов видна развилка по умолчанию
 {
+  const rule = (n: BNode, w: Workload) => `${domainOf(n, w, () => 0)}/${domainOf(n, w, () => 0.99)}`
   const clients = [
     ...sandboxStart.nodes.map((n) => ({ where: 'песочница', n })),
-    ...builderChallenges.flatMap((ch) => [...ch.nodes, ...ch.solution.nodes].map((n) => ({ where: ch.id, n }))),
+    ...builderChallenges.flatMap((ch) => [
+      ...ch.nodes.map((n) => ({ where: `${ch.id} старт`, n })),
+      ...ch.solution.nodes.map((n) => ({ where: `${ch.id} эталон`, n })),
+    ]),
   ].filter((x) => x.n.kind === 'client')
-  for (const { where, n } of clients) signature.push(`домен ${where} / ${n.id}: ${domainOf(n, n.workload ?? 'oltp')}`)
+  for (const { where, n } of clients) signature.push(`домен ${where} / ${n.id}: ${rule(n, n.workload ?? 'oltp')}`)
   // клиент из палитры — с названием по умолчанию, на каждом профиле нагрузки
   const any = clients[0].n
-  for (const w of Object.keys(WORKLOADS) as Workload[]) signature.push(`домен палитры / ${w}: ${domainOf({ ...any, label: KINDS.client.title }, w)}`)
+  for (const w of Object.keys(WORKLOADS) as Workload[]) signature.push(`домен палитры / ${w}: ${rule({ ...any, label: KINDS.client.title }, w)}`)
 }
 for (const ch of builderChallenges) {
   for (const [name, g] of [['исходная', ch], ['эталон', ch.solution]] as const) {
@@ -577,7 +583,9 @@ console.log('\nВход по логину и паролю')
   const { readFileSync, writeFileSync, existsSync } = await import('node:fs')
   const lang = process.env.BLUEPRINT_LANG ?? 'ru'
   const file = (l: string) => new URL(`../.check-sig-${l}.txt`, import.meta.url)
-  writeFileSync(file(lang), signature.join('\n') + '\n')
+  // номер запуска npm run check: отдельный проход zh не сравнивает себя с подписями прошлого запуска
+  const run = process.env.BLUEPRINT_RUN
+  writeFileSync(file(lang), [`# запуск ${run ?? '-'}`, ...signature].join('\n') + '\n')
   if (lang === 'zh') {
     console.log('\nРазбор одинаков на всех языках')
     for (const other of ['ru', 'en']) {
@@ -585,11 +593,18 @@ console.log('\nВход по логину и паролю')
         console.log(`- сверка с ${other} пропущена: нет .check-sig-${other}.txt — полная проверка: npm run check`)
         continue
       }
-      const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n')
-      const diff = signature.map((x, i) => i).filter((i) => signature[i] !== theirs[i])
+      const [head, ...theirs] = readFileSync(file(other), 'utf8').trimEnd().split('\n')
+      if (!run || head !== `# запуск ${run}`) {
+        console.log(`- сверка с ${other} пропущена: подпись ${other} от другого запуска — полная проверка: npm run check`)
+        continue
+      }
+      if (theirs.length !== signature.length) {
+        fail(`разбор на zh и ${other}: разное число строк подписи (${signature.length} и ${theirs.length})`)
+        continue
+      }
+      const diff = signature.map((_, i) => i).filter((i) => signature[i] !== theirs[i])
       for (const i of diff.slice(0, 5)) fail(`разбор на zh и ${other} различается: ${signature[i]} ↔ ${theirs[i]}`)
-      if (theirs.length !== signature.length) fail(`разбор на zh и ${other}: разное число состояний`)
-      if (!diff.length && theirs.length === signature.length) console.log(`- zh = ${other}: ${signature.length} строк (подсказки на поле, домены клиентов)`)
+      if (!diff.length) console.log(`- zh = ${other}: ${signature.length} строк (подсказки на поле, домены клиентов)`)
     }
   }
 }

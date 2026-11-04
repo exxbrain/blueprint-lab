@@ -14,7 +14,12 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
   useEffect(() => {
     if (!open) return
     const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    // Esc закрывает только меню: событие помечено обработанным, страница (окно блока, выделение) его пропускает
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen(false)
+    }
     document.addEventListener('pointerdown', close, true)
     window.addEventListener('keydown', esc)
     return () => {

@@ -71,7 +71,8 @@ interface Ctx {
 const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
 
 /** Что именно делает клиент: определяется профилем нагрузки и названием блока (на любом из трёх языков) */
-export function domainOf(client: BNode, w: Workload): Domain {
+/** roll — розыгрыш для клиентов без ключевых слов; check подставляет крайние значения, чтобы сравнить правила между языками */
+export function domainOf(client: BNode, w: Workload, roll: () => number = rnd): Domain {
   const l = client.label
   if (w === 'oltp') {
     if (has(l, /заказ|order|брон|book|订单|预订/)) return 'order'
@@ -80,7 +81,7 @@ export function domainOf(client: BNode, w: Workload): Domain {
     if (has(l, /публик|post|发布|帖子/)) return 'post'
     if (has(l, /регистр|sign|注册/)) return 'signup'
     if (has(l, /карточ|card|卡片/)) return 'card'
-    return rnd() < 0.15 ? 'order' : 'product'
+    return roll() < 0.15 ? 'order' : 'product'
   }
   if (w === 'kv') {
     if (has(l, /создан|creat|创建/)) return 'newlink'
@@ -94,7 +95,7 @@ export function domainOf(client: BNode, w: Workload): Domain {
   if (w === 'analytics') return has(l, /тренд|trend|趋势/) ? 'trends' : 'analytics'
   if (has(l, /загруз|upload|上传/)) return 'upload'
   if (has(l, /просмотр|view|видео|video|观看|视频/)) return 'video'
-  if (has(l, /файл|file|скан|scan|док|doc|文件|扫描|文档/)) return rnd() < 0.3 ? 'upload' : 'doc'
+  if (has(l, /файл|file|скан|scan|док|doc|文件|扫描|文档/)) return roll() < 0.3 ? 'upload' : 'doc'
   return 'image'
 }
 
@@ -440,7 +441,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         span.status = async ? 'async' : 'queued'
         span.op += tr(' (подтверждено, обработка позже)', ' (acked, processed later)', '（已确认，稍后处理）')
         const lag = st?.backlogGrowth ?? 0
-        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`, `消费积压（consumer lag）每秒增加 ${Math.round(lag)} 条消息`)
+        if (lag >= 1) span.detail = tr(`consumer lag растёт на ${Math.round(lag)} сообщ./с`, `consumer lag grows by ${Math.round(lag)} msg/s`, `消费者积压（consumer lag）每秒增加 ${Math.round(lag)} 条消息`)
         for (const e of out) go(e, t + 5, true, 'consume')
         break
       }

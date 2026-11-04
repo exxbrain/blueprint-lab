@@ -54,7 +54,15 @@ const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хра
 }
 
 let uid = 100
-const nextId = (p: string) => `${p}${++uid}`
+/**
+ * Новый id блока или связи, которого ещё нет на схеме. Счётчик живёт в модуле и может начаться заново
+ * (перезагрузка модуля в разработке), а схема в состоянии остаётся — повтор id склеил бы два блока в один
+ */
+const nextId = (p: string, taken: { id: string }[]) => {
+  let id = `${p}${++uid}`
+  while (taken.some((x) => x.id === id)) id = `${p}${++uid}`
+  return id
+}
 
 /** Источник сюжета: задача по мотивам System Design Primer — ссылка на разбор, автор, лицензия CC BY 4.0 и пометка об изменениях */
 function SourceNote({ dir }: { dir: string }) {
@@ -172,6 +180,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const locked = (id: string) => challenge?.locked.includes(id) ?? false
 
   const [cycleNote, setCycleNote] = useState<string | null>(null)
+  // «понятно» на сообщение о круге на схеме — до следующей правки связей
+  const [cycleSeen, setCycleSeen] = useState(false)
+  useEffect(() => setCycleSeen(false), [edges])
   // сообщение держится столько, сколько нужно, чтобы его прочитать (длинное объяснение — дольше), новое сменяет старое
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const say = (msg: string) => {
@@ -195,7 +206,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     // из меню — в пределах видимой части схемы (если там есть место), чтобы схема не уезжала к новому блоку
     const pos = freeSpot(nodes, want.x, want.y, at ? undefined : vp.visibleRect())
     const n: BNode = {
-      id: nextId('n'),
+      id: nextId('n', nodes),
       kind,
       label: KINDS[kind].title,
       ...pos,
@@ -232,7 +243,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       )
     }
     setCycleNote(null)
-    setEdges([...edges, { id: nextId('e'), from, to }])
+    setEdges([...edges, { id: nextId('e', edges), from, to }])
   }
 
   const remove = () => {
@@ -447,13 +458,28 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
           </p>
     </>
   const cycleEl = <>
-          {(cycleNote || result.cycle) && (
+          {(cycleNote || (result.cycle && !cycleSeen)) && (
             <div className="cycle-note">
-              <button className="icon" onClick={() => setCycleNote(null)} title={tr('Понятно', 'Got it', '知道了')}>
+              <button
+                className="icon"
+                onClick={() => {
+                  setCycleNote(null)
+                  setCycleSeen(true)
+                }}
+                title={tr('Понятно', 'Got it', '知道了')}
+              >
                 ✕
               </button>
-              <b>{tr('🔁 Цикл: связь не добавлена.', '🔁 Loop: connection not added.', '🔁 出现环路：连接未添加。')}</b>{' '}
-              {cycleNote ?? tr('На схеме есть замкнутый круг связей.', 'The diagram contains a closed loop of connections.', '图中存在一个闭合的连接环路。')}
+              {cycleNote ? (
+                <>
+                  <b>{tr('🔁 Цикл: связь не добавлена.', '🔁 Loop: connection not added.', '🔁 出现环路：连接未添加。')}</b> {cycleNote}
+                </>
+              ) : (
+                <>
+                  <b>{tr('🔁 На схеме замкнутый круг связей.', '🔁 The diagram contains a closed loop of connections.', '🔁 图中存在一个闭合的连接环路。')}</b>{' '}
+                  {tr('Удалите одну из связей круга.', 'Delete one of the connections in the loop.', '请删除环路中的一条连接。')}
+                </>
+              )}
               <div className="small">
                 {tr(
                   <>

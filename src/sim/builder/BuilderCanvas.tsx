@@ -53,7 +53,7 @@ const DEAD_END: Partial<Record<BNode['kind'], [string, string]>> = {
     tr(
       'Сервис сам по себе данных не хранит: товары, заказы, профили лежат в базе. Подключите хранилище. Без него сервис работает, только если это внешний API (профиль «Внешний API»).',
       'A service does not keep data by itself: products, orders and profiles live in a database. Connect a storage. Without one, a service works only if it is an external API (the "External API" profile).',
-      '服务本身不保存数据：商品、订单和用户资料都存放在数据库里。请连接一个存储。没有存储时，只有当服务本身是外部 API（“外部 API”配置）时才能正常工作。',
+      '服务本身不保存数据：商品、订单和用户资料都存放在数据库里。请连接一个存储。没有存储时，只有当服务本身是外部 API（服务类型“外部 API”）时才能正常工作。',
     ),
   ],
   cache: [

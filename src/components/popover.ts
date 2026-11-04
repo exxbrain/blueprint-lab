@@ -123,12 +123,15 @@ export function useBottomSheet(root: RefObject<HTMLElement | null>, body: RefObj
   return { full, handle }
 }
 
-/** Фокус в поле ввода или списке: клавиши достаются ему, а не схеме */
-/** Клавиша нажата в открытом меню (язык, масштаб, добавление): она для меню, а не для схемы */
+/**
+ * Клавиша нажата в открытом меню (язык, масштаб, добавление) или на кнопке, которая его открыла
+ * (у меню масштаба и «Добавить» фокус после открытия остаётся на кнопке): она для меню, а не для схемы
+ */
 export function inMenu(t: EventTarget | null): boolean {
-  return !!(t as Element | null)?.closest?.('[role="menu"]')
+  return !!(t as Element | null)?.closest?.('[role="menu"], [aria-haspopup="menu"][aria-expanded="true"]')
 }
 
+/** Фокус в поле ввода или списке: клавиши достаются ему, а не схеме */
 export function isTyping(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)

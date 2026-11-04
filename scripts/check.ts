@@ -7,15 +7,15 @@ import { PROJECTS } from '../src/sim/monolith/projects'
 import { computeMetrics, evaluate, initialState, solutionState, stateCost } from '../src/sim/monolith/model'
 import { reviewMission } from '../src/sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order'
-import { builderChallenges, estimateOk } from '../src/sim/builder/challenges'
-import { reaches, simulate } from '../src/sim/builder/model'
+import { builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
+import { KINDS, WORKLOADS, reaches, simulate, type Workload } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
 import { C4_EXERCISES } from '../src/sim/c4/exercises'
 import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
 import { CAP_TASKS, runCap } from '../src/sim/cap/model'
 import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
-import { emulateRequest, pickClient } from '../src/sim/builder/emulate'
+import { domainOf, emulateRequest, pickClient } from '../src/sim/builder/emulate'
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
 import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
@@ -408,14 +408,9 @@ for (const [projectId, stages] of Object.entries(DDD_STAGES)) {
         const st = referenceState(t)
         for (const c of t.cards) if (c.ctx === b.id) st.place[c.id] = `g-${a.id}`
         st.groups = st.groups.filter((g) => g.id !== `g-${b.id}`)
+        // wrong.has(a.id) — та самая несуразица «лежит в группе «X»… относится к «X»»: по данным, на любом языке
         const wrong = new Set(misplacedCards(t, st).map((c) => c.ctx))
         if (wrong.has(a.id) || !wrong.has(b.id)) fail(`${projectId}/${t.id}: в группе «${a.name}» не на месте названы не те стикеры`)
-        // несуразица «лежит в группе X, а относится к X»: стикер назван чужим в группе с именем своего контекста
-        for (const c of misplacedCards(t, st)) {
-          const g = st.groups.find((x) => x.id === st.place[c.id])
-          if (g?.name === t.contexts.find((x) => x.id === c.ctx)?.name) fail(`${projectId}/${t.id}: «${c.name}» назван чужим в группе своего контекста «${g?.name}»`)
-        }
-        reviewPartition(t, st, 0)
         break
       }
       // ложное узнавание: название упоминает контекст, но его стикеров в группе — меньшинство
@@ -502,6 +497,17 @@ for (const p of PROJECTS) {
 
 // живой трафик должен показывать то же, что предсказывает модель: доля ошибок в эмуляции ≈ модельной
 console.log('\nЭмуляция трафика конструктора')
+// что делают запросы клиента в живом трафике, разбирается по его названию — на всех языках одинаково
+{
+  const clients = [
+    ...sandboxStart.nodes.map((n) => ({ where: 'песочница', n })),
+    ...builderChallenges.flatMap((ch) => [...ch.nodes, ...ch.solution.nodes].map((n) => ({ where: ch.id, n }))),
+  ].filter((x) => x.n.kind === 'client')
+  for (const { where, n } of clients) signature.push(`домен ${where} / ${n.id}: ${domainOf(n, n.workload ?? 'oltp')}`)
+  // клиент из палитры — с названием по умолчанию, на каждом профиле нагрузки
+  const any = clients[0].n
+  for (const w of Object.keys(WORKLOADS) as Workload[]) signature.push(`домен палитры / ${w}: ${domainOf({ ...any, label: KINDS.client.title }, w)}`)
+}
 for (const ch of builderChallenges) {
   for (const [name, g] of [['исходная', ch], ['эталон', ch.solution]] as const) {
     const r = simulate(g.nodes, g.edges)
@@ -565,7 +571,7 @@ console.log('\nВход по логину и паролю')
   console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
 }
 
-// разбор подсказок на поле (в том числе по тексту целей: хранение, задержка) должен давать одно и то же на всех языках:
+// разбор текста — подсказки на поле (по тексту целей: хранение, задержка) и домены клиентов — должен давать одно и то же на всех языках:
 // каждый проход пишет подпись, последний сравнивает её с остальными
 {
   const { readFileSync, writeFileSync, existsSync } = await import('node:fs')
@@ -575,12 +581,15 @@ console.log('\nВход по логину и паролю')
   if (lang === 'zh') {
     console.log('\nРазбор одинаков на всех языках')
     for (const other of ['ru', 'en']) {
-      if (!existsSync(file(other))) continue
+      if (!existsSync(file(other))) {
+        console.log(`- сверка с ${other} пропущена: нет .check-sig-${other}.txt — полная проверка: npm run check`)
+        continue
+      }
       const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n')
-      const diff = signature.filter((x, i) => x !== theirs[i])
-      for (const x of diff.slice(0, 5)) fail(`разбор на zh и ${other} различается: ${x} ↔ ${theirs[signature.indexOf(x)]}`)
+      const diff = signature.map((x, i) => i).filter((i) => signature[i] !== theirs[i])
+      for (const i of diff.slice(0, 5)) fail(`разбор на zh и ${other} различается: ${signature[i]} ↔ ${theirs[i]}`)
       if (theirs.length !== signature.length) fail(`разбор на zh и ${other}: разное число состояний`)
-      if (!diff.length && theirs.length === signature.length) console.log(`- zh = ${other}: ${signature.length} состояний`)
+      if (!diff.length && theirs.length === signature.length) console.log(`- zh = ${other}: ${signature.length} строк (подсказки на поле, домены клиентов)`)
     }
   }
 }

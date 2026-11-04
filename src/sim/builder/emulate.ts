@@ -71,7 +71,7 @@ interface Ctx {
 const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
 
 /** Что именно делает клиент: определяется профилем нагрузки и названием блока (на любом из трёх языков) */
-function domainOf(client: BNode, w: Workload): Domain {
+export function domainOf(client: BNode, w: Workload): Domain {
   const l = client.label
   if (w === 'oltp') {
     if (has(l, /заказ|order|брон|book|订单|预订/)) return 'order'

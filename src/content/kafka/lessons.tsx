@@ -872,7 +872,7 @@ function GroupsZh() {
       </ul>
       <h2>再均衡（rebalancing）</h2>
       <p>
-        当有消费者加入、离开或崩溃时，消费者组会重新分配分区。在经典的（eager）协议中，这段时间里<b>所有消费者都停止读取</b>。频繁的再均衡（例如因为处理太慢而错过心跳）是 lag 增长的常见原因。cooperative-sticky 分配策略和静态成员（static membership）可以缓解这个问题。
+        当有消费者加入、离开或崩溃时，消费者组会重新分配分区。在经典的（eager）协议中，这段时间里<b>所有消费者都停止读取</b>。频繁的再均衡（例如因为处理太慢而错过心跳）是积压增长的常见原因。cooperative-sticky 分配策略和静态成员（static membership）可以缓解这个问题。
       </p>
       <h2>提交 offset 与重复消息</h2>
       <p>

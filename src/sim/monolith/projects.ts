@@ -261,7 +261,7 @@ const shopMissions: Mission[] = [
       '什么都不拆。',
       'Rate limiter + 带自动扩缩容的容器：应对峰值。',
       'Circuit breaker + bulkhead：应对无响应的服务商。',
-      'Canary 发布 + health check：应对有问题的发布。',
+      '“金丝雀 / 蓝绿发布” + Health check API：应对有问题的发布。',
     ]),
   },
   {
@@ -353,7 +353,7 @@ const shopMissions: Mission[] = [
       'In the monolith, prepare replicas for all three Reports reads.',
       'Extract Reports and give them their own DB.',
     ], [
-      'Strangler 门面、Kafka、CDC（或 Outbox）以及Idempotent consumer。',
+      'Strangler 门面、Kafka、CDC（或 Outbox）以及 Idempotent consumer。',
       '在单体中为报表的三项读取都准备好副本。',
       '拆出报表，并为其配备独立的数据库。',
     ]),
@@ -737,7 +737,7 @@ const bankMissions: Mission[] = [
       'Resilience does not require a breakup: a rate limiter, autoscaling, a circuit breaker with a bulkhead (the CBS gets its own connection pool) and canary releases protect a monolith too.',
       'The bulkhead is the key here: a hanging CBS exhausts only its own pool, while app login and account views keep working.',
     ], [
-      '韧性并不需要拆分：rate limiter、自动扩缩容、circuit breaker 加 bulkhead（CBS 拥有自己的连接池）以及 Canary 发布，同样能保护单体。',
+      '韧性并不需要拆分：rate limiter、自动扩缩容、circuit breaker 加 bulkhead（CBS 拥有自己的连接池）以及金丝雀发布（canary），同样能保护单体。',
       '这里的关键是 bulkhead：无响应的 CBS 只会耗尽它自己的连接池，App 登录和账户查看仍能正常工作。',
     ]),
     solution: { extract: [], ownDb: [], modes: {}, patterns: [...RESILIENCE_ONLY] },
@@ -755,7 +755,7 @@ const bankMissions: Mission[] = [
       '什么都不拆。',
       'Rate limiter + 带自动扩缩容的容器。',
       '为 CBS 配置 Circuit breaker + bulkhead。',
-      'Canary 发布 + health check。',
+      '“金丝雀 / 蓝绿发布” + Health check API。',
     ]),
   },
   {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   MODE_LABEL,
   MODE_COST,
@@ -275,9 +275,6 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [walk])
-  const walkEl = walk && (
-    <WalkPanel steps={walk.steps} i={walk.i} setI={(i) => setWalk({ ...walk, i })} onClose={() => setWalk(null)} again={startWalk} />
-  )
 
   const phone = usePhone()
   // условие при входе — модальным окном (на телефоне); паттерны, проблемы и трафик — шторками
@@ -285,6 +282,9 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const [sheet, setSheet] = useState<'patterns' | 'problems' | 'traffic' | null>(null)
   // масштаб и сдвиг — общие для всех редакторов; на телефоне при входе схема вписывается в экран
   const vp = useViewport({ width: W, height: layout(project.modules.length).H, autoFit: phone })
+  const walkEl = walk && (
+    <WalkCallout steps={walk.steps} i={walk.i} setI={(i) => setWalk({ ...walk, i })} onClose={() => setWalk(null)} again={startWalk} vp={vp} />
+  )
   const openDep = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     // на телефоне окно связи — шторка, место на холсте ему не нужно (и холста-обёртки там нет)
@@ -658,7 +658,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             </>
           }
           bottom={
-            <>
+            walk ? undefined : <>
               <Tool icon="🧩" label={tr('Паттерны', 'Patterns', '模式')} on={sheet === 'patterns'} onClick={() => setSheet(sheet === 'patterns' ? null : 'patterns')} />
               <Tool icon="⚠️" label={tr('Проблемы', 'Problems', '问题')} on={sheet === 'problems'} onClick={() => setSheet(sheet === 'problems' ? null : 'problems')} badge={metrics.problems.length || undefined} />
               <Tool icon="📡" label={tr('Трафик', 'Traffic', '流量')} on={sheet === 'traffic'} onClick={() => setSheet(sheet === 'traffic' ? null : 'traffic')} />
@@ -1313,23 +1313,17 @@ function MonolithCanvas({
     return pos[id] ? { x: pos[id].x, y: pos[id].y, w: BOX_W, h: BOX_H } : null
   }
 
-  // шаг пути запроса: схема сама сдвигается к подсвеченному (на телефоне — в верхнюю половину экрана, снизу панель шага)
-  const phoneCanvas = usePhone()
+  // шаг пути запроса: схема сама сдвигается к главному элементу шага — к нему же привязана выноска с пояснением
   const focusSig = walk ? [...walk.nodes, ...walk.edges, ...walk.platform].join('|') : ''
   useEffect(() => {
     if (!walk) return
-    const rs = [...walk.nodes.map(nodeRect), ...walk.platform.map((k) => platformRect(k, H))].filter((r): r is NonNullable<typeof r> => !!r)
-    for (const id of walk.edges) {
-      const g = hopGeom(id)
-      if (g) rs.push({ x: Math.min(g.a.x, g.b.x), y: Math.min(g.a.y, g.b.y), w: Math.abs(g.a.x - g.b.x), h: Math.abs(g.a.y - g.b.y) })
-    }
-    if (!rs.length) return
-    const x0 = Math.min(...rs.map((r) => r.x))
-    const y0 = Math.min(...rs.map((r) => r.y))
-    const x1 = Math.max(...rs.map((r) => r.x + r.w))
-    const y1 = Math.max(...rs.map((r) => r.y + r.h))
-    const viewH = Number(vp.viewBox.split(' ')[3]) || 0
-    vp.reveal({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 + (phoneCanvas ? viewH * 0.5 : 0) })
+    const node = walk.nodes.map(nodeRect).find((r) => !!r)
+    const g = walk.edges.map(hopGeom).find((x) => !!x)
+    const main =
+      node ??
+      (g && { x: Math.min(g.a.x, g.b.x), y: Math.min(g.a.y, g.b.y), w: Math.abs(g.a.x - g.b.x), h: Math.abs(g.a.y - g.b.y) }) ??
+      walk.platform.map((k) => platformRect(k, H)).find((r) => !!r)
+    if (main) vp.reveal(main)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusSig])
 
@@ -1534,15 +1528,80 @@ function MonolithCanvas({
   )
 }
 
-/** Панель шага пути запроса: что происходит на шаге и что здесь делают паттерны; листается кнопками и стрелками */
-function WalkPanel({ steps, i, setI, onClose, again }: { steps: WalkStep[]; i: number; setI: (i: number) => void; onClose: () => void; again: () => void }) {
+/**
+ * Выноска шага пути запроса — на схеме, у подсвеченного узла или связи (их место отмечает .walk-anchor в слое
+ * подсветки): справа, если хватает места, иначе слева, снизу или сверху. Едет вместе со схемой при сдвиге и масштабе.
+ * В заголовке — ← 2/6 → название ✕; ниже — что происходит на шаге и что здесь делают паттерны. Листается и стрелками.
+ */
+function WalkCallout({
+  steps,
+  i,
+  setI,
+  onClose,
+  again,
+  vp,
+}: {
+  steps: WalkStep[]
+  i: number
+  setI: (i: number) => void
+  onClose: () => void
+  again: () => void
+  vp: Viewport
+}) {
   const st = steps[i]
+  const last = i === steps.length - 1
+  const ref = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null)
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const on = () => setTick((t) => t + 1)
+    window.addEventListener('resize', on)
+    window.addEventListener('scroll', on, true)
+    return () => {
+      window.removeEventListener('resize', on)
+      window.removeEventListener('scroll', on, true)
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const el = ref.current
+    const box = el?.offsetParent?.getBoundingClientRect()
+    const a = vp.svgRef.current?.querySelector('.walk-anchor')?.getBoundingClientRect()
+    if (!el || !box || !a) return
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    const gap = 14
+    const ax = a.left - box.left
+    const ay = a.top - box.top
+    const fits = (left: number, top: number) => left >= 8 && top >= 8 && left + w <= box.width - 8 && top + h <= box.height - 8
+    const clampX = (x: number) => Math.max(8, Math.min(box.width - w - 8, x))
+    const clampY = (y: number) => Math.max(8, Math.min(box.height - h - 8, y))
+    const options = [
+      { left: ax + a.width + gap, top: clampY(ay + a.height / 2 - h / 2) },
+      { left: ax - gap - w, top: clampY(ay + a.height / 2 - h / 2) },
+      { left: clampX(ax + a.width / 2 - w / 2), top: ay + a.height + gap },
+      { left: clampX(ax + a.width / 2 - w / 2), top: ay - gap - h },
+    ]
+    const best = options.find((o) => fits(o.left, o.top)) ?? { left: clampX(options[2].left), top: clampY(options[2].top) }
+    setAt((cur) => (cur && Math.abs(cur.left - best.left) < 1 && Math.abs(cur.top - best.top) < 1 ? cur : best))
+  }, [i, vp.viewBox, tick, st])
   return (
-    <div className={'walk-panel tone-' + st.tone} role="dialog" aria-label={tr('Путь запроса', 'Request path', '请求路径')}>
-      <div className="walk-head">
-        <span className="small muted">
-          🧭 {tr('Путь запроса', 'Request path', '请求路径')} · {i + 1}/{steps.length}
+    <div ref={ref} className={'walk-callout tone-' + st.tone} style={at ? { left: at.left, top: at.top } : { visibility: 'hidden' }} role="dialog" aria-label={tr('Путь запроса', 'Request path', '请求路径')}>
+      <div className="walk-bar">
+        <button className="walk-nav-btn" disabled={i === 0} onClick={() => setI(i - 1)} title={tr('Назад (←)', 'Back (←)', '上一步（←）')} aria-label={tr('Назад', 'Back', '上一步')}>
+          ←
+        </button>
+        <span className="walk-count">
+          {i + 1}/{steps.length}
         </span>
+        {last ? (
+          <button className="walk-nav-btn primary" onClick={again} title={tr('Другой запрос', 'Another request', '换一个请求')} aria-label={tr('Другой запрос', 'Another request', '换一个请求')}>
+            ↻
+          </button>
+        ) : (
+          <button className="walk-nav-btn primary" onClick={() => setI(i + 1)} title={tr('Дальше (→)', 'Next (→)', '下一步（→）')} aria-label={tr('Дальше', 'Next', '下一步')}>
+            →
+          </button>
+        )}
         <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')} aria-label={tr('Закрыть', 'Close', '关闭')}>
           ✕
         </button>
@@ -1553,20 +1612,6 @@ function WalkPanel({ steps, i, setI, onClose, again }: { steps: WalkStep[]; i: n
           <li key={k}>{l}</li>
         ))}
       </ul>
-      <div className="row walk-nav">
-        <button disabled={i === 0} onClick={() => setI(i - 1)}>
-          ← {tr('Назад', 'Back', '上一步')}
-        </button>
-        {i < steps.length - 1 ? (
-          <button className="primary" onClick={() => setI(i + 1)}>
-            {tr('Дальше', 'Next', '下一步')} →
-          </button>
-        ) : (
-          <button className="primary" onClick={again}>
-            ↻ {tr('Другой запрос', 'Another request', '换一个请求')}
-          </button>
-        )}
-      </div>
     </div>
   )
 }
@@ -1591,6 +1636,17 @@ function WalkOverlay({
     .map(hopGeom)
     .filter((g): g is NonNullable<typeof g> => !!g)
     .map((g) => `M${g.a.x},${g.a.y} Q${g.c.x},${g.c.y} ${g.b.x},${g.b.y}`)
+  const firstNode = focus.nodes.map(nodeRect).find((r) => !!r)
+  const firstEdge = focus.edges.map(hopGeom).find((g) => !!g)
+  const anchor =
+    firstNode ??
+    (firstEdge && {
+      x: 0.25 * firstEdge.a.x + 0.5 * firstEdge.c.x + 0.25 * firstEdge.b.x - 10,
+      y: 0.25 * firstEdge.a.y + 0.5 * firstEdge.c.y + 0.25 * firstEdge.b.y - 10,
+      w: 20,
+      h: 20,
+    }) ??
+    rects[0]
   return (
     <g className="walk-overlay" pointerEvents="none">
       <defs>
@@ -1611,6 +1667,8 @@ function WalkOverlay({
       {rects.map((r, i) => (
         <rect key={'r' + i} x={r.x - 6} y={r.y - 6} width={r.w + 12} height={r.h + 12} rx={12} className="walk-ring" />
       ))}
+      {/* место выноски: главный узел шага, иначе середина связи */}
+      {anchor && <rect className="walk-anchor" x={anchor.x} y={anchor.y} width={anchor.w} height={anchor.h} fill="none" stroke="none" />}
     </g>
   )
 }

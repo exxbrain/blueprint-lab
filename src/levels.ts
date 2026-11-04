@@ -59,6 +59,14 @@ const BUILDER_LEVEL: Record<string, TaskLevel> = {
   autocomplete: 3,
   notifications: 3,
   video: 4,
+  // по мотивам System Design Primer: три шага «Роста» — по одному в мирах 1–3
+  'growth-1': 1,
+  'growth-2': 2,
+  'growth-3': 3,
+  'sales-rank': 2,
+  finance: 3,
+  'social-graph': 3,
+  crawler: 4,
 }
 
 /** Распил: магазин — Middle, доставка — Senior, банк — Architect; первая миссия проекта на уровень проще */

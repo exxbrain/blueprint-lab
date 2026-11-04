@@ -24,8 +24,10 @@ import {
   estimateOk,
   sandboxStart,
   SERVICE_PROFILES,
+  PRIMER,
   type BuilderChallenge,
 } from '../sim/builder/challenges'
+import { BOARD_H, BOARD_W } from '../sim/builder/layout'
 import { Rich } from '../components/Rich'
 import { ReviewPanel } from '../components/ReviewPanel'
 import { reviewBuilder } from '../sim/builder/review'
@@ -52,6 +54,27 @@ const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хра
 
 let uid = 100
 const nextId = (p: string) => `${p}${++uid}`
+
+/** Источник сюжета: задача по мотивам System Design Primer — ссылка на разбор, автор, лицензия CC BY 4.0 и пометка об изменениях */
+function SourceNote({ dir }: { dir: string }) {
+  const link = (href: string, text: string) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {text}
+    </a>
+  )
+  const primer = link(PRIMER.solution(dir), 'System Design Primer')
+  const cc = link(PRIMER.license, 'CC BY 4.0')
+  return (
+    <p className="small muted">
+      📖{' '}
+      {tr(
+        <>По мотивам {primer} (Donne Martin), {cc}, изменено</>,
+        <>Based on {primer} (Donne Martin), {cc}, modified</>,
+        <>改编自 {primer}（Donne Martin），{cc}，有改动</>,
+      )}
+    </p>
+  )
+}
 
 export default function BuilderPage({ id }: { id?: string }) {
   const mode = id && builderChallenges.some((c) => c.id === id) ? id : 'sandbox'
@@ -165,8 +188,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     // (с учётом масштаба, сдвига и прокрутки страницы), а не рядом с выделенным: с чем его связать, решает игрок
     const c = at ?? vp.visibleCenter()
     const want = {
-      x: Math.max(0, Math.min(1000 - NODE_W, c.x - NODE_W / 2)),
-      y: Math.max(0, Math.min(540 - NODE_H, c.y - NODE_H / 2)),
+      x: Math.max(0, Math.min(BOARD_W - NODE_W, c.x - NODE_W / 2)),
+      y: Math.max(0, Math.min(BOARD_H - NODE_H, c.y - NODE_H / 2)),
     }
     // из меню — в пределах видимой части схемы (если там есть место), чтобы схема не уезжала к новому блоку
     const pos = freeSpot(nodes, want.x, want.y, at ? undefined : vp.visibleRect())
@@ -233,8 +256,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         e.preventDefault()
         const d = e.shiftKey ? 50 : 10
         patch(selNode.id, {
-          x: Math.max(0, Math.min(1000 - NODE_W, selNode.x + step[0] * d)),
-          y: Math.max(0, Math.min(540 - NODE_H, selNode.y + step[1] * d)),
+          x: Math.max(0, Math.min(BOARD_W - NODE_W, selNode.x + step[0] * d)),
+          y: Math.max(0, Math.min(BOARD_H - NODE_H, selNode.y + step[1] * d)),
         })
       }
       if (e.key === 'Escape') {
@@ -257,8 +280,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const [trafficOpen, setTrafficOpen] = useState(false)
   // масштаб и сдвиг — общие для всех редакторов схем; на телефоне при входе схема вписывается в экран
   const vp = useViewport({
-    width: 1000,
-    height: 540,
+    width: BOARD_W,
+    height: BOARD_H,
     autoFit: ws,
     content: () => nodesBox(nodes, 30),
     selection: () => {
@@ -305,6 +328,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         <div className="scenario-head">
           <div className="panel lesson">
             <Rich paras={challenge.brief} />
+            {challenge.source && <SourceNote dir={challenge.source.primer} />}
             {challenge.estimate && (
               <EstimatePanel estimate={challenge.estimate} done={estimated} onDone={() => setEstimated(true)} />
             )}

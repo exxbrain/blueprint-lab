@@ -48,12 +48,25 @@ const WORDS = tr(
   ['headphones', 'coffee machine', 'sneakers', 'iphone 15', 'sofa', 'bicycle', 'weather', 'pizza near me'],
   ['蓝牙耳机', '咖啡机', '运动鞋', 'iphone 15', '沙发', '自行车', '天气', '附近的披萨'],
 )
+/** Продавец и его категория расходов (агрегатор финансов): категорию операции определяет продавец */
+const MERCHANTS: [merchant: string, category: string][] = [
+  ['coffee-house', 'food'], ['city-market', 'groceries'], ['metro-transit', 'transport'], ['cinema-park', 'entertainment'], ['fuel-station', 'transport'],
+]
+const merchant = (c: { id: number }) => MERCHANTS[c.id % MERCHANTS.length]
+/** Статьи бюджета и категории товаров (рейтинг продаж) */
+const BUDGET = ['food', 'groceries', 'transport', 'entertainment', 'home']
+const CATEGORIES = ['books', 'electronics', 'home', 'toys', 'sports']
+const budgetCat = (c: { id: number }) => BUDGET[c.id % BUDGET.length]
+const cat = (c: { id: number }) => CATEGORIES[c.id % CATEGORIES.length]
+/** Сайт для обхода поисковым роботом */
+const site = (c: { id: number }) => `site-${c.id % 977}.example`
 
 type Domain =
   | 'product' | 'order' | 'profile' | 'post' | 'signup' | 'card'
-  | 'link' | 'newlink' | 'sensor' | 'feed' | 'notify' | 'kv'
-  | 'search' | 'suggest' | 'analytics' | 'trends'
-  | 'image' | 'upload' | 'video' | 'doc'
+  | 'txn' | 'budget' | 'rank'
+  | 'link' | 'newlink' | 'sensor' | 'feed' | 'notify' | 'friends' | 'dedup' | 'kv'
+  | 'search' | 'suggest' | 'crawl' | 'analytics' | 'trends' | 'spending' | 'ranking'
+  | 'image' | 'upload' | 'video' | 'doc' | 'static'
 
 interface Ctx {
   id: number
@@ -81,6 +94,9 @@ export function domainOf(client: BNode, w: Workload, roll: () => number = rnd): 
     if (has(l, /публик|post|发布|帖子/)) return 'post'
     if (has(l, /регистр|sign|注册/)) return 'signup'
     if (has(l, /карточ|card|卡片/)) return 'card'
+    if (has(l, /операц|транзакц|transaction|交易/)) return 'txn'
+    if (has(l, /бюджет|budget|预算/)) return 'budget'
+    if (has(l, /рейтинг|rank|排行/)) return 'rank'
     return roll() < 0.15 ? 'order' : 'product'
   }
   if (w === 'kv') {
@@ -89,11 +105,20 @@ export function domainOf(client: BNode, w: Workload, roll: () => number = rnd): 
     if (has(l, /датчик|sensor|传感器/)) return 'sensor'
     if (has(l, /лент|feed|信息流/)) return 'feed'
     if (has(l, /отправ|notif|sender|发送|通知/)) return 'notify'
+    if (has(l, /друз|дружб|friend|好友/)) return 'friends'
+    if (has(l, /дубл|duplicate|重复/)) return 'dedup'
+    if (has(l, /рейтинг|rank|排行/)) return 'rank'
     return 'kv'
   }
-  if (w === 'search') return has(l, /подсказ|suggest|补全|建议/) ? 'suggest' : 'search'
-  if (w === 'analytics') return has(l, /тренд|trend|趋势/) ? 'trends' : 'analytics'
+  if (w === 'search') return has(l, /подсказ|suggest|补全|建议/) ? 'suggest' : has(l, /обход|crawl|抓取/) ? 'crawl' : 'search'
+  if (w === 'analytics') {
+    if (has(l, /тренд|trend|趋势/)) return 'trends'
+    if (has(l, /расход|spending|支出/)) return 'spending'
+    if (has(l, /рейтинг|rank|排行/)) return 'ranking'
+    return 'analytics'
+  }
   if (has(l, /загруз|upload|上传/)) return 'upload'
+  if (has(l, /статик|static|静态/)) return 'static'
   if (has(l, /просмотр|view|видео|video|观看|视频/)) return 'video'
   if (has(l, /файл|file|скан|scan|док|doc|文件|扫描|文档/)) return roll() < 0.3 ? 'upload' : 'doc'
   return 'image'
@@ -127,12 +152,19 @@ function requestFor(c: Ctx): string {
     if (c.domain === 'post') return `GET /api/posts/${c.id}`
     if (c.domain === 'sensor') return `GET /api/sensors/s-${c.id}/latest`
     if (c.domain === 'notify') return `GET /api/notifications/${c.id}`
+    if (c.domain === 'crawl') return `GET /frontier/next?worker=${int(1, 40)}`
   } else {
     if (c.domain === 'profile') return `PATCH /api/users/${c.user}/profile  {"city":"…"}`
     if (c.domain === 'card') return `PUT /api/cards/${c.id}  {"price":${int(500, 9000)}}`
     if (c.domain === 'kv') return `PUT /kv/${c.code}`
     if (c.domain === 'search') return `POST /items/_doc  {"title":"${c.word}"}`
-    if (c.domain === 'analytics' || c.domain === 'trends') return `POST /events  {"type":"order_paid"}`
+    if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'ranking') return `POST /events  {"type":"order_paid"}`
+    if (c.domain === 'spending') return `POST /events  {"type":"card_payment","amount":-${int(100, 9000)}}`
+    if (c.domain === 'txn') return `POST /api/transactions  {"account":"acc-${c.id}","amount":-${int(100, 9000)},"merchant":"${merchant(c)[0]}"}`
+    if (c.domain === 'budget') return `PUT /api/budgets/${c.user}  {"category":"${budgetCat(c)}","limit":${int(5, 50) * 1000}}`
+    if (c.domain === 'friends') return `POST /api/friendships  {"a":${c.user},"b":${int(10000, 999999)}}`
+    if (c.domain === 'dedup') return `PUT /seen/${c.code}${c.code}  {"url":"https://${site(c)}/"}`
+    if (c.domain === 'rank') return `PUT /api/rank/${cat(c)}  {"top":[…100]}`
   }
   switch (c.domain) {
     case 'product': return `GET /api/products/${c.id}`
@@ -147,10 +179,19 @@ function requestFor(c: Ctx): string {
     case 'feed': return `GET /api/feed?user=${c.user}&limit=20`
     case 'notify': return `POST /notify  {"user":${c.user},"channel":"${pick(['push', 'email', 'sms'])}"}`
     case 'kv': return `GET /kv/${c.code}`
+    case 'txn': return `GET /api/accounts/acc-${c.id}/transactions?limit=50`
+    case 'budget': return `GET /api/budgets/${c.user}?month=2026-11`
+    case 'rank': return `GET /api/rank/${cat(c)}?top=100`
+    case 'friends': return `GET /api/users/${c.user}/friends`
+    case 'dedup': return `GET /seen/${c.code}${c.code}`
     case 'search': return `GET /search?q=${c.word}`
     case 'suggest': return `GET /suggest?prefix=${c.word.slice(0, 3)}`
+    case 'crawl': return `POST /frontier  {"url":"https://${site(c)}/page/${c.id}"}`
     case 'analytics': return `GET /dashboards/revenue?groupBy=region&period=2026`
     case 'trends': return `GET /trends?metric=views&window=7d`
+    case 'spending': return `GET /reports/spending?user=${c.user}&groupBy=category&month=2026-10`
+    case 'ranking': return `GET /internal/sales-rank/recalculate?window=7d`
+    case 'static': return `GET /static/${pick([`js/app.${c.code}.js`, `css/main.${c.code}.css`, `img/logo.${c.code}.png`])}`
     case 'image': return `GET /img/sku-${c.id % 7000}/800.webp`
     case 'video': return `GET /video/${c.code}/720p/seg-${int(1, 300)}.ts`
     case 'upload': return `PUT /files/scan-${c.id}.pdf  (2.4 MB)`
@@ -163,10 +204,21 @@ const TABLE: Record<Domain, string> = {
   product: 'products', order: 'orders', profile: 'users', post: 'posts', signup: 'users', card: 'cards',
   link: 'links', newlink: 'links', sensor: 'readings', feed: 'feed', notify: 'notifications', kv: 'kv',
   search: 'items', suggest: 'items', analytics: 'orders', trends: 'events', image: 'files', upload: 'files', video: 'files', doc: 'files',
+  txn: 'transactions', budget: 'budgets', rank: 'sales_rank', friends: 'friendships', dedup: 'seen_pages', crawl: 'pages',
+  spending: 'transactions', ranking: 'orders', static: 'files',
 }
 
 const cacheKey = (c: Ctx) =>
-  c.domain === 'search' || c.domain === 'suggest' ? `q:${c.word}` : c.domain === 'link' ? `link:${c.code}` : c.domain === 'feed' ? `feed:${c.user}` : c.domain === 'profile' ? `user:${c.user}` : `${TABLE[c.domain].replace(/s$/, '')}:${c.id}`
+  c.domain === 'search' || c.domain === 'suggest' ? `q:${c.word}` : c.domain === 'link' ? `link:${c.code}` : c.domain === 'feed' ? `feed:${c.user}` : c.domain === 'profile' ? `user:${c.user}` : CACHE_KEY[c.domain]?.(c) ?? `${TABLE[c.domain].replace(/s$/, '')}:${c.id}`
+
+/** Ключи кэша новых доменов: по пользователю, категории, отпечатку страницы */
+const CACHE_KEY: Partial<Record<Domain, (c: Ctx) => string>> = {
+  txn: (c) => `txn:acc-${c.id}`,
+  budget: (c) => `budget:${c.user}:2026-11`,
+  rank: (c) => `rank:${cat(c)}`,
+  friends: (c) => `friends:${c.user}`,
+  dedup: (c) => `seen:${c.code}${c.code}`,
+}
 
 function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
   const t = TABLE[c.domain]
@@ -175,11 +227,24 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
     if (c.domain === 'post') return `SELECT * FROM posts WHERE id = ${c.id}`
     if (c.domain === 'sensor') return `SELECT value, ts FROM readings WHERE sensor_id = 's-${c.id}' ORDER BY ts DESC LIMIT 1`
     if (c.domain === 'notify') return `SELECT status FROM notifications WHERE id = ${c.id}`
+    if (c.domain === 'crawl') return `SELECT url FROM frontier ORDER BY priority DESC LIMIT 1 FOR UPDATE SKIP LOCKED`
   } else {
     if (c.domain === 'profile') return `UPDATE users SET city = '…' WHERE id = ${c.user}`
     if (c.domain === 'card') return `UPDATE cards SET price = ${int(500, 9000)} WHERE id = ${c.id}`
     if (c.domain === 'kv') return dialect === 'pg' ? `INSERT INTO kv VALUES ('${c.code}', …) ON CONFLICT DO UPDATE …` : `INSERT INTO kv (k, v) VALUES ('${c.code}', …)`
-    if (c.domain === 'analytics' || c.domain === 'trends') return `INSERT INTO events (type, ts) VALUES ('order_paid', now())`
+    if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'spending' || c.domain === 'ranking') return `INSERT INTO events (type, ts) VALUES ('order_paid', now())`
+    if (c.domain === 'txn')
+      return dialect === 'pg'
+        ? `INSERT INTO transactions (account_id, amount, merchant, category) VALUES ('acc-${c.id}', -${int(100, 9000)}, '${merchant(c)[0]}', '${merchant(c)[1]}')`
+        : `INSERT INTO transactions (account_id, ts, amount) VALUES ('acc-${c.id}', toTimestamp(now()), -${int(100, 9000)})`
+    if (c.domain === 'budget') return `UPDATE budgets SET amount_limit = ${int(5, 50) * 1000} WHERE user_id = ${c.user} AND category = '${budgetCat(c)}'`
+    if (c.domain === 'rank') return `INSERT INTO sales_rank (category, product_id, rank) VALUES ('${cat(c)}', ${c.id}, …)`
+    if (c.domain === 'friends') return `INSERT INTO friendships (user_id, friend_id) VALUES (${c.user}, ${c.id}), (${c.id}, ${c.user})`
+    if (c.domain === 'dedup')
+      return dialect === 'pg'
+        ? `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') ON CONFLICT DO NOTHING`
+        : `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') IF NOT EXISTS`
+    if (c.domain === 'crawl') return `INSERT INTO pages (url, body) VALUES ('https://${site(c)}/page/${c.id}', '…')  -- 500 KB`
   }
   switch (c.domain) {
     case 'order':
@@ -201,9 +266,17 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
     case 'suggest': return `SELECT * FROM items WHERE title ILIKE '%${c.word}%' LIMIT 20`
     case 'analytics': return `SELECT region, sum(total) FROM orders WHERE created_at >= '2026-01-01' GROUP BY region`
     case 'trends': return `SELECT date_trunc('hour', ts), count(*) FROM events WHERE ts > now() - interval '7 days' GROUP BY 1`
+    case 'txn': return `SELECT * FROM transactions WHERE account_id = 'acc-${c.id}' ORDER BY created_at DESC LIMIT 50`
+    case 'budget': return `SELECT category, amount_limit, spent FROM budgets WHERE user_id = ${c.user} AND month = '2026-11'`
+    case 'rank': return `SELECT product_id, rank FROM sales_rank WHERE category = '${cat(c)}' ORDER BY rank LIMIT 100`
+    case 'friends': return `SELECT friend_id FROM friendships WHERE user_id = ${c.user}`
+    case 'dedup': return `SELECT url FROM seen_pages WHERE signature = '${c.code}${c.code}'`
+    case 'spending': return `SELECT category, sum(amount) FROM transactions WHERE user_id = ${c.user} AND created_at >= '2026-10-01' GROUP BY category`
+    case 'ranking': return `SELECT category, product_id, sum(qty) FROM orders WHERE created_at > now() - interval '7 days' GROUP BY 1, 2 ORDER BY 3 DESC`
     case 'upload': return `INSERT INTO files (name, data) VALUES ('scan-${c.id}.pdf', '\\x255044462d…')  -- 2.4 MB`
     case 'image':
     case 'video':
+    case 'static':
     case 'doc': return `SELECT data FROM files WHERE id = ${c.id}  -- 2.4 MB bytea`
     default: return `SELECT * FROM ${t} WHERE id = ${c.id}`
   }
@@ -213,6 +286,7 @@ function topicFor(c: Ctx): string {
   const m: Partial<Record<Domain, string>> = {
     order: 'orders.created', signup: 'users.registered', post: 'posts.published', notify: 'notifications.requested',
     upload: 'files.uploaded', sensor: 'readings.raw', newlink: 'links.created',
+    crawl: 'links.to_crawl', txn: 'transactions.imported', friends: 'friendships.changed', dedup: 'pages.seen',
   }
   return m[c.domain] ?? `${TABLE[c.domain]}.events`
 }
@@ -227,8 +301,8 @@ function whereRuns(n: BNode, c: Ctx): string {
   return n.instances > 1 ? `${shard} (replica #${int(1, n.instances - 1)})` : `${shard} (primary)`
 }
 
-/** Операция, которую выполняет блок над этим запросом */
-function opFor(n: BNode, c: Ctx, phase?: Phase): string {
+/** Операция, которую выполняет блок над этим запросом; async — блок обрабатывает запрос в фоне, за очередью (например, пишет результат обработки загруженного файла) */
+function opFor(n: BNode, c: Ctx, phase?: Phase, async = false): string {
   switch (n.kind) {
     case 'client':
       return c.request.split('  ')[0]
@@ -255,19 +329,25 @@ function opFor(n: BNode, c: Ctx, phase?: Phase): string {
     case 'mongo':
       return (c.write ? `db.${TABLE[c.domain]}.insertOne({ … })` : `db.${TABLE[c.domain]}.find({ _id: ${c.id} })`) + whereRuns(n, c)
     case 'elastic':
-      if (c.domain === 'analytics' || c.domain === 'trends') return `POST /${TABLE[c.domain]}/_search {"size":0,"aggs":{"by":{"terms":{"field":"region"}}}}`
+      if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'spending' || c.domain === 'ranking')
+        return `POST /${TABLE[c.domain]}/_search {"size":0,"aggs":{"by":{"terms":{"field":"${c.domain === 'spending' ? 'category' : c.domain === 'ranking' ? 'product_id' : 'region'}"}}}}`
+      if (c.domain === 'crawl' && c.write) return `POST /pages/_doc {"url":"https://${site(c)}/page/${c.id}","title":"…","body":"…"}`
       if (c.domain === 'suggest') return `POST /items/_search {"suggest":{"s":{"prefix":"${c.word.slice(0, 3)}","completion":{"field":"title.suggest"}}}}`
       if (c.write) return `POST /${TABLE[c.domain]}/_doc {…}`
       return `POST /items/_search {"query":{"match":{"title":"${c.word}"}}}`
     case 'clickhouse':
       if (c.domain === 'trends') return `SELECT toStartOfHour(ts), count() FROM events WHERE ts > now() - INTERVAL 7 DAY GROUP BY 1`
+      if (c.domain === 'spending' && !c.write) return `SELECT category, sum(amount) FROM transactions WHERE user_id = ${c.user} AND toYYYYMM(ts) = 202610 GROUP BY category`
+      if (c.domain === 'ranking' && !c.write) return `SELECT category, product_id, sum(qty) AS sold FROM orders WHERE ts > now() - INTERVAL 7 DAY GROUP BY category, product_id ORDER BY sold DESC LIMIT 100 BY category`
       if (c.write) return `INSERT INTO ${TABLE[c.domain]} VALUES (…)`
       return `SELECT region, sum(total) FROM orders WHERE toYear(created_at) = 2026 GROUP BY region`
     case 's3':
-      if (c.domain === 'upload') return `PUT s3://docs/scan-${c.id}.pdf (2.4 MB)`
+      // за очередью пишется результат обработки (превью, перекодированный файл), а не сам загруженный файл
+      if (c.domain === 'upload') return async ? `PUT s3://derived/scan-${c.id}/…` : `PUT s3://docs/scan-${c.id}.pdf (2.4 MB)`
       if (c.domain === 'video') return `GET s3://video/${c.code}/720p/seg.ts`
       if (c.domain === 'doc') return `GET s3://docs/scan-${c.id}.pdf`
       if (c.domain === 'image') return `GET s3://media/sku-${c.id % 7000}/800.webp`
+      if (c.domain === 'static') return `GET s3://static/${c.request.split(' ')[1].replace('/static/', '')}`
       return c.write ? `PUT s3://data/${TABLE[c.domain]}/${c.id}.json` : `GET s3://data/${TABLE[c.domain]}/${c.id}.json`
     default:
       return ''
@@ -373,7 +453,7 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
           ? `Seq Scan on items (rows=2 400 000) — ${Math.round(ms)} ms`
           : tr(`неэффективно для этого типа запросов (×${fitOf(n.kind, w)})`, `inefficient for this request type (×${fitOf(n.kind, w)})`, `处理这类请求效率低（×${fitOf(n.kind, w)}）`)
     }
-    const span: Span = { nodeId: id, op: opFor(n, c, phase), ms, start, status, depth, detail }
+    const span: Span = { nodeId: id, op: opFor(n, c, phase, async), ms, start, status, depth, detail }
     spans.push(span)
     if ((n.kind === 'cache' || n.kind === 'cdn') && st?.deadEnd) {
       // источника данных нет: кэш никто не наполнял

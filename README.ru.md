@@ -17,7 +17,7 @@ npm run dev
 - **Apache Kafka** (`#/kafka`): 6 уроков со встроенными симуляциями, квиз, 5 задач-инцидентов и песочница.
   Движок `src/sim/kafka/engine.ts` моделирует партиции и ключи, репликацию, ISR, high watermark, acks,
   min.insync.replicas, unclean election, consumer groups, ребалансировку, коммиты offset, дубликаты и порядок событий.
-- **Путь архитектора** (`#/`, `#/profile`): главная — карта уровней как в игре. 52 задачи из всех разделов разложены по
+- **Путь архитектора** (`#/`, `#/profile`): главная — карта уровней как в игре. 76 задач из всех разделов разложены по
   четырём мирам (Junior → Middle → Senior → Архитектор, `src/levels.ts`); мир открывается, когда пройдены все задачи
   предыдущего. За задачи начисляется опыт (звёзды оценки добавляют бонус), у игрока растёт уровень — от Стажёра до
   Архитектора.
@@ -29,7 +29,9 @@ npm run dev
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Трафик несёт профиль нагрузки, и каждое хранилище
   обрабатывает его со своей эффективностью (`src/sim/builder/model.ts`). Свободный режим, классические задачи и задачи
   System Design с прикидкой нагрузки по DAU, а также упражнения на конкретные инструменты — Redis, CDN, Kafka,
-  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`). Это центр приложения: главная страница
+  Cassandra, Elasticsearch, ClickHouse, S3 (`src/sim/builder/challenges.ts`). Среди задач System Design — цепочка
+  «Рост» из трёх шагов, от одного сервера до миллионов пользователей, и задачи по мотивам System Design Primer
+  (см. [Источники](#источники)). Это центр приложения: главная страница
   открывается живой схемой и каталогом задач, у каждой задачи своя ссылка `#/builder/<id>`. По схеме идёт живой
   трафик (`src/sim/builder/emulate.ts`): настоящие запросы (`GET /api/products/1042`, `POST /ingest`), операции блоков
   (`GET product:1042` в Redis, SQL в PostgreSQL, CQL в Cassandra, `_search` в Elasticsearch, produce в Kafka) и
@@ -65,6 +67,22 @@ npm run check
 и то, какие запросы шлёт клиент в живом трафике (по его названию).
 
 Прогресс хранится в `localStorage` (`blueprint-lab-progress`).
+
+## Источники
+
+Часть задач конструктора написана по мотивам задач по проектированию систем из
+[System Design Primer](https://github.com/donnemartin/system-design-primer) (Donne Martin), лицензия
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): цепочка «Рост 1/3–3/3»
+([scaling_aws](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/scaling_aws/README.md)),
+«Поисковый робот» ([web_crawler](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/web_crawler/README.md)),
+«Агрегатор личных финансов» ([mint](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/mint/README.md)),
+«Рейтинг продаж» ([sales_rank](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/sales_rank/README.md))
+и «Граф друзей» ([social_graph](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/social_graph/README.md)).
+«Сокращатель ссылок» и «Лента новостей» перекликаются с задачами
+[pastebin](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/pastebin/README.md) и
+[twitter](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/twitter/README.md).
+Материал изменён: тексты написаны заново, числа пересчитаны под модель нагрузки конструктора, изображения из Primer
+не используются. Под условием каждой такой задачи — ссылка на источник и лицензию.
 
 ## Лицензия
 

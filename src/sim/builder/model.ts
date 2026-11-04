@@ -355,11 +355,15 @@ export function fitOf(kind: NodeKind, w: Workload): number {
 }
 
 export interface NodeStats {
+  /** Тип блока: цели задач различают по нему хранилища и остальные блоки */
+  kind: NodeKind
   in: number
   vec: Vec
   capacity: number // эффективная ёмкость под текущий профиль
   util: number
   success: number // доля успешных синхронных ответов
+  /** Доля запросов, обработанных до конца — с учётом того, что делают потребители за очередями (асинхронно) */
+  deepSuccess: number
   latency: number // мс, включая синхронных потомков
   backlogGrowth: number // для очереди: прирост бэклога, сообщ./с
   unsupported: number // доля запросов, которые хранилище не умеет обрабатывать
@@ -387,6 +391,18 @@ export interface Result {
   cycle: boolean
   /** Доходят ли запросы клиента до хранилища, которое умеет их профиль */
   persisted: Record<string, boolean>
+  /** Доходят ли запросы клиента до хранилища, для которого их профиль родной (эффективность ×1), а не просто допустимый */
+  persistedNative: Record<string, boolean>
+  /** Весь поток клиента сохраняется до ответа: в каждой ветке, куда клиент или балансировщик делят поток, есть путь до хранилища, умеющего его профиль, не через очередь */
+  persistedDirect: Record<string, boolean>
+  /**
+   * Через какие блоки проходит каждый запрос клиента: на развилках клиента, балансировщика и шлюза блок есть в каждой ветке,
+   * за сервисом, CDN и очередью — хотя бы в одной (у сервиса из хранилищ — только то, куда он отправляет профиль клиента).
+   * Объём потока тут не важен: задвоенная половина не заменит потерянную
+   */
+  covered: Record<string, string[]>
+  /** Весь поток клиента обслуживается синхронно, пока клиент ждёт ответа: доходит до хранилища, умеющего его профиль, и ни одна его часть не уходит в очередь */
+  persistedSync: Record<string, boolean>
   /** Посты разложены по лентам подписчиков (fan-out дошёл до хранилища лент) */
   fanoutDelivered: boolean
   /** Если не разложены — где теряется больше всего постов: на перегруженном блоке или там, где путь поста кончается */
@@ -552,6 +568,10 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
     backlogGrowth: 0,
     cycle: order === null,
     persisted: {},
+    persistedNative: {},
+    persistedSync: {},
+    persistedDirect: {},
+    covered: {},
     fanoutDelivered: true,
   }
   if (!order) return res
@@ -709,14 +729,18 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           break
       }
     }
+    // то же, что success, но потребители за очередью тоже должны справиться: «принято» ещё не значит «обработано»
+    let deep = deadEnd ? 0 : success
     if (kids.length) {
       const avgS = kids.reduce((s, k) => s + k.success, 0) / kids.length
+      const avgD = kids.reduce((s, k) => s + k.deepSuccess, 0) / kids.length
       const avgL = kids.reduce((s, k) => s + k.latency, 0) / kids.length
       switch (n.kind) {
         case 'client':
         case 'lb':
         case 'gateway':
           success *= avgS
+          deep *= avgD
           latency += avgL
           break
         case 'service': {
@@ -726,6 +750,7 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           kidEdges.forEach((e, i) => {
             const share = admitted > 0 ? Math.min(1, res.edges[e.id].rps / admitted) : 1
             success *= 1 - share + share * kids[i].success
+            deep *= 1 - share + share * kids[i].deepSuccess
             latency += share * kids[i].latency
           })
           // запросы, для которых среди потомков-хранилищ нет подходящего, падают
@@ -733,6 +758,7 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           if (stores.length && inp > 0) {
             const orphan = WL.reduce((s, w) => s + (stores.some((c) => fitOf(c.kind, w) > 0) ? 0 : v[w]), 0)
             success *= 1 - orphan / inp
+            deep *= 1 - orphan / inp
           }
           break
         }
@@ -742,6 +768,7 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
           const admitted = inp * admitShare[id]
           const miss = admitted > 0 ? Math.min(1, passed / admitted) : 0
           success *= 1 - miss + miss * avgS
+          deep *= 1 - miss + miss * avgD
           latency += miss * avgL
           break
         }
@@ -753,16 +780,19 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
             const share = k.in > 0 ? admitted / k.in : 0
             backlog += Math.max(0, admitted - k.capacity * share)
           }
+          deep *= avgD
           break
         }
       }
     }
     res.nodes[id] = {
+      kind: n.kind,
       in: inp,
       vec: v,
       capacity: l.cap,
       util: l.util,
       success,
+      deepSuccess: deep,
       latency,
       backlogGrowth: backlog,
       unsupported: l.unsupported,
@@ -791,12 +821,83 @@ export function simulate(nodes: BNode[], edges: BEdge[]): Result {
   for (const c of clients) {
     if (children(c.id).length === 0 && (c.rps ?? 0) > 0) res.nodes[c.id].success = 0
     res.persisted[c.id] = persists(c, byId, children)
+    res.persistedNative[c.id] = reachesStore(c, byId, children, { native: true, viaQueue: true })
+    res.persistedSync[c.id] = !touchesQueue(c, byId, children) && reachesStore(c, byId, children, { viaQueue: false })
+    res.persistedDirect[c.id] = reachesStore(c, byId, children, { viaQueue: false })
+    res.covered[c.id] = nodes.filter((x) => x.id !== c.id && passesAll(c, x.id, byId, children)).map((x) => x.id)
   }
   if (sum > 0) {
     res.clientSuccess = clients.reduce((s, c) => s + (c.rps ?? 0) * res.nodes[c.id].success, 0) / sum
     res.clientLatency = clients.reduce((s, c) => s + (c.rps ?? 0) * res.nodes[c.id].latency, 0) / sum
   }
   return res
+}
+
+/**
+ * Доходит ли весь поток клиента до хранилища, умеющего его профиль (native — для которого профиль родной).
+ * Клиент, балансировщик и шлюз делят поток между связями — хранилище нужно в каждой ветке; сервис, CDN и очередь
+ * копируют поток во все связи — хватит одной. Кэш данные не хранит; сервис без хранилища за ним (и внешний API) — тоже.
+ * viaQueue: false — путь за очередь не считается (данные должны сохраниться или прочитаться до ответа клиенту)
+ */
+function reachesStore(c: BNode, byId: Record<string, BNode>, children: (id: string) => BEdge[], opts: { native?: boolean; viaQueue: boolean }): boolean {
+  const w = c.workload ?? 'oltp'
+  const memo = new Map<string, boolean>()
+  const ok = (id: string): boolean => {
+    const known = memo.get(id)
+    if (known !== undefined) return known
+    memo.set(id, false) // граф без циклов (simulate проверяет), но на всякий случай
+    const n = byId[id]
+    const kids = children(id).map((e) => e.to)
+    let res: boolean
+    if (isStorage(n.kind)) res = opts.native ? fitOf(n.kind, w) === 1 : fitOf(n.kind, w) > 0
+    else if (n.kind === 'cache') res = false
+    else if (n.kind === 'queue') res = opts.viaQueue && kids.some(ok)
+    else if (n.kind === 'service' || n.kind === 'cdn') res = kids.some(ok)
+    else res = kids.length > 0 && kids.every(ok)
+    memo.set(id, res)
+    return res
+  }
+  return ok(c.id)
+}
+
+/**
+ * Проходит ли каждый запрос клиента через блок target (правило развилок — как в reachesStore). Сервис копирует поток в
+ * остальные блоки, но в хранилища отправляет профиль клиента только в самое подходящее (как goes в simulate):
+ * связь сервиса с хранилищем, куда этот профиль не идёт, запросов не несёт и не засчитывается
+ */
+function passesAll(c: BNode, target: string, byId: Record<string, BNode>, children: (id: string) => BEdge[]): boolean {
+  const w = c.workload ?? 'oltp'
+  const memo = new Map<string, boolean>()
+  const ok = (id: string): boolean => {
+    if (id === target) return true
+    const known = memo.get(id)
+    if (known !== undefined) return known
+    memo.set(id, false)
+    const n = byId[id]
+    let kids = children(id).map((e) => e.to)
+    if (n.kind === 'service') {
+      const best = Math.max(0, ...kids.filter((k) => isStorage(byId[k].kind)).map((k) => fitOf(byId[k].kind, w)))
+      kids = kids.filter((k) => !isStorage(byId[k].kind) || (fitOf(byId[k].kind, w) > 0 && fitOf(byId[k].kind, w) === best))
+    }
+    const res = isStorage(n.kind) ? false : n.kind === 'service' || n.kind === 'cdn' || n.kind === 'queue' ? kids.some(ok) : kids.length > 0 && kids.every(ok)
+    memo.set(id, res)
+    return res
+  }
+  return ok(c.id)
+}
+
+/** Уходит ли хоть какая-то часть потока клиента в очередь */
+function touchesQueue(c: BNode, byId: Record<string, BNode>, children: (id: string) => BEdge[]): boolean {
+  const seen = new Set<string>()
+  const stack = [c.id]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (seen.has(id)) continue
+    seen.add(id)
+    if (byId[id].kind === 'queue') return true
+    for (const e of children(id)) stack.push(e.to)
+  }
+  return false
 }
 
 /** Доходит ли поток клиента до хранилища, умеющего его профиль */

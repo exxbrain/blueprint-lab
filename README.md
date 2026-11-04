@@ -17,7 +17,7 @@ npm run dev
 - **Apache Kafka** (`#/kafka`): 6 lessons with embedded simulations, a quiz, 5 incident exercises and a sandbox.
   The engine (`src/sim/kafka/engine.ts`) models partitions and keys, replication, ISR, high watermark, acks,
   min.insync.replicas, unclean leader election, consumer groups, rebalancing, offset commits, duplicates and ordering.
-- **The architect's path** (`#/`, `#/profile`): the home page is a game-style level map. 52 challenges from every
+- **The architect's path** (`#/`, `#/profile`): the home page is a game-style level map. 76 challenges from every
   section are spread across four worlds (Junior → Middle → Senior → Architect, `src/levels.ts`); a world opens once
   every challenge of the previous one is solved. Challenges award XP (assessment stars add a bonus), and the player
   levels up from Intern to Architect.
@@ -28,7 +28,9 @@ npm run dev
 - **Architecture Builder** (`#/builder`): a graph of clients, load balancers, CDN, services, queues, cache and storages
   (PostgreSQL, Cassandra, MongoDB, Elasticsearch, ClickHouse, S3). Traffic carries a workload profile and every storage
   handles it with its own efficiency (`src/sim/builder/model.ts`). Sandbox mode, classic tasks, tool drills and
-  system design tasks that start with a back-of-the-envelope estimate (`src/sim/builder/challenges.ts`). This is the
+  system design tasks that start with a back-of-the-envelope estimate (`src/sim/builder/challenges.ts`), including a
+  three-step "Growth" chain from one server to millions of users and problems based on System Design Primer
+  (see [Credits](#credits)). This is the
   heart of the app: the home page opens with a live diagram and the challenge catalog, and every challenge has its own
   link `#/builder/<id>`. Live traffic flows through the diagram (`src/sim/builder/emulate.ts`): real requests
   (`GET /api/products/1042`, `POST /ingest`), block operations (`GET product:1042` in Redis, SQL in PostgreSQL, CQL in
@@ -65,6 +67,22 @@ language: the builder's on-canvas hints and the kind of requests a client sends 
 UI and content come in three languages via `tr('русский', 'English', '中文')` from `src/i18n.ts`; a missing Chinese
 variant falls back to English. Long lessons have separate `…En` / `…Zh` components. The language is chosen once per
 page load (saved choice, `?lang=en|ru|zh`, or the browser language).
+
+## Credits
+
+Some builder challenges are based on the system design problems from
+[System Design Primer](https://github.com/donnemartin/system-design-primer) by Donne Martin, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): the "Growth 1/3–3/3" chain
+([scaling_aws](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/scaling_aws/README.md)),
+"Web Crawler" ([web_crawler](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/web_crawler/README.md)),
+"Personal Finance Aggregator" ([mint](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/mint/README.md)),
+"Sales Rank" ([sales_rank](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/sales_rank/README.md))
+and "Social Graph" ([social_graph](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/social_graph/README.md)).
+"URL Shortener" and "News Feed" cover the same ground as its
+[pastebin](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/pastebin/README.md) and
+[twitter](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/twitter/README.md) problems.
+The material was changed: the texts are written anew, the numbers are rescaled to the builder's load model, and no
+images from the Primer are used. Each of these challenges links to its source and the license under its brief.
 
 ## License
 

@@ -4,9 +4,9 @@ import { useViewport, type Rect, type Viewport } from '../../components/editor/u
 import { WORKLOADS, canLinkFrom, scaleText, type BEdge, type BNode, type Result } from './model'
 import type { SpanStatus, Trace } from './emulate'
 import { KindGlyph } from './KindIcon'
+import { BOARD_H, BOARD_W, NODE_H, NODE_W } from './layout'
 
-export const NODE_W = 150
-export const NODE_H = 74
+export { NODE_H, NODE_W }
 
 /** Рамка вокруг блоков (с отступом) — для «вписать схему» и «к выбранному» */
 export function nodesBox(ns: BNode[], pad: number): Rect | null {
@@ -101,8 +101,8 @@ export function BuilderCanvas({
   fit,
   reveal,
   vp: outer,
-  width = 1000,
-  height = 540,
+  width = BOARD_W,
+  height = BOARD_H,
 }: Props) {
   const rpsText = (v: number) => (hideLoad ? '?' : fmt(v))
   /** Нажатие на блок: щелчок открывает окно, а сдвиг больше 4 px — это перетаскивание, окно не открываем */
@@ -412,7 +412,7 @@ export function BuilderCanvas({
 export const PALETTE_MIME = 'application/x-blueprint-kind'
 
 /** Свободно ли место под блок (с зазором), с учётом границ холста */
-export function isFree(nodes: BNode[], x: number, y: number, width = 1000, height = 540): boolean {
+export function isFree(nodes: BNode[], x: number, y: number, width = BOARD_W, height = BOARD_H): boolean {
   if (x < 0 || y < 0 || x + NODE_W > width || y + NODE_H > height) return false
   return nodes.every((n) => Math.abs(n.x - x) >= NODE_W + 20 || Math.abs(n.y - y) >= NODE_H + 16)
 }

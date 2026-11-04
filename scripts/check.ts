@@ -11,6 +11,7 @@ import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order
 import { builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
 import { KINDS, WORKLOADS, linkProblem, reaches, simulate, type BEdge, type BNode, type NodeKind, type Workload } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
+import { BOARD_H, BOARD_W, NODE_H, NODE_W } from '../src/sim/builder/layout'
 import { C4_EXERCISES } from '../src/sim/c4/exercises'
 import { CANVAS, EL_H, EL_W, reviewDiagram } from '../src/sim/c4/model'
 import { CAP_TASKS, runCap } from '../src/sim/cap/model'
@@ -82,6 +83,7 @@ for (const p of PROJECTS) {
 }
 
 console.log('\nКонструктор архитектуры')
+const lockedChanged: string[] = []
 for (const c of builderChallenges) {
   const { nodes, edges } = c.solution
   const r = simulate(nodes, edges)
@@ -91,6 +93,15 @@ for (const c of builderChallenges) {
   for (const g of c.goals) if (!g.check(r)) fail(`эталон не выполняет цель «${g.text}»`)
   for (const pth of c.paths) if (!reaches(edges, pth.from, pth.to)) fail(`эталон нарушает путь «${pth.text}»`)
   for (const id of c.locked) if (!nodes.some((x) => x.id === id)) fail(`в эталоне нет обязательного узла ${id}`)
+  // у заблокированного блока редактор меняет только масштаб (экземпляры, размер, шарды): тип и профиль сервиса — нет,
+  // поэтому эталон не может требовать их смены
+  for (const id of c.locked) {
+    const a = c.nodes.find((x) => x.id === id)
+    const b = nodes.find((x) => x.id === id)
+    if (!a || !b || a.kind === 'client') continue
+    if (a.kind !== b.kind || (a.kind === 'service' && (a.capacity !== b.capacity || a.latency !== b.latency)) || a.hitRatio !== b.hitRatio)
+      lockedChanged.push(`${c.id}/${id}`)
+  }
   for (const x of c.nodes.filter((x) => x.kind === 'client')) {
     const sx = nodes.find((y) => y.id === x.id)
     if (!sx || sx.rps !== x.rps || sx.workload !== x.workload) fail(`клиент ${x.id} в эталоне отличается от исходного`)
@@ -107,13 +118,23 @@ for (const c of builderChallenges) {
   const startOk = c.goals.every((g) => g.check(start)) && c.paths.every((pth) => reaches(c.edges, pth.from, pth.to))
   if (startOk && start.cost <= c.budget) fail('задача решена уже в исходном состоянии')
 }
+{
+  // Известная проблема старых задач: подсказки просят сделать заблокированный сервис лёгким, а выбора профиля
+  // у заблокированных блоков нет. Решается отдельно (снять блокировку или показать выбор профиля); новых таких задач быть не должно
+  const known = ['catalog-search/s1', 'profiles/s1', 'tickets/s1']
+  for (const x of lockedChanged) if (!known.includes(x)) fail(`эталон меняет тип или профиль заблокированного блока ${x}: в редакторе это сделать нельзя`)
+  for (const x of known) if (!lockedChanged.includes(x)) fail(`${x} больше не меняет заблокированный блок — уберите его из списка известных`)
+  console.log(`- эталоны не меняют тип и профиль заблокированных блоков (известные исключения: ${known.join(', ')})`)
+}
 
 // ловушки: обходные пути, которые не должны решать задачи
 console.log('\nЛовушки конструктора')
 {
   type N = (typeof builderChallenges)[number]['solution']['nodes']
   type E = (typeof builderChallenges)[number]['solution']['edges']
+  let traps = 0
   const trap = (id: string, name: string, patch: (n: N, e: E) => [N, E]) => {
+    traps++
     const c = builderChallenges.find((x) => x.id === id)!
     const [nodes, edges] = patch(structuredClone(c.solution.nodes), structuredClone(c.solution.edges))
     // ловушка — то, что игрок может собрать: только возможные связи
@@ -184,7 +205,275 @@ console.log('\nЛовушки конструктора')
     [{ id: 'e1', from: 'c1', to: 's3' }],
   ])
   trap('tickets', 'Cassandra вместо PostgreSQL', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, kind: 'cassandra' as const } : x)), e])
-  console.log('- 13 ловушек не решают свои задачи')
+  // по мотивам System Design Primer
+  const edge = (from: string, to: string) => ({ id: `t-${from}-${to}`, from, to })
+  const relink = (edges: E, from: string, oldTo: string, newTo: string) => edges.map((x) => (x.from === from && x.to === oldTo ? edge(from, newTo) : x))
+  trap('growth-1', 'статика через веб-сервер ×6', (n, e) => [set(n, 's1', { instances: 6 }), [...e.filter((x) => x.from !== 'c2'), edge('c2', 's1'), edge('s1', 's3')]])
+  trap('growth-1', 'машина крупнее, статика в базе', (n, e) => {
+    const [a, b] = drop(n, e, 's3')
+    return [set(set(a, 's1', { instances: 4 }), 'd1', { size: 4 }), [...b, edge('c2', 's1')]]
+  })
+  trap('growth-2', 'без CDN', (n, e) => {
+    const [a, b] = drop(n, e, 'cdn')
+    return [a, [...b, edge('c2', 's3')]]
+  })
+  trap('growth-2', 'реплик меньше: PostgreSQL ×2', (n, e) => [set(n, 'd1', { instances: 2 }), e])
+  trap('growth-3', 'обычные веб-серверы ×40', (n, e) => [set(n, 's1', { capacity: 300, latency: 20, instances: 40 }), e])
+  trap('growth-3', 'без кэша, реплик 5', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(a, 'd1', { instances: 5 }), b]
+  })
+  trap('growth-3', 'превью никуда не сохраняются', (n, e) => [n, e.filter((x) => !(x.from === 'pv' && x.to === 's3'))])
+  // клиент делит поток поровну между связями: вторая связь в обход отправляет мимо нужного блока половину запросов (приёмка, раунд 3)
+  const bypass = (id: string, extra: N[number], extraEdges: E, scale: [string, number][]) =>
+    trap(id, 'половина потока в обход', (n, e) => [
+      [...n.map((x) => scale.find(([sid]) => sid === x.id) ? { ...x, instances: scale.find(([sid]) => sid === x.id)![1] } : x), extra],
+      [...e, ...extraEdges],
+    ])
+  const light = (id: string) => ({ id, kind: 'service' as const, label: id, x: 0, y: 0, instances: 1, capacity: 1000, latency: 5 })
+  bypass('finance', light('bp'), [edge('c1', 'bp'), edge('bp', 'd1')], [['w1', 3]])
+  bypass('crawler', light('bp'), [edge('c2', 'bp'), edge('bp', 'es')], [['w1', 4]])
+  // поток дошёл, но потерялся дальше: посредник за очередью прячет перегрузку рабочего блока (приёмка, раунд 4)
+  const svcNode = (id: string, instances: number, capacity: number, latency: number) => ({ id, kind: 'service' as const, label: id, x: 0, y: 0, instances, capacity, latency })
+  const middle = (id: string, queue: string, worker: string, sizes: Record<string, Partial<N[number]>>) =>
+    trap(id, 'посредник после очереди', (n, e) => [
+      [...n.map((x) => (sizes[x.id] ? { ...x, ...sizes[x.id] } : x)), svcNode('mid', 2, 1000, 5)],
+      [...e.filter((x) => !(x.from === queue && x.to === worker)), edge(queue, 'mid'), edge('mid', worker)],
+    ])
+  middle('finance', 'q1', 'w1', { w1: { instances: 1 }, d1: { shards: 1 } })
+  middle('growth-3', 'q1', 'pv', { pv: { instances: 1 } })
+  middle('crawler', 'q1', 'w1', { w1: { instances: 1 } })
+  // экран бюджета пишет и читает через ту же очередь приёма, PostgreSQL ×1 за категоризацией (схема приёмки, раунд 4)
+  trap('finance', 'категоризация впритык, PostgreSQL ×1 за очередью', (n, e) => [
+    n.map((x) => (x.id === 'd1' ? { ...x, shards: 1 } : x)),
+    e.map((x) => (x.from === 's2' && x.to === 'd1' ? edge('s2', 'q1') : x)),
+  ])
+  // потеря за второй очередью: «принято» ещё не значит «обработано» (приёмка, раунд 5)
+  const second = (id: string, worker: string, store: string, sizes: Record<string, Partial<N[number]>>, last: [number, number, number]) =>
+    trap(id, 'вторая очередь за рабочим блоком', (n, e) => [
+      [...n.map((x) => (sizes[x.id] ? { ...x, ...sizes[x.id] } : x)), { id: 'q8', kind: 'queue' as const, label: 'q8', x: 0, y: 0, instances: 1 }, svcNode('mid', 2, 1000, 5), svcNode('lst', ...last)],
+      [...e.filter((x) => !(x.from === worker && x.to === store)), edge(worker, 'q8'), edge('q8', 'mid'), edge('mid', 'lst'), edge('lst', store)],
+    ])
+  second('finance', 'w1', 'd1', { d1: { shards: 1 } }, [1, 300, 20])
+  second('crawler', 'w1', 'es', { w1: { instances: 7 }, es: { instances: 1 } }, [1, 100, 120])
+  // экран бюджета и отчёты читают через очередь приёма: ответа на чтение никто не ждёт (приёмка, раунд 5)
+  trap('finance', 'экран бюджета и отчёты через очередь приёма', (n, e) => [
+    n.filter((x) => x.id !== 's2' && x.id !== 's3').map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x)),
+    [...e.filter((x) => !['s2', 's3'].includes(x.from) && !['s2', 's3'].includes(x.to)), edge('c2', 's1'), edge('c3', 's1'), edge('w1', 'ch')],
+  ])
+  // обойдённые страницы не попадают в индекс: обходчики никуда не пишут (приёмка, раунд 5)
+  trap('crawler', 'страницы пишет в индекс фронтир, а не обходчики', (n, e) => [
+    n.map((x) => (x.id === 's2' ? { ...x, instances: 2 } : x.id === 'w1' ? { ...x, instances: 7 } : x)),
+    [...e.filter((x) => !(x.from === 'w1' && x.to === 'es')), edge('s2', 'es')],
+  ])
+  // приёмка, раунд 6: страницы пишутся не туда, где ищут пользователи, или вовсе не обходчиками; половина чтений — через очередь
+  trap('crawler', 'отдельный индекс для обходчиков', (n, e) => [
+    [...n.map((x) => (x.id === 'es' ? { ...x, instances: 1 } : x)), { id: 'es2', kind: 'elastic' as const, label: 'es2', x: 0, y: 0, instances: 1 }],
+    e.map((x) => (x.from === 'w1' && x.to === 'es' ? edge('w1', 'es2') : x)),
+  ])
+  trap('crawler', 'очередь ссылок кормит поиск, обходчики никуда не пишут', (n, e) => [
+    n.map((x) => (x.id === 'w1' ? { ...x, instances: 7 } : x)),
+    [...e.filter((x) => !(x.from === 'w1' && x.to === 'es')), edge('q1', 's1'), edge('s3', 'es')],
+  ])
+  trap('finance', 'половина экрана бюджета через очередь приёма', (n, e) => [
+    n.map((x) => (x.id === 'd1' ? { ...x, shards: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)),
+    [...e, edge('c2', 's1')],
+  ])
+  // приёмка, раунд 7: исходный файл не сохраняется до ответа; экран бюджета читает базу, куда операции не попадают
+  trap('growth-3', 'загрузка только через очередь', (n, e) => [n, e.filter((x) => !(x.from === 'up' && x.to === 's3'))])
+  for (const [shards, size, w1, s3] of [[2, 1, 6, 2], [1, 2, 5, 1]] as const)
+    trap('finance', `экран бюджета читает отдельную базу (PostgreSQL ${shards} шард., размер ×${size})`, (n, e) => [
+      [...n.map((x) => (x.id === 'd1' ? { ...x, shards, size } : x.id === 'w1' ? { ...x, instances: w1 } : x.id === 's3' ? { ...x, instances: s3 } : x)), { id: 'd9', kind: 'postgres' as const, label: 'd9', x: 0, y: 0, instances: 1 }],
+      e.map((x) => (x.from === 's2' && x.to === 'd1' ? edge('s2', 'd9') : x)),
+    ])
+  // приёмка, раунд 8: половина потока в обход новых целей
+  trap('crawler', 'половина поиска — по пустому отдельному индексу', (n, e) => [
+    [
+      ...n.map((x) => (x.id === 's1' ? { ...x, instances: 3 } : x.id === 'es' ? { ...x, instances: 1 } : x.id === 'w1' ? { ...x, instances: 7 } : x)),
+      svcNode('lx', 3, 1000, 5),
+      { id: 'k2', kind: 'cache' as const, label: 'k2', x: 0, y: 0, instances: 1, hitRatio: 0.7 },
+      { id: 'es2', kind: 'elastic' as const, label: 'es2', x: 0, y: 0, instances: 1 },
+    ],
+    [...e, edge('c1', 'lx'), edge('lx', 'k2'), edge('lx', 'es2')],
+  ])
+  trap('finance', 'половина экрана бюджета читает отдельную базу', (n, e) => [
+    [...n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)), svcNode('b2', 1, 300, 20), { id: 'd9', kind: 'postgres' as const, label: 'd9', x: 0, y: 0, instances: 1 }],
+    [...e, edge('c2', 'b2'), edge('b2', 'd9')],
+  ])
+  trap('growth-3', 'половина загрузок только в очередь', (n, e) => [
+    [...n.map((x) => (x.id === 'up' ? { ...x, instances: 1 } : x)), svcNode('u2', 1, 300, 20)],
+    [...e, edge('c3', 'u2'), edge('u2', 'q1')],
+  ])
+  // приёмка, раунд 9: половина запросов — во внешний API, у которого данных нет
+  trap('finance', 'половина отчётов во внешний API', (n, e) => [
+    [...n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)), svcNode('ext', 2, 100, 300)],
+    [...e, edge('c3', 'ext')],
+  ])
+  trap('sales-rank', 'половина пересчёта во внешний API', (n, e) => [[...n, svcNode('ext', 1, 100, 300)], [...e, edge('c3', 'ext')]])
+  // приёмка, раунд 10: половина потока в обход, а другая — через рабочий блок дважды (объём сходится, запросы — нет)
+  trap('crawler', 'половина ссылок в обход, другая обходится дважды', (n, e) => [
+    [...n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x)), svcNode('lx', 1, 1000, 5), svcNode('ly', 1, 1000, 5)],
+    [...e, edge('c2', 'lx'), edge('lx', 'es'), edge('s2', 'ly'), edge('ly', 'q1')],
+  ])
+  trap('growth-3', 'половина файлов без превью, другая — с двумя', (n, e) => [
+    [...n.map((x) => (x.id === 'up' ? { ...x, capacity: 1000, latency: 5, instances: 1 } : x)), svcNode('lx', 1, 1000, 5), svcNode('ly', 1, 1000, 5)],
+    [...e, edge('c3', 'lx'), edge('lx', 's3'), edge('up', 'ly'), edge('ly', 'q1')],
+  ])
+  trap('social-graph', 'новые дружбы — в отдельную Cassandra', (n, e) => [
+    [...n.map((x) => (x.id === 'd1' ? { ...x, instances: 1 } : x)), svcNode('lw', 1, 1000, 5), { id: 'cs2', kind: 'cassandra' as const, label: 'cs2', x: 0, y: 0, instances: 1 }],
+    [...e.filter((x) => !(x.from === 'c2' && x.to === 'l1')), edge('c2', 'lw'), edge('lw', 'cs2')],
+  ])
+  // приёмка, раунд 11: отдельное хранилище и связь без единого запроса в общее — пустая связь не делает хранилище общим
+  trap('crawler', 'отдельный индекс и пустые связи в отпечатки', (n, e) => [
+    [
+      ...n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x.id === 'w1' ? { ...x, instances: 7 } : x.id === 'es' ? { ...x, instances: 1 } : x)),
+      { id: 'es2', kind: 'elastic' as const, label: 'es2', x: 0, y: 0, instances: 1 },
+    ],
+    [...e.map((x) => (x.from === 'w1' && x.to === 'es' ? edge('w1', 'es2') : x)), edge('s1', 'cs'), edge('w1', 'cs')],
+  ])
+  trap('finance', 'экран бюджета читает отдельную базу, пустые связи в колоночную', (n, e) => [
+    [
+      ...n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)),
+      { id: 'd9', kind: 'postgres' as const, label: 'd9', x: 0, y: 0, instances: 1 },
+    ],
+    [...e.map((x) => (x.from === 's2' && x.to === 'd1' ? edge('s2', 'd9') : x)), edge('s2', 'ch'), edge('w1', 'ch')],
+  ])
+  trap('social-graph', 'дружбы в отдельную PostgreSQL, пустая связь от Graph API', (n, e) => [
+    [...n.map((x) => (x.id === 'd1' ? { ...x, instances: 1 } : x)), svcNode('lw', 1, 1000, 5), { id: 'pg9', kind: 'postgres' as const, label: 'pg9', x: 0, y: 0, instances: 1 }],
+    [...e.filter((x) => !(x.from === 'c2' && x.to === 'l1')), edge('c2', 'lw'), edge('lw', 'pg9'), edge('s1', 'pg9')],
+  ])
+  trap('finance', 'половина отчётов через очередь приёма', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x)), [...e, edge('c3', 's1'), edge('w1', 'ch')]])
+  trap('crawler', 'обходчики никуда не пишут, в индекс пишет сервис рядом с фронтиром', (n, e) => [
+    [...n.map((x) => (x.id === 'es' ? { ...x, instances: 1 } : x)), { id: 'l9', kind: 'lb' as const, label: 'l9', x: 0, y: 0, instances: 1 }, svcNode('lx', 1, 1000, 5)],
+    [...e.filter((x) => !(x.from === 'w1' && x.to === 'es') && !(x.from === 'c2' && x.to === 's2')), edge('c2', 'l9'), edge('l9', 's2'), edge('l9', 'lx'), edge('lx', 'es'), edge('lx', 'q1')],
+  ])
+  trap('crawler', 'страницы теряются за обходчиками', (n, e) => [
+    [...n.map((x) => (x.id === 'w1' ? { ...x, instances: 7 } : x.id === 'es' ? { ...x, instances: 1 } : x)), svcNode('hv', 1, 100, 120)],
+    [...e.filter((x) => !(x.from === 'w1' && x.to === 'es')), edge('w1', 'hv'), edge('hv', 'es')],
+  ])
+  // чтение через очередь: ответ «принят» быстрый, а списки друзей копятся необработанными
+  trap('social-graph', 'списки друзей через очередь', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [
+      [...a.map((x) => (x.id === 'd1' ? { ...x, instances: 1 } : x)), { id: 'q9', kind: 'queue' as const, label: 'Kafka', x: 0, y: 0, instances: 1 }, svcNode('hv', 1, 100, 120)],
+      [...b.filter((x) => !(x.from === 's1' && x.to === 'd1')), edge('s1', 'q9'), edge('q9', 'hv'), edge('hv', 'd1')],
+    ]
+  })
+  // «Рост» 1–2: заблокированный веб-сервер без трафика, рядом новый лёгкий сервис
+  trap('growth-1', 'веб-сервер без трафика, рядом лёгкий сервис', (n, e) => [
+    [...n.map((x) => (x.id === 's1' ? { ...x, instances: 1 } : x)), svcNode('lw', 1, 1000, 5)],
+    [...e.filter((x) => !(x.from === 'c1' && x.to === 's1')), edge('c1', 'lw'), edge('lw', 'd1')],
+  ])
+  trap('growth-2', 'веб-сервер без трафика, рядом лёгкий сервис', (n, e) => [
+    [...n.map((x) => (x.id === 's1' ? { ...x, instances: 1 } : x)), svcNode('lw', 3, 1000, 5)],
+    [...e.filter((x) => !(x.from === 'l1' && x.to === 's1')), edge('l1', 'lw'), edge('lw', 'd1')],
+  ])
+  trap('growth-3', 'половина файлов в S3 напрямую', (n, e) => [n.map((x) => (x.id === 'pv' ? { ...x, instances: 2 } : x.id === 'up' ? { ...x, instances: 1 } : x)), [...e, edge('c3', 's3')]])
+  trap('growth-3', 'превью синхронно', (n, e) => {
+    const [a, b] = drop(n, e, 'q1')
+    return [a, [...b, edge('up', 'pv')]]
+  })
+  trap('sales-rank', 'без кэша, PostgreSQL ×5', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(a, 'd1', { instances: 5 }), b]
+  })
+  trap('sales-rank', 'журнал и пересчёт в PostgreSQL', (n, e) => {
+    const [a, b] = drop(n, e, 'ch')
+    return [a, [...b, edge('s2', 'd1')]]
+  })
+  trap('sales-rank', 'рейтинг из ClickHouse', (n, e) => {
+    const [a, b] = drop(n, e, 'd1')
+    return [a, [...b, edge('s1', 'ch')]]
+  })
+  trap('finance', 'реплики вместо шардов', (n, e) => [set(n, 'd1', { shards: 1, instances: 5 }), e])
+  trap('finance', 'без очереди', (n, e) => {
+    const [a, b] = drop(n, e, 'q1')
+    return [a, [...b, edge('s1', 'w1')]]
+  })
+  trap('finance', 'отчёты по PostgreSQL', (n, e) => {
+    const [a, b] = drop(n, e, 'ch')
+    return [a, [...b, edge('s3', 'd1')]]
+  })
+  // агрегаты — родной профиль только колоночной базы: на одном узле другие хранилища не тянут, на двух — не по бюджету
+  for (const [kind, name] of [['cassandra', 'Cassandra'], ['elastic', 'Elasticsearch']] as const)
+    for (const instances of [1, 2]) {
+      trap('finance', `отчёты в ${name} ×${instances}`, (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind, instances } : x)), e])
+      trap('sales-rank', `журнал и пересчёт в ${name} ×${instances}`, (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind, instances } : x)), e])
+    }
+  // схемы, которые экономят на остальном и проходят по деньгам (приёмка, раунд 2): агрегаты не в родном хранилище — не засчитываются
+  trap('sales-rank', 'рейтинг, журнал и пересчёт в одной Cassandra ×2', (n, e) => {
+    const nodes = [...n.filter((x) => x.id !== 'd1' && x.id !== 'ch'), { id: 'cs', kind: 'cassandra' as const, label: 'Cassandra', x: 700, y: 240, instances: 2 }]
+    const edges = [...e.filter((x) => x.to !== 'd1' && x.to !== 'ch'), edge('s1', 'cs'), edge('s2', 'cs'), edge('s3', 'cs')]
+    return [nodes, edges]
+  })
+  for (const [kind, name] of [['cassandra', 'Cassandra'], ['elastic', 'Elasticsearch']] as const) {
+    trap('finance', `PostgreSQL ×2 по размеру, отчёты в ${name} ×2`, (n, e) => [
+      n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'ch' ? { ...x, kind, instances: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x)),
+      e,
+    ])
+    trap('finance', `один сервис для бюджета и отчётов, отчёты в ${name} ×2`, (n, e) => [
+      n.filter((x) => x.id !== 's3').map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'ch' ? { ...x, kind, instances: 2 } : x.id === 's2' ? { ...x, instances: 2 } : x)),
+      [...e.filter((x) => x.from !== 's3' && x.to !== 's3'), edge('c3', 's2'), edge('s2', 'ch')],
+    ])
+  }
+  trap('finance', 'операции в Cassandra', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, kind: 'cassandra' as const, shards: undefined } : x)), e])
+  trap('social-graph', 'Cassandra на одной ноде', (n, e) => [set(n, 'd1', { instances: 1 }), e])
+  trap('social-graph', 'PostgreSQL ×5 вместо Cassandra', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, kind: 'postgres' as const, instances: 5 } : x)), e])
+  trap('social-graph', 'без кэша, Cassandra ×4', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(a, 'd1', { instances: 4 }), b]
+  })
+  trap('crawler', 'без очереди', (n, e) => {
+    const [a, b] = drop(n, e, 'q1')
+    return [a, [...b, edge('s2', 'w1')]]
+  })
+  trap('crawler', 'индекс на одной ноде', (n, e) => [set(n, 'es', { instances: 1 }), e])
+  trap('crawler', 'отпечатки в PostgreSQL ×2', (n, e) => [n.map((x) => (x.id === 'cs' ? { ...x, kind: 'postgres' as const, instances: 2 } : x)), e])
+  trap('crawler', 'без кэша, индекс ×3', (n, e) => {
+    const [a, b] = drop(n, e, 'k1')
+    return [set(a, 'es', { instances: 3 }), b]
+  })
+  trap('crawler', 'отпечатки через кэш поиска', (n, e) => [n, relink(e, 's3', 'cs', 'k1')])
+  console.log(`- ловушек проверено: ${traps}`)
+  // и обратное: законные альтернативы эталону (дешевле или иначе собранные) решают задачу — цели не слишком строгие
+  let legits = 0
+  const legit = (id: string, name: string, patch: (n: N, e: E) => [N, E]) => {
+    legits++
+    const c = builderChallenges.find((x) => x.id === id)!
+    const [nodes, edges] = patch(structuredClone(c.solution.nodes), structuredClone(c.solution.edges))
+    const by = Object.fromEntries(nodes.map((x) => [x.id, x]))
+    for (const e of edges) if (linkProblem(by[e.from].kind, by[e.to].kind)) fail(`законный вариант «${c.title} / ${name}»: связь ${by[e.from].label} → ${by[e.to].label} невозможна`)
+    const r = simulate(nodes, edges)
+    const missed = [...c.goals.filter((g) => !g.check(r)).map((g) => g.text), ...c.paths.filter((pth) => !reaches(edges, pth.from, pth.to)).map((pth) => pth.text)]
+    if (r.cost > c.budget) missed.push(`бюджет $${r.cost} > $${c.budget}`)
+    if (missed.length) fail(`законный вариант «${c.title} / ${name}» не решает задачу: ${missed.join('; ')}`)
+  }
+  legit('growth-2', 'кэш вместо реплик', (n, e) => [
+    [...n.map((x) => (x.id === 'd1' ? { ...x, instances: 1 } : x)), { id: 'k9', kind: 'cache' as const, label: 'Redis', x: 0, y: 0, instances: 1, hitRatio: 0.8 }],
+    [...e, edge('s1', 'k9')],
+  ])
+  legit('growth-2', 'без балансировщика', (n, e) => {
+    const [a, b] = drop(n, e, 'l1')
+    return [a, [...b, edge('c1', 's1')]]
+  })
+  legit('growth-3', 'лёгкий Upload API ×1', (n, e) => [n.map((x) => (x.id === 'up' ? { ...x, capacity: 1000, latency: 5, instances: 1 } : x)), e])
+  legit('growth-3', 'загрузка через CDN перед S3 и Upload API', (n, e) => [
+    [...n.map((x) => (x.id === 'up' ? { ...x, capacity: 1000, latency: 5, instances: 1 } : x)), { id: 'cd9', kind: 'cdn' as const, label: 'CDN', x: 0, y: 0, instances: 1, hitRatio: 0.9 }],
+    [...e.filter((x) => x.from !== 'c3' && !(x.from === 'up' && x.to === 's3')), edge('c3', 'cd9'), edge('cd9', 's3'), edge('cd9', 'up')],
+  ])
+  legit('finance', 'PostgreSQL ×2 по размеру вместо шардов', (n, e) => [n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x)), e])
+  legit('finance', 'PostgreSQL ×2 по размеру, категоризация ×5, Reports API ×1', (n, e) => [
+    n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)),
+    e,
+  ])
+  legit('crawler', 'Search API ×6, обходчики ×7', (n, e) => [n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x.id === 'w1' ? { ...x, instances: 7 } : x)), e])
+  // связь без трафика поиска, естественная по условию: обходчики сами сверяют отпечатки — правило «куда идёт профиль» её не ломает
+  legit('crawler', 'обходчики ещё и сверяют отпечатки', (n, e) => [n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x.id === 'w1' ? { ...x, instances: 7 } : x)), [...e, edge('w1', 'cs')]])
+  legit('social-graph', 'без балансировщика, Graph API ×14', (n, e) => {
+    const [a, b] = drop(n, e, 'l1')
+    return [a.map((x) => (x.id === 's1' ? { ...x, instances: 14 } : x)), [...b, edge('c1', 's1'), edge('c2', 's1')]]
+  })
+  console.log(`- законных вариантов проверено: ${legits}`)
   // задачи на инструмент: без него задача не решается
   for (const c of builderChallenges.filter((x) => x.tool)) {
     const nodes = c.solution.nodes.filter((x) => x.kind !== c.tool)
@@ -227,6 +516,26 @@ console.log('\nСправочник')
   const twice = keys.filter((k, i) => keys.indexOf(k) !== i)
   if (twice.length) fail(`ключи справочника повторяются: ${twice.join(', ')}`)
   console.log(`- карточек: паттернов ${PATTERN_REF.length}, компонентов ${COMPONENT_REF.length}; у каждого вида конструктора карточка есть`)
+}
+
+// все блоки старта и эталона — внутри поля и не накладываются: блок ниже края на компьютере не увидеть и не перетащить
+console.log('\nБлоки внутри поля и не накладываются')
+{
+  let n = 0
+  const states: [string, BNode[]][] = [['песочница', sandboxStart.nodes]]
+  for (const c of builderChallenges) states.push([`${c.title} (старт)`, c.nodes], [`${c.title} (эталон)`, c.solution.nodes])
+  for (const [name, nodes] of states) {
+    for (const x of nodes) {
+      n++
+      if (x.x < 0 || x.y < 0 || x.x + NODE_W > BOARD_W || x.y + NODE_H > BOARD_H) fail(`${name}: «${x.label}» (${x.x}, ${x.y}) выходит за поле ${BOARD_W} × ${BOARD_H}`)
+    }
+    nodes.forEach((a, i) =>
+      nodes.slice(i + 1).forEach((b) => {
+        if (a.x < b.x + NODE_W && b.x < a.x + NODE_W && a.y < b.y + NODE_H && b.y < a.y + NODE_H) fail(`${name}: «${a.label}» и «${b.label}» накладываются`)
+      }),
+    )
+  }
+  console.log(`- блоков в стартах и эталонах проверено: ${n}`)
 }
 
 // подсказки должны вести к решению через свойства, а не называть инструмент или паттерн

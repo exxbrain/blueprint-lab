@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { KindIcon } from '../sim/builder/KindIcon'
 import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot, nodesBox } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
@@ -43,6 +42,7 @@ import { markScenario, recordStars, cappedStars, useHints, referenceNote } from 
 import { tr } from '../i18n'
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
+import { KindIcon } from '../sim/builder/KindIcon'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
   Трафик: tr('Трафик', 'Traffic', '流量'),
@@ -707,7 +707,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
 function CostStat({ nodes, total, budget }: { nodes: BNode[]; total: number; budget?: number }) {
   const lines = nodes
     .filter((n) => KINDS[n.kind].cost > 0)
-    .map((n) => ({ text: `${KINDS[n.kind].icon} ${n.label} ${scaleText(n)}`, cost: nodeCost(n) }))
+    .map((n) => ({ text: `${n.label} ${scaleText(n)}`, cost: nodeCost(n) }))
     .sort((a, b) => b.cost - a.cost)
   const breakdown = lines.length ? lines.map((l) => `${l.text}: $${l.cost}`).join('\n') : tr('Пока ничего не стоит', 'Nothing costs anything yet', '目前还没有任何花费')
   const tone = budget === undefined ? undefined : total > budget ? 'bad' : total > budget * 0.85 ? 'warn' : 'ok'

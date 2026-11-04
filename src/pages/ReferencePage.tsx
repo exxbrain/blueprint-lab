@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { COMPONENT_REF, PATTERN_REF, type RefEntry } from '../content/reference'
-import { RefBody } from '../components/RefCard'
+import { RefBody, RefIcon } from '../components/RefCard'
 import { tr } from '../i18n'
 
 export default function ReferencePage({ focus }: { focus?: string }) {
@@ -35,7 +35,9 @@ export default function ReferencePage({ focus }: { focus?: string }) {
                 .map((e) => (
                   <div key={e.id} id={`ref-${e.id}`} className={'panel ref-item' + (open === e.id ? ' open' : '')}>
                     <button className="ref-head" onClick={() => setOpen(open === e.id ? null : e.id)}>
-                      <span className="ref-icon">{e.icon}</span>
+                      <span className="ref-icon">
+                        <RefIcon e={e} />
+                      </span>
                       <span>
                         <b>{e.title}</b>
                         <span className="small muted ref-sum"> — {e.summary}</span>

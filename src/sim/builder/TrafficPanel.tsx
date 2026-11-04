@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../../i18n'
-import { type BEdge, type BNode, type Result } from './model'
+import type { BEdge, BNode, Result } from './model'
 import { KindIcon } from './KindIcon'
 import { emulateRequest, pickClient, type Span, type Trace } from './emulate'
 import { HOP_MS, type LiveTrace } from './BuilderCanvas'

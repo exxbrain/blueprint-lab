@@ -63,7 +63,6 @@ export interface BEdge {
 
 export interface KindSpec {
   title: string
-  icon: string
   capacity: number // rps на экземпляр
   latency: number // мс
   cost: number // $ за экземпляр в месяц
@@ -95,7 +94,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   client: {
     unit: 'instances',
     title: tr('Клиенты', 'Clients', '客户端'),
-    icon: '👥',
     capacity: Infinity,
     latency: 0,
     cost: 0,
@@ -106,7 +104,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   cdn: {
     unit: 'instances',
     title: 'CDN',
-    icon: '🌍',
     capacity: 1_000_000,
     latency: 5,
     cost: 150,
@@ -117,7 +114,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   lb: {
     unit: 'instances',
     title: 'Load Balancer',
-    icon: '⚖️',
     capacity: 20000,
     latency: 1,
     cost: 20,
@@ -128,7 +124,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   gateway: {
     unit: 'instances',
     title: 'API Gateway',
-    icon: '🚪',
     capacity: 2500,
     latency: 3,
     cost: 60,
@@ -139,7 +134,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   service: {
     unit: 'instances',
     title: tr('Сервис', 'Service', '服务'),
-    icon: '⚙️',
     capacity: 300,
     latency: 20,
     cost: 50,
@@ -150,7 +144,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   queue: {
     unit: 'brokers',
     title: tr('Очередь (Kafka)', 'Queue (Kafka)', '队列（Kafka）'),
-    icon: '📜',
     capacity: 50000,
     latency: 5,
     cost: 150,
@@ -161,7 +154,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   cache: {
     unit: 'nodes',
     title: tr('Кэш (Redis)', 'Cache (Redis)', '缓存（Redis）'),
-    icon: '⚡',
     capacity: 40000,
     latency: 1,
     cost: 80,
@@ -172,7 +164,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   postgres: {
     unit: 'replicas',
     title: 'PostgreSQL',
-    icon: '🐘',
     capacity: 1000,
     latency: 8,
     cost: 200,
@@ -186,7 +177,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   cassandra: {
     unit: 'nodes',
     title: 'Cassandra',
-    icon: '👁️',
     capacity: 4000,
     latency: 5,
     cost: 250,
@@ -199,7 +189,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   mongo: {
     unit: 'replicas',
     title: 'MongoDB',
-    icon: '🍃',
     capacity: 1500,
     latency: 6,
     cost: 220,
@@ -213,7 +202,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   elastic: {
     unit: 'nodes',
     title: 'Elasticsearch',
-    icon: '🔎',
     capacity: 2000,
     latency: 15,
     cost: 300,
@@ -226,7 +214,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   clickhouse: {
     unit: 'nodes',
     title: 'ClickHouse',
-    icon: '📊',
     capacity: 300,
     latency: 50,
     cost: 300,
@@ -240,7 +227,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   s3: {
     unit: 'partitions',
     title: tr('Объектное хранилище (S3)', 'Object storage (S3)', '对象存储（S3）'),
-    icon: '🪣',
     capacity: 20000,
     latency: 40,
     cost: 100,
@@ -251,6 +237,9 @@ export const KINDS: Record<NodeKind, KindSpec> = {
     writeScales: true,
   },
 }
+
+/** Это вид компонента конструктора? (ключи справочника и меню — строки) */
+export const isNodeKind = (id: string): id is NodeKind => Object.hasOwn(KINDS, id)
 
 /** Профили, которые кэш умеет закрывать попаданиями */
 const CACHEABLE: Workload[] = ['oltp', 'kv', 'search']

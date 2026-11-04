@@ -1,6 +1,13 @@
 import { useEffect } from 'react'
-import { findRef, type RefEntry } from '../content/reference'
+import { COMPONENT_REF, findRef, type RefEntry } from '../content/reference'
+import { KindIcon } from '../sim/builder/KindIcon'
+import { isNodeKind } from '../sim/builder/model'
 import { tr } from '../i18n'
+
+/** Значок записи: у компонента конструктора — тот же, что на схеме; у паттерна — его эмодзи */
+export function RefIcon({ e }: { e: RefEntry }) {
+  return COMPONENT_REF.includes(e) && isNodeKind(e.id) ? <KindIcon kind={e.id} /> : <>{e.icon}</>
+}
 
 /** Полное описание паттерна или компонента */
 export function RefBody({ e }: { e: RefEntry }) {
@@ -45,7 +52,7 @@ export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="ref-modal panel" onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label={e.title}>
         <div className="card-head">
           <h3>
-            {e.icon} {e.title} <span className="badge ok">{e.category}</span>
+            <RefIcon e={e} /> {e.title} <span className="badge ok">{e.category}</span>
           </h3>
           <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
             ✕

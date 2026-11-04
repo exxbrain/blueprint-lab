@@ -7,7 +7,8 @@ import { tr } from '../i18n'
 export interface RefEntry {
   id: string
   title: string
-  icon: string
+  /** Эмодзи паттерна; у компонентов конструктора значок рисуется тем же KindIcon, что на схеме */
+  icon?: string
   category: string
   /** Одна фраза: что это */
   summary: string
@@ -571,7 +572,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'client',
     title: tr('Клиенты', 'Clients', '客户端'),
-    icon: '👥',
     category: C.traffic,
     summary: tr('Источник нагрузки: пользователи или другие системы.', 'The load source: users or other systems.', '负载的来源：用户或其他系统。'),
     problem: tr('Задаёт поток запросов (rps) и его профиль.', 'Defines the request rate (rps) and its workload profile.', '决定请求速率（rps）及其负载特征。'),
@@ -583,7 +583,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'cdn',
     title: 'CDN',
-    icon: '🌍',
     category: C.traffic,
     summary: tr('Сеть edge-серверов, раздающих статику рядом с пользователем.', 'A network of edge servers serving static content close to users.', '由边缘服务器组成的网络，在离用户近的地方分发静态内容。'),
     problem: tr('Картинки и видео тяжёлые, их запрашивают миллионы раз, а путь до хранилища долгий.', 'Images and video are heavy, requested millions of times, and the path to storage is long.', '图片和视频体积大，会被请求数百万次，而到存储的路径又很长。'),
@@ -595,7 +594,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'lb',
     title: 'Load Balancer',
-    icon: '⚖️',
     category: C.traffic,
     summary: tr('Распределяет запросы между экземплярами.', 'Distributes requests across instances.', '在多个实例之间分发请求。'),
     problem: tr('Один экземпляр не справляется и является единой точкой отказа.', 'A single instance cannot keep up and is a single point of failure.', '单个实例扛不住，而且是单点故障。'),
@@ -607,7 +605,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'gateway',
     title: 'API Gateway',
-    icon: '🚪',
     category: C.traffic,
     summary: tr('Единая точка входа: маршрутизация, аутентификация, лимиты.', 'A single entry point: routing, authentication, rate limits.', '统一入口：路由、认证、限流。'),
     problem: tr('Клиенты не должны знать о внутреннем устройстве системы и десятках сервисов.', 'Clients should not know about the internal layout and dozens of services.', '客户端不应该了解系统的内部结构和背后的几十个服务。'),
@@ -619,7 +616,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'service',
     title: tr('Сервис', 'Service', '服务'),
-    icon: '⚙️',
     category: C.compute,
     summary: tr('Код, который обрабатывает запрос.', 'The code that handles a request.', '处理请求的代码。'),
     problem: tr('Мощность одного экземпляра ограничена.', 'A single instance has limited capacity.', '单个实例的处理能力有限。'),
@@ -631,7 +627,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'queue',
     title: tr('Очередь (Kafka)', 'Queue (Kafka)', '队列（Kafka）'),
-    icon: '📜',
     category: C.compute,
     summary: tr('Буфер между отправителем и обработчиком.', 'A buffer between a sender and a processor.', '发送方和处理方之间的缓冲区。'),
     problem: tr('Медленный обработчик или пик нагрузки тормозят отправителя.', 'A slow processor or a load spike slows down the sender.', '处理方太慢或负载峰值会拖慢发送方。'),
@@ -643,7 +638,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'cache',
     title: tr('Кэш (Redis)', 'Cache (Redis)', '缓存（Redis）'),
-    icon: '⚡',
     category: C.storage,
     summary: tr('Быстрая память для повторяющихся чтений.', 'Fast memory for repeated reads.', '用于重复读取的高速内存。'),
     problem: tr('Одни и те же данные читают из базы снова и снова.', 'The same data is read from the database again and again.', '同样的数据被一遍又一遍地从数据库读取。'),
@@ -655,7 +649,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'postgres',
     title: 'PostgreSQL',
-    icon: '🐘',
     category: C.storage,
     summary: tr('Реляционная БД: транзакции, JOIN, строгая согласованность.', 'A relational database: transactions, JOINs, strong consistency.', '关系型数据库：事务、JOIN、强一致性。'),
     problem: tr('Нужны надёжные транзакции и гибкие запросы.', 'You need reliable transactions and flexible queries.', '需要可靠的事务和灵活的查询。'),
@@ -667,7 +660,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'cassandra',
     title: 'Cassandra',
-    icon: '👁️',
     category: C.storage,
     summary: tr('Wide-column БД для огромного потока записей по ключу.', 'A wide-column database for huge key-based write streams.', '宽列（wide-column）数据库，适合按 key 写入的海量数据流。'),
     problem: tr('Сотни тысяч записей в секунду, которые реляционная база не принимает.', 'Hundreds of thousands of writes per second that a relational DB cannot absorb.', '每秒几十万次写入，关系型数据库根本吃不下。'),
@@ -679,7 +671,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'mongo',
     title: 'MongoDB',
-    icon: '🍃',
     category: C.storage,
     summary: tr('Документная БД с гибкой схемой.', 'A document database with a flexible schema.', '模式灵活的文档数据库。'),
     problem: tr('Данные с вложенной структурой и часто меняющейся схемой неудобно раскладывать по таблицам.', 'Nested data with a frequently changing schema is awkward to split into tables.', '嵌套结构、模式又经常变化的数据，很难拆分到各张表里。'),
@@ -691,7 +682,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'elastic',
     title: 'Elasticsearch',
-    icon: '🔎',
     category: C.storage,
     summary: tr('Поисковый движок с инвертированным индексом.', 'A search engine with an inverted index.', '基于倒排索引的搜索引擎。'),
     problem: tr('Поиск по тексту через LIKE — полный скан таблицы без морфологии и ранжирования.', 'Text search via LIKE is a full table scan without stemming or ranking.', '用 LIKE 做文本搜索就是全表扫描，既没有词形还原，也没有相关性排序。'),
@@ -703,7 +693,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 'clickhouse',
     title: 'ClickHouse',
-    icon: '📊',
     category: C.storage,
     summary: tr('Колоночная аналитическая БД.', 'A columnar analytical database.', '列式分析数据库。'),
     problem: tr('Агрегаты по миллиардам строк в OLTP-базе выполняются минутами и мешают транзакциям.', 'Aggregations over billions of rows in an OLTP database take minutes and hurt transactions.', '在 OLTP 数据库中对数十亿行做聚合要跑好几分钟，还会影响事务。'),
@@ -715,7 +704,6 @@ export const COMPONENT_REF: RefEntry[] = [
   {
     id: 's3',
     title: tr('Объектное хранилище (S3)', 'Object storage (S3)', '对象存储（S3）'),
-    icon: '🪣',
     category: C.storage,
     summary: tr('Хранилище файлов любого размера.', 'Storage for files of any size.', '存放任意大小文件的存储。'),
     problem: tr('Файлы в базе данных раздувают её, бэкапы и репликацию.', 'Files in a database bloat it, its backups and replication.', '把文件放进数据库会让数据库本身、它的备份和复制都膨胀起来。'),

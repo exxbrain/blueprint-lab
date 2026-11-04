@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
 import { useViewport, type Rect, type Viewport } from '../../components/editor/useViewport'
-import { KINDS, WORKLOADS, isStorage, scaleText, type BEdge, type BNode, type Result } from './model'
+import { KINDS, WORKLOADS, canLinkFrom, scaleText, type BEdge, type BNode, type NodeKind, type Result } from './model'
 import type { SpanStatus, Trace } from './emulate'
 
 export const NODE_W = 150
@@ -59,9 +59,9 @@ const DEAD_END: Partial<Record<BNode['kind'], [string, string]>> = {
   cache: [
     tr('кэш пуст: нет источника данных', 'empty cache: no source of data', '缓存为空：没有数据源'),
     tr(
-      'Кэш хранит копии того, что уже прочитали из базы. Нет базы — нечего копировать, попаданий не бывает. Подключите базу к кэшу (read-through) или к сервису рядом с кэшем (cache-aside).',
-      'A cache keeps copies of what was already read from a database. No database, nothing to copy, so there are no hits. Connect a database to the cache (read-through) or to the service next to the cache (cache-aside).',
-      '缓存保存的是已经从数据库读取过的数据副本。没有数据库，就没有可复制的内容，也就不会有命中。请把数据库连接到缓存（read-through），或者连接到缓存旁边的服务（cache-aside）。',
+      'Кэш хранит копии того, что сервис уже прочитал из базы. Нет базы — нечего копировать, попаданий не бывает. Подключите базу к тому же сервису, что и кэш (cache-aside): сам Redis в базу не ходит.',
+      'A cache keeps copies of what the service already read from a database. No database, nothing to copy, so there are no hits. Connect a database to the same service as the cache (cache-aside): Redis itself never calls the database.',
+      '缓存保存的是服务已经从数据库读取过的数据副本。没有数据库，就没有可复制的内容，也就不会有命中。请把数据库连接到与缓存相同的服务上（cache-aside）：Redis 本身不会访问数据库。',
     ),
   ],
   cdn: [
@@ -329,7 +329,7 @@ export function BuilderCanvas({
               capture(e.pointerId)
             }}
           >
-            <rect width={NODE_W} height={NODE_H} rx={10} className="bnode-box" style={{ stroke: color }} />
+            <NodeShape kind={n.kind} color={color} />
             <text x={12} y={24} className="bnode-title">
               {n.kind === 'client' && !hideLoad ? (
                 <tspan className={'bnode-mood ' + clientMood(st?.success ?? 1, st?.latency ?? 0)}>{MOOD_FACE[clientMood(st?.success ?? 1, st?.latency ?? 0)]}</tspan>
@@ -386,7 +386,8 @@ export function BuilderCanvas({
                 <title>{tr('Это хранилище не подходит для части запросов: они падают', 'This storage cannot handle some of the requests: they fail', '这个存储无法处理部分请求：这些请求会失败')}</title>
               </text>
             )}
-            {!isStorage(n.kind) && (
+            {/* порт связи — только у тех, кто сам кого-то вызывает (у кэша и хранилищ его нет) */}
+            {canLinkFrom(n.kind) && (
               <circle
                 cx={NODE_W}
                 cy={NODE_H / 2}
@@ -410,6 +411,76 @@ export function BuilderCanvas({
       {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} />}
     </svg>
   )
+}
+
+/**
+ * Форма блока — в принятой нотации схем микросервисов (как на microservices.io, но свои рисунки):
+ * сервис — шестиугольник, базы и кэш — цилиндры, объектное хранилище — ведро, очередь — канал-труба,
+ * CDN — облако, клиент — окно приложения, балансировщик — блок со срезанными углами, шлюз — блок с «воротами» слева.
+ * Все формы вписаны в прямоугольник блока: текст и полоса загрузки остаются на своих местах.
+ */
+function NodeShape({ kind, color }: { kind: NodeKind; color: string }) {
+  const W = NODE_W
+  const H = NODE_H
+  const box = { className: 'bnode-box', style: { stroke: color } }
+  const deco = { className: 'bnode-deco', style: { stroke: color } }
+  switch (kind) {
+    case 'service':
+      return <path {...box} d={`M14,0 H${W - 14} L${W},${H / 2} L${W - 14},${H} H14 L0,${H / 2} Z`} />
+    case 'postgres':
+    case 'mongo':
+    case 'cassandra':
+    case 'clickhouse':
+    case 'elastic':
+    case 'cache':
+      return (
+        <>
+          <path {...box} d={`M0,9 A${W / 2},9 0 0,1 ${W},9 V${H - 9} A${W / 2},9 0 0,1 0,${H - 9} Z`} />
+          <path {...deco} d={`M0,9 A${W / 2},9 0 0,0 ${W},9`} />
+        </>
+      )
+    case 's3':
+      return (
+        <>
+          <path {...box} d={`M0,9 A${W / 2},9 0 0,1 ${W},9 L${W - 8},${H - 7} A${W / 2 - 8},7 0 0,1 8,${H - 7} Z`} />
+          <path {...deco} d={`M0,9 A${W / 2},9 0 0,0 ${W},9`} />
+        </>
+      )
+    case 'queue':
+      return (
+        <>
+          <path {...box} d={`M12,0 H${W - 12} A12,${H / 2} 0 0,1 ${W - 12},${H} H12 A12,${H / 2} 0 0,1 12,0 Z`} />
+          <path {...deco} d={`M${W - 12},0 A12,${H / 2} 0 0,0 ${W - 12},${H}`} />
+        </>
+      )
+    case 'cdn':
+      return (
+        <path
+          {...box}
+          d={`M10,${H} H${W - 10} A10,10 0 0,0 ${W},${H - 10} V22 A14,14 0 0,0 ${W - 26},12 A24,14 0 0,0 ${W - 74},8 A22,12 0 0,0 ${W - 116},12 A14,12 0 0,0 4,22 A8,8 0 0,0 0,30 V${H - 10} A10,10 0 0,0 10,${H} Z`}
+        />
+      )
+    case 'client':
+      return (
+        <>
+          <rect {...box} width={W} height={H} rx={8} />
+          <path {...deco} d={`M0,9 H${W}`} />
+          <circle className="bnode-dot" cx={8} cy={5} r={1.6} />
+          <circle className="bnode-dot" cx={14} cy={5} r={1.6} />
+          <circle className="bnode-dot" cx={20} cy={5} r={1.6} />
+        </>
+      )
+    case 'lb':
+      return <path {...box} d={`M10,0 H${W - 10} L${W},10 V${H - 10} L${W - 10},${H} H10 L0,${H - 10} V10 Z`} />
+    case 'gateway':
+      return (
+        <>
+          <rect {...box} width={W} height={H} rx={4} />
+          <path {...deco} d={`M6,0 V${H}`} />
+        </>
+      )
+  }
+  return <rect {...box} width={W} height={H} rx={10} />
 }
 
 /** Тип данных при перетаскивании компонента из палитры */

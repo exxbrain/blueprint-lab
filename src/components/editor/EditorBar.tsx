@@ -6,17 +6,20 @@ import { ZoomMenu } from './ZoomMenu'
 import type { Viewport } from './useViewport'
 
 /**
- * Строка над схемой — общая для редакторов: слева «＋ Добавить…» с меню, справа масштаб и свои кнопки (подсказки).
- * Меню закрывается щелчком мимо и Esc.
+ * Панель инструментов схемы — общая для редакторов: слева «＋ Добавить…» с меню, справа масштаб и свои кнопки (подсказки).
+ * На компьютере плавает прямо на холсте и остаётся видна при прокрутке страницы (ставится первой внутрь .canvas-stage).
+ * note — короткое сообщение под панелью («так связать нельзя…»). Меню закрывается щелчком мимо и Esc.
  */
 export function EditorBar({
   add,
   vp,
   right,
+  note,
 }: {
   add?: { label: string; caption?: string; open: boolean; setOpen: (open: boolean) => void; menu: ReactNode }
   vp?: Viewport
   right?: ReactNode
+  note?: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const setOpen = useRef(add?.setOpen)
@@ -41,7 +44,7 @@ export function EditorBar({
     }
   }, [add?.open])
   return (
-    <div className="add-bar editor-bar" ref={ref}>
+    <div className="add-bar editor-bar on-canvas" ref={ref}>
       {add && (
         <button className={'add-btn' + (add.open ? ' primary' : '')} onClick={() => add.setOpen(!add.open)} aria-expanded={add.open} aria-haspopup="menu">
           ＋ {add.label}
@@ -55,6 +58,11 @@ export function EditorBar({
       {add?.open && (
         <div className="panel palette add-menu" role="menu">
           {add.menu}
+        </div>
+      )}
+      {note && (
+        <div className="editor-bar-note" role="status">
+          {note}
         </div>
       )}
     </div>

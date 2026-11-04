@@ -663,8 +663,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       {helpEl}
       <div className="mono-grid">
         <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
-          <EditorBar vp={vp} />
           <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
+            <EditorBar vp={vp} />
             {canvasEl}
           </div>
           {trafficEl}

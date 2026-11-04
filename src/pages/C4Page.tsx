@@ -468,50 +468,50 @@ function Exercise({ ex }: { ex: C4Exercise }) {
       {reviewEl}
 
       <div className="panel canvas-wrap c4-wrap" ref={wrapRef}>
-        <EditorBar
-          vp={vp}
-          add={{
-            label: tr('Добавить элемент', 'Add an element', '添加元素') + (unplaced.length ? ` · ${unplaced.length}` : ''),
-            caption: tr('не все кандидаты нужны', 'not every candidate is needed', '并非所有候选都需要'),
-            open: addOpen,
-            setOpen: setAddOpen,
-            menu: (
-              <>
-                {unplaced.map((c) => (
-                  <button
-                    key={c.id}
-                    className="palette-item c4-card"
-                    onClick={() => {
-                      place(c.id)
-                      setAddOpen(false)
-                    }}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(C4_MIME, c.id)
-                      e.dataTransfer.effectAllowed = 'copy'
-                    }}
-                    title={c.desc}
-                  >
-                    <span>
-                      <b>{c.name}</b>
-                      <span className="small muted"> — {c.desc}</span>
-                    </span>
-                  </button>
-                ))}
-                {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на холсте', 'All cards are on the canvas', '所有卡片都已在画布上')}</p>}
-                <p className="small muted">
-                  {tr(
-                    'Кликните — элемент появится на холсте, или перетащите его на нужное место. Связь — тяните за кружок справа от элемента. Del — удалить выделенное.',
-                    'Click to place an element on the canvas, or drag it where you want. Relationship: drag from the dot on the right of an element. Del deletes the selection.',
-                    '点击即可把元素放到画布上，也可以拖到想要的位置。关系：从元素右侧的圆点拖出。按 Del 删除选中内容。',
-                  )}
-                </p>
-              </>
-            ),
-          }}
-          right={<HintDock hints={ex.hints} used={hints} take={hintState.take} />}
-        />
         <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
+          <EditorBar
+            vp={vp}
+            add={{
+              label: tr('Добавить элемент', 'Add an element', '添加元素') + (unplaced.length ? ` · ${unplaced.length}` : ''),
+              caption: tr('не все кандидаты нужны', 'not every candidate is needed', '并非所有候选都需要'),
+              open: addOpen,
+              setOpen: setAddOpen,
+              menu: (
+                <>
+                  {unplaced.map((c) => (
+                    <button
+                      key={c.id}
+                      className="palette-item c4-card"
+                      onClick={() => {
+                        place(c.id)
+                        setAddOpen(false)
+                      }}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(C4_MIME, c.id)
+                        e.dataTransfer.effectAllowed = 'copy'
+                      }}
+                      title={c.desc}
+                    >
+                      <span>
+                        <b>{c.name}</b>
+                        <span className="small muted"> — {c.desc}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {unplaced.length === 0 && <p className="small muted">{tr('Все карточки на холсте', 'All cards are on the canvas', '所有卡片都已在画布上')}</p>}
+                  <p className="small muted">
+                    {tr(
+                      'Кликните — элемент появится на холсте, или перетащите его на нужное место. Связь — тяните за кружок справа от элемента. Del — удалить выделенное.',
+                      'Click to place an element on the canvas, or drag it where you want. Relationship: drag from the dot on the right of an element. Del deletes the selection.',
+                      '点击即可把元素放到画布上，也可以拖到想要的位置。关系：从元素右侧的圆点拖出。按 Del 删除选中内容。',
+                    )}
+                  </p>
+                </>
+              ),
+            }}
+            right={<HintDock hints={ex.hints} used={hints} take={hintState.take} />}
+          />
           {canvasEl}
         </div>
         {(selEl || selRel) && selected && !dragging && (

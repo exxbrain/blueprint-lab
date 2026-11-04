@@ -292,7 +292,6 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         tone={result.backlogGrowth < 1 ? 'ok' : 'bad'}
       />
       <CostStat nodes={nodes} total={result.cost} budget={challenge?.budget} />
-      {flash && <span className="flash">{flash}</span>}
     </div>
   )
   const title = challenge?.title ?? tr('Свободный режим', 'Sandbox', '自由模式')
@@ -663,7 +662,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       </>
     )
 
-  // компьютер: условие и цели сверху; над схемой — общая строка: «＋ Добавить компонент», масштаб, подсказки
+  // компьютер: условие и цели сверху, над схемой — цифры; «＋ Добавить компонент», масштаб и подсказки — панелью на самом холсте
   return (
     <div className="builder">
       {headEl}
@@ -673,20 +672,25 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       {resultEl}
       {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
       <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
-        <EditorBar
-          vp={vp}
-          add={{
-            label: tr('Добавить компонент', 'Add a component', '添加组件'),
-            caption: tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…', '缓存、队列、数据库、CDN…'),
-            open: addOpen,
-            setOpen: setAddOpen,
-            menu: addMenuEl,
-          }}
-          right={hintsEl(false)}
-        />
         {statsEl}
         {cycleEl}
-        {stage(canvasEl)}
+        {stage(
+          <>
+            <EditorBar
+              vp={vp}
+              add={{
+                label: tr('Добавить компонент', 'Add a component', '添加组件'),
+                caption: tr('кэш, очередь, база, CDN…', 'cache, queue, database, CDN…', '缓存、队列、数据库、CDN…'),
+                open: addOpen,
+                setOpen: setAddOpen,
+                menu: addMenuEl,
+              }}
+              right={hintsEl(false)}
+              note={flash}
+            />
+            {canvasEl}
+          </>,
+        )}
         {popoverEl}
         {trafficEl}
       </div>

@@ -278,6 +278,11 @@ export function isStorage(kind: NodeKind): boolean {
   return !!KINDS[kind].fit
 }
 
+/** Может ли компонент сам кого-то вызывать — есть ли у него на схеме порт для связи */
+export function canLinkFrom(kind: NodeKind): boolean {
+  return (Object.keys(KINDS) as NodeKind[]).some((to) => !linkProblem(kind, to))
+}
+
 /**
  * Какие связи бывают на самом деле. null — так соединить можно, иначе — почему так не бывает.
  * Редактор не даёт провести невозможную связь, check проверяет старт и эталон каждой задачи.

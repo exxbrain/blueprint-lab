@@ -1013,6 +1013,14 @@ table.cmp th {
     stroke 0.4s,
     filter 0.2s;
 }
+/* линии формы (обод цилиндра, полоса окна, «ворота» шлюза) — цветом обводки блока, тоньше */
+.bnode-deco {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.8;
+  transition: stroke 0.4s;
+}
+.bnode-dot { fill: var(--muted); }
 .bnode.selected .bnode-box {
   fill: #163e66;
   filter: drop-shadow(0 0 8px rgba(124, 196, 255, 0.6));
@@ -3516,6 +3524,52 @@ body.ws-mode .page { animation: none; }
 
 /* общая строка над схемой: «＋ Добавить» слева, масштаб и подсказки справа */
 .editor-bar { position: relative; }
+/* панель инструментов прямо на холсте (компьютер): плавает над схемой и остаётся видна при прокрутке страницы */
+.canvas-stage > .editor-bar.on-canvas {
+  position: sticky;
+  top: calc(var(--topbar-h, 56px) + 8px);
+  z-index: 15;
+  height: 0;
+  margin: 0;
+  padding: 0 10px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+.canvas-stage > .editor-bar.on-canvas > * { pointer-events: auto; }
+.editor-bar.on-canvas > :first-child,
+.editor-bar.on-canvas .editor-bar-right { margin-top: 10px; }
+.editor-bar.on-canvas .add-btn {
+  background: var(--accent);
+  color: #06223d;
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.editor-bar.on-canvas .add-btn:hover { filter: brightness(1.08); }
+.editor-bar.on-canvas > .small.muted {
+  margin-top: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(10, 25, 45, 0.75);
+}
+.editor-bar.on-canvas .editor-bar-right > * { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+.editor-bar.on-canvas .add-menu { top: 52px; }
+/* сообщение под панелью: «так связать нельзя…» — рядом с тем местом, где человек работает */
+.editor-bar-note {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, 90%);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #0f2440;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.9rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: page-in 0.3s;
+  pointer-events: none;
+}
 .editor-bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .editor-bar-right .hint-dock { margin-left: 0; }
 .zoom-tool { position: relative; }

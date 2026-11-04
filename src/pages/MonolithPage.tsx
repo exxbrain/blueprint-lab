@@ -46,6 +46,8 @@ import { tr } from '../i18n'
 import { CLIENT, GATEWAY, KAFKA, MONO_DB, emulateMono } from '../sim/monolith/emulate'
 import { NodeLog, TrafficPanel } from '../sim/builder/TrafficPanel'
 import { EdgeMarks, EntryMarks, PatternWrappers, PlatformNodes, ServiceMarks } from '../sim/monolith/PatternLayers'
+import { platformRect } from '../sim/monolith/platformLayout'
+import { walkSteps, type WalkStep } from '../sim/monolith/walk'
 import { HOP_MS, type LiveTrace } from '../sim/builder/BuilderCanvas'
 import type { SpanStatus, Trace } from '../sim/builder/emulate'
 
@@ -157,6 +159,8 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const [selected, setSelected] = useState<ModuleId | null>(null)
   const metrics = useMemo(() => evaluate(project, state, spent, mission.budget), [project, state, spent, mission.budget])
   const traffic = useMonoTraffic(project, state, metrics)
+  /** Путь запроса по шагам: шаги из свежей трассы ключевого сценария и номер текущего */
+  const [walk, setWalk] = useState<{ steps: WalkStep[]; i: number } | null>(null)
   const goals = [
     ...mission.goals.map((g) => ({ text: g.text, ok: g.check(metrics) })),
     { text: tr(`Уложиться в бюджет ${mission.budget} млн ₽`, `Stay within the ${mission.budget} M ₽ budget`, `不超出 ${mission.budget} M ₽ 的预算`), ok: spent <= mission.budget },
@@ -197,6 +201,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       : null
 
   const toggleReference = () => {
+    setWalk(null)
     if (mine) {
       setState(mine.state)
       setSpent(mine.spent)
@@ -216,6 +221,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
 
   /** Каждое изменение стоит денег; откат решения деньги не возвращает (кроме «Отменить») */
   const apply = (next: State, action: string) => {
+    setWalk(null)
     const before = metrics
     const after = computeMetrics(project, next)
     const cost = Math.max(0, stateCost(project, next) - stateCost(project, state))
@@ -226,6 +232,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   }
 
   const undo = () => {
+    setWalk(null)
     const prev = history[history.length - 1]
     if (!prev) return
     setHistory(history.slice(0, -1))
@@ -235,6 +242,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   }
 
   const reset = () => {
+    setWalk(null)
     setState(initialState(project))
     setSpent(0)
     setHistory([])
@@ -244,6 +252,33 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
   const mod = project.modules.find((m) => m.id === selected)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [popover, setPopover] = useState<{ id: string; x: number; y: number } | null>(null)
+  /** Пройти по шагам свежий запрос ключевого сценария (POST): так видно больше шагов и паттернов */
+  const startWalk = () => {
+    let t = emulateMono(project, state, metrics)
+    for (let k = 0; k < 30 && !t.request.startsWith('POST'); k++) t = emulateMono(project, state, metrics)
+    setPopover(null)
+    setSelected(null)
+    setWalk({ steps: walkSteps(t, project, state), i: 0 })
+  }
+  useEffect(() => {
+    if (!walk) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || menuOpen() || modalAbove()) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key === 'ArrowRight') setWalk((w) => w && { ...w, i: Math.min(w.steps.length - 1, w.i + 1) })
+      else if (e.key === 'ArrowLeft') setWalk((w) => w && { ...w, i: Math.max(0, w.i - 1) })
+      else if (e.key === 'Escape') setWalk(null)
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [walk])
+  const walkEl = walk && (
+    <WalkPanel steps={walk.steps} i={walk.i} setI={(i) => setWalk({ ...walk, i })} onClose={() => setWalk(null)} again={startWalk} />
+  )
+
   const phone = usePhone()
   // условие при входе — модальным окном (на телефоне); паттерны, проблемы и трафик — шторками
   const [panelOpen, setPanelOpen] = useState(true)
@@ -501,7 +536,9 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
             }}
             traces={traffic.inFlight}
             vp={vp}
+            walk={walk ? walk.steps[walk.i].focus : null}
           />
+          {walkEl}
     </>
   const trafficEl = <>
           <TrafficPanel
@@ -625,6 +662,16 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
               <Tool icon="🧩" label={tr('Паттерны', 'Patterns', '模式')} on={sheet === 'patterns'} onClick={() => setSheet(sheet === 'patterns' ? null : 'patterns')} />
               <Tool icon="⚠️" label={tr('Проблемы', 'Problems', '问题')} on={sheet === 'problems'} onClick={() => setSheet(sheet === 'problems' ? null : 'problems')} badge={metrics.problems.length || undefined} />
               <Tool icon="📡" label={tr('Трафик', 'Traffic', '流量')} on={sheet === 'traffic'} onClick={() => setSheet(sheet === 'traffic' ? null : 'traffic')} />
+              <Tool
+                icon="🧭"
+                label={tr('Путь', 'Path', '路径')}
+                on={!!walk}
+                onClick={() => {
+                  setSheet(null)
+                  if (walk) setWalk(null)
+                  else startWalk()
+                }}
+              />
             </>
           }
         >
@@ -665,7 +712,14 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
       <div className="mono-grid">
         <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
           <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
-            <EditorBar vp={vp} />
+            <EditorBar
+              vp={vp}
+              right={
+                <button className={walk ? 'primary' : ''} onClick={() => (walk ? setWalk(null) : startWalk())} title={tr('Пройти путь запроса по схеме шаг за шагом', 'Walk a request’s path across the diagram step by step', '在图上逐步走一遍请求的路径')}>
+                  🧭 {tr('Путь запроса', 'Request path', '请求路径')}
+                </button>
+              }
+            />
             {canvasEl}
           </div>
           {trafficEl}
@@ -1163,11 +1217,14 @@ function MonolithCanvas({
   onBackground,
   traces,
   vp,
+  walk,
 }: {
   project: Project
   state: State
   metrics: Metrics
   traces?: LiveTrace[]
+  /** Шаг пути запроса: что подсветить, остальное притемнить */
+  walk?: WalkStep['focus'] | null
   /** Масштаб и сдвиг — общие для всех редакторов схем */
   vp: Viewport
   selected: ModuleId | null
@@ -1223,6 +1280,58 @@ function MonolithCanvas({
     const showChip = hovered === d.id || activeDep === d.id
     return { d, mode, path, cls, isBroken, mid, showChip, geom }
   })
+
+  /** Геометрия ребра пути запроса: вход в модуль, запрос в БД или связь модулей */
+  const hopGeom = (hopId: string) => {
+    if (hopId.startsWith('entry:')) {
+      const m = hopId.slice(6)
+      if (!pos[m]) return null
+      const from = state.infra.gateway && anyExtracted ? { x: 340, y: 112 } : { x: 120, y: 64 }
+      const to = center(m)
+      return { a: from, c: { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }, b: to }
+    }
+    if (hopId.startsWith('db:')) {
+      const m = hopId.slice(3)
+      if (!pos[m]) return null
+      const a = center(m)
+      const b = dbCenter(m)
+      return { a, c: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, b }
+    }
+    const e = edges.find((x) => x.d.id === hopId)
+    return e ? e.geom : null
+  }
+  /** Где на схеме узел пути запроса */
+  const nodeRect = (id: string): { x: number; y: number; w: number; h: number } | null => {
+    if (id === 'client') return { x: 50, y: 20, w: 140, h: 44 }
+    if (id === 'gateway') return state.infra.gateway ? { x: 260, y: 72, w: 160, h: 40 } : null
+    if (id === 'kafka') return { x: 560, y: H - 40, w: 620, h: 28 }
+    if (id === 'monolith-db') return MONO_DB
+    if (id.endsWith('-db')) {
+      const m = id.slice(0, -3)
+      return pos[m] && state.extracted[m] && state.ownDb[m] ? { x: pos[m].x + BOX_W + 14, y: pos[m].y + 6, w: 52, h: 44 } : MONO_DB
+    }
+    return pos[id] ? { x: pos[id].x, y: pos[id].y, w: BOX_W, h: BOX_H } : null
+  }
+
+  // шаг пути запроса: схема сама сдвигается к подсвеченному (на телефоне — в верхнюю половину экрана, снизу панель шага)
+  const phoneCanvas = usePhone()
+  const focusSig = walk ? [...walk.nodes, ...walk.edges, ...walk.platform].join('|') : ''
+  useEffect(() => {
+    if (!walk) return
+    const rs = [...walk.nodes.map(nodeRect), ...walk.platform.map((k) => platformRect(k, H))].filter((r): r is NonNullable<typeof r> => !!r)
+    for (const id of walk.edges) {
+      const g = hopGeom(id)
+      if (g) rs.push({ x: Math.min(g.a.x, g.b.x), y: Math.min(g.a.y, g.b.y), w: Math.abs(g.a.x - g.b.x), h: Math.abs(g.a.y - g.b.y) })
+    }
+    if (!rs.length) return
+    const x0 = Math.min(...rs.map((r) => r.x))
+    const y0 = Math.min(...rs.map((r) => r.y))
+    const x1 = Math.max(...rs.map((r) => r.x + r.w))
+    const y1 = Math.max(...rs.map((r) => r.y + r.h))
+    const viewH = Number(vp.viewBox.split(' ')[3]) || 0
+    vp.reveal({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 + (phoneCanvas ? viewH * 0.5 : 0) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSig])
 
   // паттерны на схеме — узлами, связями, деталями и обёртками (PatternLayers)
   const layer = { project, state, pos, box: { w: BOX_W, h: BOX_H }, mono: MONO, monoDb: MONO_DB, H, entry }
@@ -1398,29 +1507,9 @@ function MonolithCanvas({
       <EdgeMarks state={state} edges={edges} />
       <ServiceMarks {...layer} />
 
-      {traces && traces.length > 0 && (
-        <MonoTrafficLayer
-          traces={traces}
-          geom={(hopId) => {
-            if (hopId.startsWith('entry:')) {
-              const m = hopId.slice(6)
-              if (!pos[m]) return null
-              const from = state.infra.gateway && anyExtracted ? { x: 340, y: 112 } : { x: 120, y: 64 }
-              const to = center(m)
-              return { a: from, c: { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }, b: to }
-            }
-            if (hopId.startsWith('db:')) {
-              const m = hopId.slice(3)
-              if (!pos[m]) return null
-              const a = center(m)
-              const b = dbCenter(m)
-              return { a, c: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, b }
-            }
-            const e = edges.find((x) => x.d.id === hopId)
-            return e ? e.geom : null
-          }}
-        />
-      )}
+      {traces && traces.length > 0 && !walk && <MonoTrafficLayer traces={traces} geom={hopGeom} />}
+
+      {walk && <WalkOverlay focus={walk} nodeRect={nodeRect} hopGeom={hopGeom} H={H} />}
 
       {/* подписи связей — поверх модулей */}
       {placeChips(edges.filter((e) => e.showChip)).map(({ d, mode, isBroken, text, x, y, w }) => {
@@ -1442,6 +1531,87 @@ function MonolithCanvas({
           )
         })}
     </svg>
+  )
+}
+
+/** Панель шага пути запроса: что происходит на шаге и что здесь делают паттерны; листается кнопками и стрелками */
+function WalkPanel({ steps, i, setI, onClose, again }: { steps: WalkStep[]; i: number; setI: (i: number) => void; onClose: () => void; again: () => void }) {
+  const st = steps[i]
+  return (
+    <div className={'walk-panel tone-' + st.tone} role="dialog" aria-label={tr('Путь запроса', 'Request path', '请求路径')}>
+      <div className="walk-head">
+        <span className="small muted">
+          🧭 {tr('Путь запроса', 'Request path', '请求路径')} · {i + 1}/{steps.length}
+        </span>
+        <button className="icon" onClick={onClose} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')} aria-label={tr('Закрыть', 'Close', '关闭')}>
+          ✕
+        </button>
+      </div>
+      <b className="walk-title">{st.title}</b>
+      <ul className="walk-lines">
+        {st.lines.map((l, k) => (
+          <li key={k}>{l}</li>
+        ))}
+      </ul>
+      <div className="row walk-nav">
+        <button disabled={i === 0} onClick={() => setI(i - 1)}>
+          ← {tr('Назад', 'Back', '上一步')}
+        </button>
+        {i < steps.length - 1 ? (
+          <button className="primary" onClick={() => setI(i + 1)}>
+            {tr('Дальше', 'Next', '下一步')} →
+          </button>
+        ) : (
+          <button className="primary" onClick={again}>
+            ↻ {tr('Другой запрос', 'Another request', '换一个请求')}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Подсветка шага пути запроса: всё, кроме узлов и связей шага, притемнено маской; узлы обведены, связь — бегущий пунктир.
+ * Слой не ловит указатель — схему можно двигать и во время прохода.
+ */
+function WalkOverlay({
+  focus,
+  nodeRect,
+  hopGeom,
+  H,
+}: {
+  focus: WalkStep['focus']
+  nodeRect: (id: string) => { x: number; y: number; w: number; h: number } | null
+  hopGeom: (id: string) => { a: { x: number; y: number }; c: { x: number; y: number }; b: { x: number; y: number } } | null
+  H: number
+}) {
+  const rects = [...focus.nodes.map(nodeRect), ...focus.platform.map((k) => platformRect(k, H))].filter((r): r is NonNullable<typeof r> => !!r)
+  const paths = focus.edges
+    .map(hopGeom)
+    .filter((g): g is NonNullable<typeof g> => !!g)
+    .map((g) => `M${g.a.x},${g.a.y} Q${g.c.x},${g.c.y} ${g.b.x},${g.b.y}`)
+  return (
+    <g className="walk-overlay" pointerEvents="none">
+      <defs>
+        <mask id="walk-mask">
+          <rect x={-5000} y={-5000} width={10000} height={10000} fill="white" />
+          {rects.map((r, i) => (
+            <rect key={i} x={r.x - 8} y={r.y - 8} width={r.w + 16} height={r.h + 16} rx={12} fill="black" />
+          ))}
+          {paths.map((d, i) => (
+            <path key={i} d={d} stroke="black" strokeWidth={18} fill="none" />
+          ))}
+        </mask>
+      </defs>
+      <rect x={-5000} y={-5000} width={10000} height={10000} className="walk-dim" mask="url(#walk-mask)" />
+      {paths.map((d, i) => (
+        <path key={'p' + i} d={d} className="walk-path" />
+      ))}
+      {rects.map((r, i) => (
+        <rect key={'r' + i} x={r.x - 6} y={r.y - 6} width={r.w + 12} height={r.h + 12} rx={12} className="walk-ring" />
+      ))}
+    </g>
   )
 }
 

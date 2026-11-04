@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { tr } from '../../i18n'
 import { has, type PatternId } from './patterns'
 import { modeOf, type Dep, type DepMode, type ModuleId, type Project, type State } from './model'
+import { NODE_H, NODE_SLOT, NODE_W, SLOT_X, SLOT_Y } from './platformLayout'
 
 /**
  * Паттерны на схеме распила — тем, чем они физически являются: отдельными узлами платформы и их связями с сервисами,
@@ -128,9 +129,6 @@ export function PatternWrappers(c: Ctx) {
 
 interface PlatformNode {
   id: PatternId
-  /** Место: колонка 0–3 и строка 0–1 в полосе над сервисами */
-  col: number
-  row: number
   label: () => string
   /** Как узел связан с сервисами: кто кому и что передаёт */
   flow: 'toNode' | 'fromNode' | 'both'
@@ -139,19 +137,15 @@ interface PlatformNode {
 }
 
 const NODES: PlatformNode[] = [
-  { id: 'accessToken', col: 0, row: 0, label: () => tr('🔑 Сервер авторизации', '🔑 Auth server', '🔑 授权服务器'), flow: 'fromNode', tone: 'auth', note: () => tr('Выдаёт клиенту токен (JWT); шлюз и сервисы проверяют подпись токена сами, без похода сюда', 'Issues the client a token (JWT); the gateway and services verify its signature themselves, without calling here', '给客户端签发令牌（JWT）；网关和服务自己校验签名，无需回调这里') },
-  { id: 'discovery', col: 1, row: 0, label: () => tr('🧭 Реестр сервисов', '🧭 Service registry', '🧭 服务注册中心'), flow: 'both', tone: 'infra', note: () => tr('Сервисы регистрируются при старте и узнают здесь адреса друг друга', 'Services register on startup and look up each other’s addresses here', '服务启动时在此注册，并在此查到彼此的地址') },
-  { id: 'config', col: 2, row: 0, label: () => tr('⚙️ Конфиг-сервер', '⚙️ Config server', '⚙️ 配置服务器'), flow: 'fromNode', tone: 'infra', note: () => tr('Раздаёт сервисам настройки и адреса — меняются без нового релиза', 'Hands settings and addresses to services; they change without a new release', '向服务下发配置和地址；修改无需重新发布') },
-  { id: 'contracts', col: 3, row: 0, label: () => tr('🤝 Брокер контрактов', '🤝 Contract broker', '🤝 契约代理'), flow: 'both', tone: 'infra', note: () => tr('Потребители публикуют ожидания от API, поставщики проверяют их в своём CI до релиза', 'Consumers publish their API expectations; providers verify them in CI before release', '消费方发布对 API 的期望，提供方在发布前于 CI 中验证') },
-  { id: 'tracing', col: 0, row: 1, label: () => tr('🔭 Сборщик трейсов', '🔭 Trace collector', '🔭 链路追踪收集器'), flow: 'toNode', tone: 'obs', note: () => tr('Каждый сервис шлёт сюда спаны с trace id — видна вся цепочка вызовов запроса', 'Every service sends spans with a trace id here, so the whole call chain of a request is visible', '每个服务把带 trace id 的 span 发到这里，请求的完整调用链一目了然') },
-  { id: 'logs', col: 1, row: 1, label: () => tr('🪵 Хранилище логов', '🪵 Log store', '🪵 日志存储'), flow: 'toNode', tone: 'obs', note: () => tr('Логи всех сервисов в одном месте, с поиском по trace id', 'Logs from all services in one place, searchable by trace id', '所有服务的日志集中在一处，可按 trace id 检索') },
-  { id: 'metrics', col: 2, row: 1, label: () => tr('📈 Метрики (Prometheus)', '📈 Metrics (Prometheus)', '📈 指标（Prometheus）'), flow: 'fromNode', tone: 'obs', note: () => tr('Сам опрашивает каждый сервис раз в несколько секунд и поднимает тревогу при отклонениях', 'Polls every service every few seconds and raises alerts on anomalies', '每隔几秒主动拉取每个服务的指标，异常时告警') },
-  { id: 'auditLog', col: 3, row: 1, label: () => tr('🧾 Журнал аудита', '🧾 Audit log', '🧾 审计日志'), flow: 'toNode', tone: 'obs', note: () => tr('Сервисы пишут сюда, кто и что сделал с деньгами и данными; записи не меняются', 'Services record who did what with money and data; entries are never changed', '服务在此记录谁对资金和数据做了什么；记录不可修改') },
+  { id: 'accessToken', label: () => tr('🔑 Сервер авторизации', '🔑 Auth server', '🔑 授权服务器'), flow: 'fromNode', tone: 'auth', note: () => tr('Выдаёт клиенту токен (JWT); шлюз и сервисы проверяют подпись токена сами, без похода сюда', 'Issues the client a token (JWT); the gateway and services verify its signature themselves, without calling here', '给客户端签发令牌（JWT）；网关和服务自己校验签名，无需回调这里') },
+  { id: 'discovery', label: () => tr('🧭 Реестр сервисов', '🧭 Service registry', '🧭 服务注册中心'), flow: 'both', tone: 'infra', note: () => tr('Сервисы регистрируются при старте и узнают здесь адреса друг друга', 'Services register on startup and look up each other’s addresses here', '服务启动时在此注册，并在此查到彼此的地址') },
+  { id: 'config', label: () => tr('⚙️ Конфиг-сервер', '⚙️ Config server', '⚙️ 配置服务器'), flow: 'fromNode', tone: 'infra', note: () => tr('Раздаёт сервисам настройки и адреса — меняются без нового релиза', 'Hands settings and addresses to services; they change without a new release', '向服务下发配置和地址；修改无需重新发布') },
+  { id: 'contracts', label: () => tr('🤝 Брокер контрактов', '🤝 Contract broker', '🤝 契约代理'), flow: 'both', tone: 'infra', note: () => tr('Потребители публикуют ожидания от API, поставщики проверяют их в своём CI до релиза', 'Consumers publish their API expectations; providers verify them in CI before release', '消费方发布对 API 的期望，提供方在发布前于 CI 中验证') },
+  { id: 'tracing', label: () => tr('🔭 Сборщик трейсов', '🔭 Trace collector', '🔭 链路追踪收集器'), flow: 'toNode', tone: 'obs', note: () => tr('Каждый сервис шлёт сюда спаны с trace id — видна вся цепочка вызовов запроса', 'Every service sends spans with a trace id here, so the whole call chain of a request is visible', '每个服务把带 trace id 的 span 发到这里，请求的完整调用链一目了然') },
+  { id: 'logs', label: () => tr('🪵 Хранилище логов', '🪵 Log store', '🪵 日志存储'), flow: 'toNode', tone: 'obs', note: () => tr('Логи всех сервисов в одном месте, с поиском по trace id', 'Logs from all services in one place, searchable by trace id', '所有服务的日志集中在一处，可按 trace id 检索') },
+  { id: 'metrics', label: () => tr('📈 Метрики (Prometheus)', '📈 Metrics (Prometheus)', '📈 指标（Prometheus）'), flow: 'fromNode', tone: 'obs', note: () => tr('Сам опрашивает каждый сервис раз в несколько секунд и поднимает тревогу при отклонениях', 'Polls every service every few seconds and raises alerts on anomalies', '每隔几秒主动拉取每个服务的指标，异常时告警') },
+  { id: 'auditLog', label: () => tr('🧾 Журнал аудита', '🧾 Audit log', '🧾 审计日志'), flow: 'toNode', tone: 'obs', note: () => tr('Сервисы пишут сюда, кто и что сделал с деньгами и данными; записи не меняются', 'Services record who did what with money and data; entries are never changed', '服务在此记录谁对资金和数据做了什么；记录不可修改') },
 ]
-const SLOT_X = [575, 728, 881, 1034]
-const SLOT_Y = [8, 54]
-const NODE_W = 146
-const NODE_H = 36
 
 /** Узлы платформы над сервисами и их связи с каждым работающим сервисом */
 export function PlatformNodes(c: Ctx) {
@@ -164,8 +158,9 @@ export function PlatformNodes(c: Ctx) {
   return (
     <g className="pl-platform">
       {shown.map((n) => {
-        const x = SLOT_X[n.col]
-        const y = SLOT_Y[n.row]
+        const slot = NODE_SLOT[n.id]!
+        const x = SLOT_X[slot.col]
+        const y = SLOT_Y[slot.row]
         const from = { x: x + NODE_W / 2, y: y + NODE_H }
         return (
           <g key={n.id} className={'appear pl-node tone-' + n.tone}>
@@ -174,7 +169,7 @@ export function PlatformNodes(c: Ctx) {
               <path d={`M${x},${y + NODE_H / 2} C${x - 160},${y + NODE_H / 2} 260,${30} 190,${36}`} className="pl-line tone-auth flow-from" />
             ) : (
               targets.map((t) => {
-                const to = anchor(t.r, t.id === 'monolith', n.row * 4 + n.col)
+                const to = anchor(t.r, t.id === 'monolith', slot.row * 4 + slot.col)
                 const midY = (from.y + to.y) / 2
                 return <path key={t.id} d={`M${from.x},${from.y} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y}`} className={'pl-line tone-' + n.tone + ' flow-' + n.flow} />
               })

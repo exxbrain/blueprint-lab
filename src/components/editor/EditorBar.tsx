@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../../i18n'
 import { PopoverDialog } from '../PopoverDialog'
-import { sideColumn, usePopoverReflow } from '../popover'
+import { modalAbove, sideColumn, usePopoverReflow } from '../popover'
 import { ZoomMenu } from './ZoomMenu'
 import type { Viewport } from './useViewport'
 
@@ -27,7 +27,8 @@ export function EditorBar({
     const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen.current?.(false)
     // Esc закрывает только меню: событие помечено обработанным, страница (окно блока, выделение) его пропускает
     const esc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      // карточка справочника, открытая из меню (ⓘ), закрывается первой — она поверх
+      if (e.key !== 'Escape' || modalAbove()) return
       e.preventDefault()
       setOpen.current?.(false)
     }

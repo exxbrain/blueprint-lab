@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { tr } from '../../i18n'
-import { usePhone } from '../popover'
+import { modalAbove, usePhone } from '../popover'
 import type { Viewport } from './useViewport'
 
 /**
@@ -16,7 +16,7 @@ export function ZoomMenu({ vp }: { vp: Viewport }) {
     const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
     // Esc закрывает только меню: событие помечено обработанным, страница (окно блока, выделение) его пропускает
     const esc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || modalAbove()) return
       e.preventDefault()
       setOpen(false)
     }

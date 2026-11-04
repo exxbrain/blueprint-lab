@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react'
 import { LANGS, lang, setLang } from '../i18n'
+import { modalAbove } from './popover'
 
 /**
  * Выбор языка: кнопка с текущим языком и меню — каждый язык своим названием, текущий отмечен.
@@ -14,14 +15,30 @@ export function LangPicker() {
   useEffect(() => {
     if (!open) return
     const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    // Esc — в фазе погружения, как у остальных меню: закрывает меню, даже если фокус ушёл из него;
+    // фокус возвращается на кнопку, только если был в меню
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || modalAbove()) return
+      e.preventDefault()
+      if (ref.current?.contains(document.activeElement)) btn.current?.focus()
+      setOpen(false)
+    }
+    // переход по адресу (в том числе «Назад») закрывает меню
+    const away = () => setOpen(false)
     document.addEventListener('pointerdown', close, true)
+    window.addEventListener('keydown', esc, true)
+    window.addEventListener('hashchange', away)
     // фокус — на текущем языке
     items.current[Math.max(0, LANGS.findIndex((l) => l.id === lang))]?.focus()
-    return () => document.removeEventListener('pointerdown', close, true)
+    return () => {
+      document.removeEventListener('pointerdown', close, true)
+      window.removeEventListener('keydown', esc, true)
+      window.removeEventListener('hashchange', away)
+    }
   }, [open])
   const onMenuKey = (e: RKeyboardEvent) => {
-    // клавиши меню — только меню: стрелки не должны двигать выбранный блок на схеме
-    if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape'].includes(e.key)) e.stopPropagation()
+    // клавиши меню — только меню: стрелки не должны двигать выбранный блок на схеме (Esc ловится выше, в фазе погружения)
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) e.stopPropagation()
     const list = items.current.filter(Boolean) as HTMLButtonElement[]
     const i = list.indexOf(document.activeElement as HTMLButtonElement)
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -30,10 +47,6 @@ export function LangPicker() {
     } else if (e.key === 'Home' || e.key === 'End') {
       e.preventDefault()
       list[e.key === 'Home' ? 0 : list.length - 1]?.focus()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      setOpen(false)
-      btn.current?.focus()
     } else if (e.key === 'Tab') setOpen(false)
   }
   const cur = LANGS.find((l) => l.id === lang) ?? LANGS[0]

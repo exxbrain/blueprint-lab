@@ -132,6 +132,11 @@ export function menuOpen(): boolean {
   return !!document.querySelector('[role="menu"]')
 }
 
+/** Поверх меню открыто модальное окно (карточка справочника из меню, итог задания): Esc сначала закрывает его */
+export function modalAbove(): boolean {
+  return !!document.querySelector('.ref-overlay')
+}
+
 /** Фокус в поле ввода или списке: клавиши достаются ему, а не схеме */
 export function isTyping(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null

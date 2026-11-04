@@ -580,24 +580,24 @@ console.log('\nВход по логину и паролю')
 // разбор текста — подсказки на поле (по тексту целей: хранение, задержка) и домены клиентов — должен давать одно и то же на всех языках:
 // каждый проход пишет подпись, последний сравнивает её с остальными
 {
-  const { readFileSync, writeFileSync, existsSync } = await import('node:fs')
+  const { readFileSync, writeFileSync, existsSync, rmSync } = await import('node:fs')
   const lang = process.env.BLUEPRINT_LANG ?? 'ru'
-  const file = (l: string) => new URL(`../.check-sig-${l}.txt`, import.meta.url)
-  // номер запуска npm run check: отдельный проход zh не сравнивает себя с подписями прошлого запуска
+  // номер запуска npm run check — в имени файла: подписи одного запуска сравниваются только между собой,
+  // а два npm run check в одной папке (параллельные сессии) друг другу не мешают
   const run = process.env.BLUEPRINT_RUN
-  writeFileSync(file(lang), [`# запуск ${run ?? '-'}`, ...signature].join('\n') + '\n')
-  if (lang === 'zh') {
+  const file = (l: string) => new URL(`../.check-sig-${run}-${l}.txt`, import.meta.url)
+  if (!run) {
+    if (lang === 'zh') console.log('\nРазбор одинаков на всех языках\n- сверка пропущена: отдельный проход — полная проверка: npm run check')
+  } else writeFileSync(file(lang), signature.join('\n') + '\n')
+  if (run && lang === 'zh') {
     console.log('\nРазбор одинаков на всех языках')
     for (const other of ['ru', 'en']) {
-      const head = existsSync(file(other)) ? readFileSync(file(other), 'utf8').split('\n', 1)[0] : undefined
-      if (head !== `# запуск ${run}` || !run) {
-        const why = head === undefined ? `нет .check-sig-${other}.txt` : `подпись ${other} от другого запуска`
-        // внутри npm run check (номер запуска задан) сверка обязана состояться: пропуск — ошибка, а не строчка в логе
-        if (run) fail(`сверка с ${other} не состоялась: ${why} (например, BLUEPRINT_LANG задан на весь npm run check)`)
-        else console.log(`- сверка с ${other} пропущена: ${why} — полная проверка: npm run check`)
+      // внутри npm run check сверка обязана состояться: пропуск — ошибка, а не строчка в логе
+      if (!existsSync(file(other))) {
+        fail(`сверка с ${other} не состоялась: нет подписи ${other} этого запуска (например, BLUEPRINT_LANG задан на весь npm run check)`)
         continue
       }
-      const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n').slice(1)
+      const theirs = readFileSync(file(other), 'utf8').trimEnd().split('\n')
       if (theirs.length !== signature.length) {
         fail(`разбор на zh и ${other}: разное число строк подписи (${signature.length} и ${theirs.length})`)
         continue
@@ -606,6 +606,7 @@ console.log('\nВход по логину и паролю')
       for (const i of diff.slice(0, 5)) fail(`разбор на zh и ${other} различается: ${signature[i]} ↔ ${theirs[i]}`)
       if (!diff.length) console.log(`- zh = ${other}: ${signature.length} строк (подсказки на поле, домены клиентов)`)
     }
+    for (const l of ['ru', 'en', 'zh']) rmSync(file(l), { force: true })
   }
 }
 

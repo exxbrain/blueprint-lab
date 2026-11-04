@@ -18,7 +18,7 @@ interface Props {
  * Анимация через Web Animations API, без React-состояния — дёшево даже при высоком потоке.
  * Ставится внутрь контейнера с position: relative, который содержит все якоря.
  */
-export function FlightLayer({ queue, maxPerFrame = 14, duration = 650 }: Props) {
+export function FlightLayer({ queue, maxPerFrame = 6, duration = 650 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -27,6 +27,8 @@ export function FlightLayer({ queue, maxPerFrame = 14, duration = 650 }: Props) 
     const items = queue.splice(0)
     if (items.length === 0) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // панели в одну колонку (телефон, узкое окно): точки летели бы сквозь соседние панели — без анимации
+    if (window.matchMedia('(max-width: 1100px)').matches) return
     const picked = items.length > maxPerFrame ? sample(items, maxPerFrame) : items
     const root = layer.parentElement!
     const base = root.getBoundingClientRect()
@@ -44,7 +46,6 @@ export function FlightLayer({ queue, maxPerFrame = 14, duration = 650 }: Props) 
       const dot = document.createElement('span')
       dot.className = 'flight-dot'
       dot.style.background = f.color
-      dot.style.boxShadow = `0 0 8px ${f.color}`
       layer.appendChild(dot)
       const midY = (y1 + y2) / 2 - 18
       const anim = dot.animate(

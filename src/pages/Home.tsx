@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tr } from '../i18n'
 import { builderChallenges } from '../sim/builder/challenges'
 import { BuilderCanvas } from '../sim/builder/BuilderCanvas'
@@ -123,11 +123,21 @@ function LiveDemo() {
   const [fixed, setFixed] = useState(false)
   const { nodes, edges } = fixed ? ch.solution : ch
   const result = useMemo(() => simulate(nodes, edges), [nodes, edges])
-  const traffic = useLiveTraffic(nodes, edges, result, true)
+  // схему прокрутили за край экрана — запросы не пускаем, точки не рисуем
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(true)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  const traffic = useLiveTraffic(nodes, edges, result, visible)
   const calmLog = useCalm(traffic.log)
   const noop = () => {}
   return (
-    <div className="panel hub-demo">
+    <div className="panel hub-demo" ref={ref}>
       <div className="row hub-demo-head">
         <b>{ch.title}</b>
         <div className="row tabs">

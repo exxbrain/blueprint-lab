@@ -33,7 +33,16 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: var(--bg);
+}
+/* сетка-чертёж — отдельным неподвижным слоем: background-attachment: fixed перерисовывал всю страницу
+   на каждом кадре прокрутки, а слой браузер просто оставляет на месте */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
   background-image:
     linear-gradient(var(--line-soft) 1px, transparent 1px),
     linear-gradient(90deg, var(--line-soft) 1px, transparent 1px),
@@ -44,7 +53,6 @@ body {
     100px 100px,
     20px 20px,
     20px 20px;
-  background-attachment: fixed;
 }
 
 a {
@@ -207,6 +215,13 @@ label.check {
   background: rgba(10, 31, 54, 0.88);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
+}
+@media (max-width: 768px) {
+  /* на телефоне без размытия под панелью: при прокрутке оно пересчитывается на каждом кадре */
+  .topbar {
+    backdrop-filter: none;
+    background: rgba(10, 31, 54, 0.97);
+  }
 }
 .logo {
   display: flex;
@@ -874,10 +889,11 @@ table.cmp th {
 }
 
 @media (max-width: 1100px) {
+  /* minmax(0, …): колонку не растягивает самое широкое содержимое (ряд партиции), страница не шире экрана */
   .ksim-main,
   .ksim-bottom,
   .scenario-head {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1014,12 +1030,14 @@ table.cmp th {
   fill: #163e66;
   filter: drop-shadow(0 0 8px rgba(124, 196, 255, 0.6));
 }
+/* перегруженный блок мигает толщиной рамки, а не свечением: SVG-фильтр в бесконечной анимации
+   перерисовывается каждый кадр и тормозит страницу на телефоне */
 .bnode.overloaded .bnode-box {
-  animation: overload 0.8s ease-in-out infinite;
+  animation: overload 1.2s ease-in-out infinite;
 }
 @keyframes overload {
   50% {
-    filter: drop-shadow(0 0 10px rgba(255, 107, 122, 0.9));
+    stroke-width: 4;
   }
 }
 .bnode-title {
@@ -2672,10 +2690,20 @@ a.map-node:active .node-circle { transform: translateY(3px); box-shadow: 0 2px 0
   box-shadow: 0 6px 0 #18222f;
 }
 .map-node.locked .node-label b { color: var(--muted); }
-.map-node.next .node-circle { animation: node-pulse 1.6s ease-in-out infinite; }
+/* пульс следующего узла — кольцом, которое растёт и гаснет (transform и opacity не перерисовывают страницу, в отличие от box-shadow) */
+.map-node.next .node-circle { position: relative; }
+.map-node.next .node-circle::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--world) 60%, transparent);
+  pointer-events: none;
+  animation: node-pulse 1.6s ease-out infinite;
+}
 @keyframes node-pulse {
-  0%, 100% { box-shadow: 0 6px 0 color-mix(in srgb, var(--world) 35%, #04101e), 0 0 0 0 color-mix(in srgb, var(--world) 60%, transparent); }
-  50% { box-shadow: 0 6px 0 color-mix(in srgb, var(--world) 35%, #04101e), 0 0 0 14px transparent; }
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(1.4); opacity: 0; }
 }
 .node-stars { margin-top: 6px; font-size: 0.85rem; letter-spacing: 1px; color: rgba(255, 255, 255, 0.18); line-height: 1; }
 .node-stars .on { color: #ffd166; text-shadow: 0 0 6px rgba(255, 209, 102, 0.7); }
@@ -3438,7 +3466,8 @@ body.ws-mode .page { animation: none; }
 .wsx-field.scroll {
   overflow: auto;
   overscroll-behavior: contain;
-  padding: calc(100px + env(safe-area-inset-top)) 10px calc(96px + env(safe-area-inset-bottom));
+  /* снизу — место под нижнюю панель по её настоящей высоте (--ws-tools-h ставит Workspace) и зазор */
+  padding: calc(100px + env(safe-area-inset-top)) 10px calc(var(--ws-tools-h, 72px) + 24px + env(safe-area-inset-bottom));
 }
 .wsx-top {
   position: absolute;

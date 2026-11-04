@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState }
 import { KafkaSim, type KafkaConfig } from './engine'
 
 const STEP = 0.05
+/** Как часто перерисовывать симуляцию: 4 раза в секунду — сообщения идут пачками, но страница не тормозит на телефоне */
+const FRAME_MS = 250
 
 export function useKafkaSim(config: KafkaConfig, onTick?: (sim: KafkaSim) => void) {
   // Сам объект симуляции мутабельный; React перерисовывается по счётчику
@@ -18,12 +20,14 @@ export function useKafkaSim(config: KafkaConfig, onTick?: (sim: KafkaSim) => voi
 
   useEffect(() => {
     if (!running) return
+    // модель идёт с той же скоростью, что и раньше (1 с модели в секунду на ×1); дробные шаги копятся
+    let due = 0
     const timer = setInterval(() => {
-      const steps = Math.round(2 * speed)
-      for (let i = 0; i < steps; i++) sim.tick(STEP)
+      due += (FRAME_MS / 1000 / STEP) * speed
+      for (; due >= 1; due--) sim.tick(STEP)
       onTickRef.current?.(sim)
       force()
-    }, 100)
+    }, FRAME_MS)
     return () => clearInterval(timer)
   }, [running, speed, sim])
 

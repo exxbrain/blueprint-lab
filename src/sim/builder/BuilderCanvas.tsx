@@ -529,17 +529,27 @@ export function schedule(t: LiveTrace, nodes: Record<string, BNode>, edges: BEdg
   return { flights, marks, end }
 }
 
+/** Кадр точек трафика: 30 в секунду вместо 60 — движение чуть проще, а страница вдвое легче (особенно на телефоне) */
+const TRAFFIC_FRAME_MS = 33
+
 function TrafficLayer({ traces, nodes, edges }: { traces: LiveTrace[]; nodes: Record<string, BNode>; edges: BEdge[] }) {
   const [now, setNow] = useState(() => performance.now())
+  // нет запросов в полёте (пауза, схема не видна) — слой не перерисовывается
+  const active = traces.length > 0
   useEffect(() => {
+    if (!active) return
     let raf = 0
-    const tick = () => {
-      setNow(performance.now())
+    let last = 0
+    const tick = (t: number) => {
+      if (t - last >= TRAFFIC_FRAME_MS) {
+        last = t
+        setNow(performance.now())
+      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [active])
   const dots: ReactElement[] = []
   const labels: ReactElement[] = []
   for (const t of traces) {

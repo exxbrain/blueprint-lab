@@ -1,5 +1,5 @@
 import { tr } from '../../i18n'
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ORDER_STAGES, keyColor, type Acks, type KafkaConfig, type KafkaSim, type KeyStrategy, type Msg, type Partition } from './engine'
 import { useKafkaSim } from './useKafkaSim'
 import { Sparkline } from '../../components/Sparkline'
@@ -46,6 +46,31 @@ const KEY_LABELS: Record<KeyStrategy, string> = {
 }
 
 const WINDOW = 22
+
+/**
+ * Сколько последних сообщений партиции помещается в ряд. На телефоне меньше, чем на компьютере:
+ * ряд из 22 квадратов шире экрана и растянул бы всю страницу.
+ */
+function useFitWindow() {
+  const ref = useRef<HTMLElement>(null)
+  const [win, setWin] = useState(WINDOW)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const fit = () => {
+      const st = getComputedStyle(el)
+      const cell = parseFloat(st.getPropertyValue('--cell')) || 22
+      const inner = el.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight)
+      // слева в ряду — «…offset» начала окна
+      setWin(Math.max(6, Math.min(WINDOW, Math.floor((inner - 48) / cell))))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, win] as const
+}
 
 export function KafkaSimulator({ config, controls = {}, onTick, extraActions, compact }: Props) {
   const { sim, running, setRunning, speed, setSpeed, reset, act } = useKafkaSim(config, onTick)
@@ -220,8 +245,9 @@ function TopicPanel({
   onPick,
   picked,
 }: PanelProps & { onPick: (m: Msg) => void; picked: Msg | null }) {
+  const [ref, win] = useFitWindow()
   return (
-    <section className="panel topic">
+    <section className="panel topic" ref={ref}>
       <h4>
         {tr('Топик', 'Topic', 'Topic')} <code>orders</code>
         <span className="muted small">
@@ -230,7 +256,7 @@ function TopicPanel({
         </span>
       </h4>
       {sim.partitions.map((p) => (
-        <PartitionRow key={p.id} sim={sim} p={p} onPick={onPick} picked={picked} />
+        <PartitionRow key={p.id} sim={sim} p={p} win={win} onPick={onPick} picked={picked} />
       ))}
       <div className="legend small muted">
         {tr(
@@ -259,17 +285,20 @@ function TopicPanel({
 function PartitionRow({
   sim,
   p,
+  win,
   onPick,
   picked,
 }: {
   sim: KafkaSim
   p: Partition
+  /** Сколько последних сообщений показать */
+  win: number
   onPick: (m: Msg) => void
   picked: Msg | null
 }) {
   const leo = sim.leaderLeo(p)
   const hw = sim.hw(p)
-  const start = Math.max(p.logStart, leo - WINDOW)
+  const start = Math.max(p.logStart, leo - win)
   const cells = p.log.slice(start - p.logStart)
   return (
     <div className={'prow' + (p.leader === null ? ' offline' : '')} data-anchor={`partition-${p.id}`}>
@@ -318,7 +347,7 @@ function PartitionRow({
           const pos = g.position[p.id] ?? 0
           const idx = pos - start
           const lag = sim.lag(g, p.id)
-          const left = idx < 0 ? 0 : Math.min(idx, WINDOW)
+          const left = idx < 0 ? 0 : Math.min(idx, win)
           return (
             <span
               key={g.id}

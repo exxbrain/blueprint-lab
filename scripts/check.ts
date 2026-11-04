@@ -629,8 +629,11 @@ console.log('\nВход по логину и паролю')
     const { readdirSync, statSync } = await import('node:fs')
     const root = new URL('../', import.meta.url)
     for (const f of readdirSync(root))
-      if (/^\.check-sig-.+\.txt$/.test(f) && !f.startsWith(`.check-sig-${run}-`) && Date.now() - statSync(new URL(f, root)).mtimeMs > 10 * 60_000)
-        rmSync(new URL(f, root), { force: true })
+      if (/^\.check-sig-.+\.txt$/.test(f) && !f.startsWith(`.check-sig-${run}-`)) {
+        // файл мог исчезнуть между readdir и stat: параллельный запуск убрал свой
+        const st = statSync(new URL(f, root), { throwIfNoEntry: false })
+        if (st && Date.now() - st.mtimeMs > 10 * 60_000) rmSync(new URL(f, root), { force: true })
+      }
     writeFileSync(file(lang), signature.join('\n') + '\n')
   }
   if (run && lang === 'zh') {

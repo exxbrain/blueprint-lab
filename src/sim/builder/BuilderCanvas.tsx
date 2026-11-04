@@ -136,7 +136,9 @@ export function BuilderCanvas({
       const el = svgRef.current?.querySelector(`[data-id="${reveal}"]`)
       if (!el) return
       const r = el.getBoundingClientRect()
-      const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0
+      // сверху видимое закрывают шапка сайта и прилипшая панель инструментов холста
+      const bar = svgRef.current?.parentElement?.querySelector(':scope > .editor-bar.on-canvas')
+      const top = Math.max(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0, bar?.getBoundingClientRect().bottom ?? 0)
       if (r.top < top || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
     })
     return () => cancelAnimationFrame(raf)

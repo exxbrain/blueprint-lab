@@ -23,7 +23,7 @@ import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 import { menuOpen, usePhone } from '../components/popover'
 import { Sheet, Tool, Workspace } from '../components/Workspace'
-import { useViewport } from '../components/editor/useViewport'
+import { useViewport, type Rect } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
 import { EditorBar, ElementDialog } from '../components/editor/EditorBar'
 
@@ -49,15 +49,34 @@ export default function C4Page({ id }: { id?: string }) {
   )
 }
 
-/** Свободное место для новой карточки: снаружи границы, если она есть */
-function freePlace(d: DiagramState): { x: number; y: number } {
+/**
+ * Свободное место для новой карточки: снаружи границы, если она есть.
+ * within — видимая часть холста (масштаб, сдвиг, прокрутка страницы, прилипшая панель): сначала ищем место в ней,
+ * чтобы карточка не оказалась под шапкой или за краем экрана
+ */
+function freePlace(d: DiagramState, within?: Rect): { x: number; y: number } {
+  const fits = (s: { x: number; y: number }) => d.placed.every((p) => Math.abs(p.x - s.x) >= EL_W + 6 || Math.abs(p.y - s.y) >= EL_H + 6)
+  const onCanvas = (s: { x: number; y: number }) => s.x >= 0 && s.y >= 0 && s.x + EL_W <= CANVAS.w && s.y + EL_H <= CANVAS.h
+  const inside = (s: { x: number; y: number }) =>
+    !within || (s.x >= within.x && s.y >= within.y && s.x + EL_W <= within.x + within.w && s.y + EL_H <= within.y + within.h)
   const spots: { x: number; y: number }[] = []
   for (let y = 10; y <= 560; y += 90) for (const x of [30, 810]) spots.push({ x, y })
   for (let x = 230; x <= 640; x += 180) spots.push({ x, y: 10 }, { x, y: 560 })
   for (let y = BOUNDARY.y + 20; y < BOUNDARY.y + BOUNDARY.h - EL_H; y += 100)
     for (let x = BOUNDARY.x + 20; x < BOUNDARY.x + BOUNDARY.w - EL_W; x += 180) spots.push({ x, y })
-  const free = spots.find((s) => d.placed.every((p) => Math.abs(p.x - s.x) >= EL_W + 6 || Math.abs(p.y - s.y) >= EL_H + 6))
-  return free ?? { x: 30, y: 10 }
+  if (within) {
+    // привычные места, если они видны; иначе — мелкая сетка по видимой части, от её середины
+    const seen = spots.find((s) => inside(s) && fits(s))
+    if (seen) return seen
+    const c = { x: within.x + within.w / 2 - EL_W / 2, y: within.y + within.h / 2 - EL_H / 2 }
+    const grid: { x: number; y: number }[] = []
+    for (let y = Math.ceil(within.y / 10) * 10; y + EL_H <= within.y + within.h; y += 20)
+      for (let x = Math.ceil(within.x / 10) * 10; x + EL_W <= within.x + within.w; x += 20) grid.push({ x, y })
+    grid.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))
+    const near = grid.find((s) => onCanvas(s) && fits(s))
+    if (near) return near
+  }
+  return spots.find(fits) ?? { x: 30, y: 10 }
 }
 
 function Exercise({ ex }: { ex: C4Exercise }) {
@@ -128,7 +147,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
   const card = (id: string) => ex.cards.find((c) => c.id === id)!
 
   const place = (cardId: string, pos?: { x: number; y: number }) => {
-    const at = pos ?? freePlace(d)
+    const at = pos ?? freePlace(d, vp.visibleRect())
     setD({ ...d, placed: [...d.placed, { card: cardId, x: Math.round(at.x / 10) * 10, y: Math.round(at.y / 10) * 10, kind: null, tech: '' }] })
     setSelected(cardId)
   }

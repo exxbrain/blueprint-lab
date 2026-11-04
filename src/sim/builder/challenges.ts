@@ -623,7 +623,7 @@ export const builderChallenges: BuilderChallenge[] = [
         '数据库收到 5,000 rps，却只能处理 1,000。不过看看数据：首页对所有人都一样，而且每隔几分钟才变一次。',
       ),
       tr(
-        'Нужен компонент, который держит готовые ответы в памяти и отвечает за миллисекунду; в базу сервис идёт только за тем, чего там ещё нет. Реплики базы не влезут в бюджет.',
+        'Нужен компонент, который держит готовые ответы в памяти и отвечает за миллисекунду; в базу сервис идёт только за тем, чего ещё нет в памяти. Реплики базы не влезут в бюджет.',
         'You need a component that keeps ready answers in memory and replies in a millisecond; the service goes to the database only for what is not in memory yet. Database replicas won\'t fit the budget.',
         '你需要一个组件：它把现成的应答保存在内存里，一毫秒就能回复；只有内存里还没有的内容，服务才会去数据库取。数据库副本放不进预算。',
       ),

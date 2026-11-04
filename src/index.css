@@ -3538,7 +3538,12 @@ body.ws-mode .page { animation: none; }
   border-color: var(--accent);
 }
 .editor-bar.on-canvas .add-btn:hover { filter: brightness(1.08); }
-.editor-bar.on-canvas .add-menu { top: calc(100% + 6px); }
+.editor-bar.on-canvas .add-menu {
+  top: calc(100% + 6px);
+  /* в низком окне меню прокручивается, а не уходит за край экрана */
+  max-height: calc(100vh - var(--topbar-h, 56px) - 80px);
+  overflow-y: auto;
+}
 /* сообщение под панелью: «так связать нельзя…» — рядом с тем местом, где человек работает */
 .editor-bar-note {
   position: absolute;
@@ -3553,8 +3558,12 @@ body.ws-mode .page { animation: none; }
   color: var(--warn);
   font-size: 0.9rem;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-  animation: page-in 0.3s;
+  /* только проявление: сдвиг из page-in перебил бы центрирующий translateX(-50%) */
+  animation: note-in 0.3s;
   pointer-events: none;
+}
+@keyframes note-in {
+  from { opacity: 0; }
 }
 .editor-bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .editor-bar-right .hint-dock { margin-left: 0; }

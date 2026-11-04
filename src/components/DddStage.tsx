@@ -5,6 +5,7 @@ import { HintDock } from './HintDock'
 import { usePhone } from './popover'
 import { RefBanner } from './RefBanner'
 import { Workspace } from './Workspace'
+import { nextId } from './editor/nextId'
 import { ReviewPanel } from './ReviewPanel'
 import { ResultButton, ResultModal, useResultModal } from './ResultModal'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
@@ -37,8 +38,7 @@ export function DddStage({ task, progressKey, onNext, nextLabel }: { task: DddTa
   )
 }
 
-let gid = 0
-const newGroup = (n: number) => ({ id: `u${++gid}`, name: tr(`Контекст ${n}`, `Context ${n}`, `上下文 ${n}`) })
+const newGroup = (n: number, taken: { id: string }[]) => ({ id: nextId('u', taken), name: tr(`Контекст ${n}`, `Context ${n}`, `上下文 ${n}`) })
 
 function Hints({ hints, used, take }: { hints: string[]; used: number; take: () => void }) {
   return (
@@ -81,7 +81,10 @@ function Card({ c, selected, onClick, wrong }: { c: DddCard; selected: boolean; 
 }
 
 function PartitionView({ task, progressKey, onNext, nextLabel }: { task: PartitionTask; progressKey: string; onNext?: () => void; nextLabel?: string }) {
-  const [state, setState] = useState<PartitionState>(() => ({ groups: [newGroup(1), newGroup(2)], place: {} }))
+  const [state, setState] = useState<PartitionState>(() => {
+    const first = newGroup(1, [])
+    return { groups: [first, newGroup(2, [first])], place: {} }
+  })
   const [picked, setPicked] = useState<string | null>(null)
   const phone = usePhone()
   // условие при входе — модальным окном (на телефоне)
@@ -114,7 +117,7 @@ function PartitionView({ task, progressKey, onNext, nextLabel }: { task: Partiti
     setPicked(null)
   }
   const addGroup = () => {
-    const g = newGroup(state.groups.length + 1)
+    const g = newGroup(state.groups.length + 1, state.groups)
     const next = { ...state, groups: [...state.groups, g] }
     if (picked) next.place = { ...state.place, [picked]: g.id }
     update(next)

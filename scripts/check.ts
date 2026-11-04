@@ -21,6 +21,7 @@ import { domainOf, emulateRequest, pickClient } from '../src/sim/builder/emulate
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
 import { COMPONENT_REF, PATTERN_REF, findRef, refKey } from '../src/content/reference'
 import { diagnose } from '../src/sim/builder/diagnose'
+import { nextId } from '../src/components/editor/nextId'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, misplacedCards, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
@@ -523,6 +524,17 @@ console.log('\nТолько возможные связи')
 }
 
 // у каждого вида конструктора — своя карточка в справочнике (ⓘ в меню «Добавить»), ключи записей не повторяются
+// новый блок, связь или группа не получают занятый id, даже если счётчик модуля начался заново (перезагрузка модуля в разработке):
+// повтор id склеил бы два элемента схемы в один
+console.log('\nНовые id на схеме')
+{
+  const taken = Array.from({ length: 300 }, (_, i) => ({ id: `n${i}` }))
+  const a = nextId('n', taken)
+  const b = nextId('n', [...taken, { id: a }])
+  if (taken.some((x) => x.id === a) || a === b) fail(`nextId выдал уже занятый id: ${a}, ${b}`)
+  console.log('- новый id не совпадает с уже занятыми на схеме')
+}
+
 console.log('\nСправочник')
 {
   for (const k of Object.keys(KINDS) as NodeKind[]) if (!findRef(k, 'component')) fail(`у компонента «${k}» нет карточки в справочнике`)

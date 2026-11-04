@@ -964,8 +964,8 @@ table.cmp th {
 .builder-canvas.busy .bedge-flow,
 .builder-canvas.busy .bnode-box { animation-play-state: paused; }
 .ws .builder-canvas.has-grid { background: none; }
-/* сетка холста рисуется в SVG и масштабируется вместе со схемой; линии — всегда в 1 px */
-.canvas-grid-line { fill: none; stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* сетка холста рисуется в SVG и движется вместе со схемой; линии — всегда одной толщины на экране, по границам пикселей */
+.canvas-grid-line { fill: none; stroke: var(--line-soft); stroke-width: 1; vector-effect: non-scaling-stroke; shape-rendering: crispEdges; pointer-events: none; }
 .canvas-stage { position: relative; }
 /* масштаб — строкой над схемой, как панель Figma: не закрывает углы схемы */
 .canvas-zoom {

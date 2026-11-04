@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
 import { useViewport, type Rect, type Viewport } from '../../components/editor/useViewport'
 import { WORKLOADS, canLinkFrom, scaleText, type BEdge, type BNode, type Result } from './model'
@@ -197,8 +197,7 @@ export function BuilderCanvas({
   const viewBox = fit && nodes.length ? fitBox(nodes) : vp.viewBox
   /** Видимая часть схемы: x, y, ширина, высота */
   const vb = viewBox.split(/[\s,]+/).map(Number)
-  // клетка сетки на экране мельче 8 px — сетка реже (в витрине на главной масштаб свой, там её не трогаем)
-  const coarse = !fit && 20 * vp.scale < 8
+  const grid = useGrid(viewBox, vp, !!fit)
 
   return (
     <svg
@@ -243,19 +242,11 @@ export function BuilderCanvas({
         <marker id="arrow-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill="#ffd166" />
         </marker>
-        {/* сетка — часть холста: при масштабе и сдвиге она движется вместе со схемой */}
-        <pattern id="canvas-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M 20 0 L 0 0 0 20" className="canvas-grid-line" />
-        </pattern>
-        {/* при мелком масштабе — каждая пятая линия: частая сетка сливается в сплошную и дорого рисуется */}
-        <pattern id="canvas-grid-coarse" width="100" height="100" patternUnits="userSpaceOnUse">
-          <path d="M 100 0 L 0 0 0 100" className="canvas-grid-line" />
-        </pattern>
       </defs>
-      {/* сетка — только вокруг видимой части (с запасом в её размер на каждую сторону: хватает и на поля вытянутого экрана).
-          Прямоугольник на десятки досок телефон не успевал перерисовать при сдвиге и масштабе — рисовал его кусками
-          и показывал сетку прежнего масштаба */}
-      <rect className="canvas-bg" data-viewport-ignore="" x={vb[0] - vb[2]} y={vb[1] - vb[3]} width={vb[2] * 3} height={vb[3] * 3} fill={coarse ? 'url(#canvas-grid-coarse)' : 'url(#canvas-grid)'} />
+      {/* пустое место схемы — по нему жмут, чтобы сдвинуть схему */}
+      <rect className="canvas-bg" data-viewport-ignore="" x={vb[0] - vb[2]} y={vb[1] - vb[3]} width={vb[2] * 3} height={vb[3] * 3} fill="transparent" />
+      {/* сетка — часть холста: при масштабе и сдвиге она движется вместе со схемой */}
+      <path className="canvas-grid-line" data-viewport-ignore="" d={grid.d} style={{ strokeWidth: grid.hair }} />
       {/* границы холста: за них блоки не уходят — на вытянутом экране видно, где можно строить */}
       {!fit && <rect className="canvas-frame" x={0} y={0} width={width} height={height} rx={6} />}
 
@@ -604,6 +595,35 @@ function TrafficLayer({ traces, nodes, edges, paused }: { traces: LiveTrace[]; n
       {labels}
     </g>
   )
+}
+
+/**
+ * Сетка холста — отдельными линиями только по видимой части: в редакторе вид совпадает с экраном, хватает запаса
+ * в одну клетку; у витрины на главной (fit) по бокам бывают поля — там запас в размер вида на каждую сторону. Не SVG-узором: узор рисует клетку картинкой и повторяет её, а на телефоне клетка не ложится
+ * в целые пиксели — линии выходят разной толщины и складываются в ложную крупную сетку, которая плывёт при сдвиге.
+ * Шаг — 20, 100 или 500 единиц, чтобы клетка на экране была не мельче 14 px; толщина — целое число пикселей экрана.
+ */
+function useGrid(viewBox: string, vp: Viewport, fit: boolean) {
+  const vb = viewBox.split(/[\s,]+/).map(Number)
+  // пикселей на единицу схемы: у масштаба вида — свой viewBox, у витрины на главной — рамка по блокам
+  const px = vp.scale * (Number(vp.viewBox.split(/[\s,]+/)[2]) || vb[2]) / vb[2]
+  const step = [20, 100, 500].find((s) => s * px >= 14) ?? 500
+  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
+  const hair = Math.max(1, Math.round(dpr)) / dpr
+  const d = useMemo(() => {
+    const mx = fit ? vb[2] : step
+    const my = fit ? vb[3] : step
+    const x0 = Math.floor((vb[0] - mx) / step) * step
+    const y0 = Math.floor((vb[1] - my) / step) * step
+    const x1 = vb[0] + vb[2] + mx
+    const y1 = vb[1] + vb[3] + my
+    let out = ''
+    for (let x = x0; x <= x1; x += step) out += `M${x} ${y0}V${y1}`
+    for (let y = y0; y <= y1; y += step) out += `M${x0} ${y}H${x1}`
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewBox, step, fit])
+  return { d, hair }
 }
 
 function fitBox(nodes: BNode[]): string {

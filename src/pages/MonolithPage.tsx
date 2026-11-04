@@ -628,6 +628,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           }
         >
           {canvasEl}
+          <PlatformStrip state={state} />
           {refEl}
         </Workspace>
         {sheet === 'patterns' && (
@@ -665,6 +666,7 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
           <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
             <EditorBar vp={vp} />
+            <PlatformStrip state={state} />
             {canvasEl}
           </div>
           {trafficEl}
@@ -760,6 +762,27 @@ const SEVERITY_ICON: Record<Metrics['problems'][number]['severity'], string> = {
   risk: '💥',
   warn: '⚠️',
   excess: '🧰',
+}
+
+/**
+ * Применённые паттерны — строкой поверх схемы, вне масштаба: значок и название, касание открывает карточку справочника.
+ * Раньше они были значками-квадратиками в углу доски, и на телефоне при мелком масштабе от них оставалась точка.
+ */
+function PlatformStrip({ state }: { state: State }) {
+  const enabled = (Object.keys(PATTERNS) as PatternId[]).filter((k) => state.infra[k])
+  const [refId, setRefId] = useState<string | null>(null)
+  if (!enabled.length) return null
+  return (
+    <div className="platform-strip" aria-label={tr('Применённые паттерны', 'Applied patterns', '已应用的模式')}>
+      {refId && <RefModal id={refId} kind="pattern" onClose={() => setRefId(null)} />}
+      <span className="platform-strip-title">🧩 {tr('Платформа', 'Platform', '平台')}</span>
+      {enabled.map((k) => (
+        <button key={k} type="button" className="platform-chip" onClick={() => setRefId(k)} title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，什么时候该用')}>
+          {PATTERNS[k].icon} {PATTERNS[k].title}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metrics; apply: Apply }) {
@@ -1256,18 +1279,6 @@ function MonolithCanvas({
           </text>
         </g>
       )}
-      {/* остальные включённые паттерны — значками */}
-      <g className="pattern-rail" data-viewport-ignore="">
-        {RAIL.filter((k) => state.infra[k]).map((k, i) => (
-          <g key={k} transform={`translate(${W - 40 - (i % 10) * 34},${10 + Math.floor(i / 10) * 34})`} className="appear">
-            <rect width={30} height={30} rx={7} />
-            <text x={15} y={21} textAnchor="middle">
-              {PATTERNS[k].icon}
-            </text>
-            <title>{PATTERNS[k].title}</title>
-          </g>
-        ))}
-      </g>
       <line
         x1={entry.x}
         y1={entry.y + 20}
@@ -1469,28 +1480,6 @@ function placeChips<T extends { d: Dep; mode: DepMode | null; mid: { x: number; 
 }
 
 /** Паттерны, у которых нет своего элемента на схеме, показываем значками в правом верхнем углу */
-const RAIL: PatternId[] = [
-  'accessToken',
-  'rateLimiter',
-  'discovery',
-  'mtls',
-  'acl',
-  'idempotentConsumer',
-  'eventSourcing',
-  'circuitBreakers',
-  'retry',
-  'bulkhead',
-  'idempotencyKeys',
-  'tracing',
-  'logs',
-  'metrics',
-  'health',
-  'auditLog',
-  'canary',
-  'config',
-  'contracts',
-]
-
 const MODE_SHORT: Record<DepMode, string> = {
   sync: 'REST',
   api: 'API',

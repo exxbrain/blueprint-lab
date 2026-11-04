@@ -276,7 +276,13 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             ex={ex}
             diagram={d}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={(id, tapped) => {
+              setSelected(id)
+              // шторка свойств на телефоне — тем же вызовом, что и выбор: между ними нет отрисовки, состояние не расходится.
+              // Выбор сняли (потащили элемент, нажали на пустое место) — шторка закрыта
+              if (!id) setPropsOpen(false)
+              else if (tapped && phone) setPropsOpen(true)
+            }}
             onMove={(cardId, x, y) => patchEl(cardId, { x, y })}
             onConnect={(from, to) => {
               if (d.rels.some((r) => r.from === from && r.to === to)) return
@@ -417,18 +423,16 @@ function Exercise({ ex }: { ex: C4Exercise }) {
             onPointerDownCapture={(e) => {
               pointersDown.current.add(e.pointerId)
               const t = e.target as Element
-              // свойства — только по касанию самого элемента или связи: не по пустому месту, подписи границы или точке связи
-              const onItem =
-                e.button === 0 && !(e.pointerType === 'mouse' && e.ctrlKey) && !!t.closest?.('.c4-el, .c4-rel') && !t.closest?.('.bnode-port')
+              // здесь — только касание связи: её поле выбирает ещё при нажатии. Касание элемента поле само сообщает при отпускании
+              // (onSelect с tapped), а перетаскивание элемента снимает выбор
+              const onItem = e.button === 0 && !(e.pointerType === 'mouse' && e.ctrlKey) && !!t.closest?.('.c4-rel')
               tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, n: pointersDown.current.size, onItem }
             }}
             onPointerUpCapture={(e) => {
               const t = tapStart.current
               tapStart.current = null
-              // касание одним пальцем почти без сдвига — открыть свойства. Связь выбрана ещё при нажатии,
-              // элемент поле выберет при этом же отпускании; если элемент успели потащить, поле сняло выбор — шторки нет
-              if (t && t.onItem && t.id === e.pointerId && t.n === 1 && !dragging && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8)
-                setPropsOpen(true)
+              // касание связи одним пальцем почти без сдвига — открыть её свойства
+              if (t && t.onItem && t.id === e.pointerId && t.n === 1 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8) setPropsOpen(true)
             }}
             onPointerCancelCapture={() => {
               tapStart.current = null

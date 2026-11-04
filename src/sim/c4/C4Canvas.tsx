@@ -10,7 +10,8 @@ interface Props {
   ex: C4Exercise
   diagram: DiagramState
   selected: string | null
-  onSelect: (id: string | null) => void
+  /** tapped — элемент выбран щелчком или касанием без сдвига: на телефоне сразу открыть его свойства */
+  onSelect: (id: string | null, tapped?: boolean) => void
   onMove: (card: string, x: number, y: number) => void
   onConnect: (from: string, to: string) => void
   onDropCard: (card: string, x: number, y: number) => void
@@ -74,7 +75,7 @@ export function C4Canvas({ ex, diagram, selected, onSelect, onMove, onConnect, o
     if (vp.onUp(e)) return
     if (drag.current?.moved || link) onDragging?.(false)
     // щелчок без сдвига — выбрать элемент и открыть его свойства
-    if (drag.current && !drag.current.moved) onSelect(drag.current.card)
+    if (drag.current && !drag.current.moved) onSelect(drag.current.card, true)
     if (link) {
       const p = toSvg(e)
       const target = at(p.x, p.y)

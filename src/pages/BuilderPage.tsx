@@ -663,7 +663,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
         )}
         {popoverEl}
         {resultEl}
-        {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
+        {refId && <RefModal id={refId} kind="component" onClose={() => setRefId(null)} />}
       </>
     )
 
@@ -675,7 +675,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       {actionsEl}
       {reviewEl}
       {resultEl}
-      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
+      {refId && <RefModal id={refId} kind="component" onClose={() => setRefId(null)} />}
       <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
         {statsEl}
         {cycleEl}

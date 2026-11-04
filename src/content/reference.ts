@@ -3,6 +3,7 @@
  * когда применять и чем реализуют. Ключи совпадают с PatternId и NodeKind.
  */
 import { tr } from '../i18n'
+import type { NodeKind } from '../sim/builder/model'
 
 export interface RefEntry {
   id: string
@@ -33,7 +34,12 @@ const C = {
   storage: tr('Хранилища', 'Storage', '存储'),
 }
 
-export const PATTERN_REF: RefEntry[] = [
+/** Паттерн: у него обязательно свой эмодзи */
+export type PatternRef = RefEntry & { icon: string }
+/** Компонент конструктора: id — вид блока, значок — тот же, что на схеме */
+export type ComponentRef = RefEntry & { id: NodeKind }
+
+export const PATTERN_REF: PatternRef[] = [
   {
     id: 'gateway',
     title: 'Strangler Fig / API Gateway',
@@ -568,7 +574,7 @@ export const PATTERN_REF: RefEntry[] = [
   },
 ]
 
-export const COMPONENT_REF: RefEntry[] = [
+export const COMPONENT_REF: ComponentRef[] = [
   {
     id: 'client',
     title: tr('Клиенты', 'Clients', '客户端'),
@@ -714,6 +720,21 @@ export const COMPONENT_REF: RefEntry[] = [
   },
 ]
 
-export function findRef(id: string): RefEntry | undefined {
+export const isComponentRef = (e: RefEntry): e is ComponentRef => (COMPONENT_REF as RefEntry[]).includes(e)
+
+/**
+ * Ключ записи на странице «Справочник» и в адресе #/reference/<ключ>: у паттерна — id, у компонента — component-<вид>.
+ * Один id бывает в обоих списках ('gateway': паттерн Strangler Fig / API Gateway и компонент API Gateway).
+ */
+export const refKey = (e: RefEntry) => (isComponentRef(e) ? `component-${e.id}` : e.id)
+
+/**
+ * Запись по ключу или id. kind — где искать (ⓘ конструктора — среди компонентов, распила — среди паттернов);
+ * без него голый id ищется сначала среди паттернов: так работают прежние адреса справочника.
+ */
+export function findRef(key: string, kind?: 'pattern' | 'component'): RefEntry | undefined {
+  const id = key.startsWith('component-') ? key.slice('component-'.length) : key
+  if (kind === 'component' || id !== key) return COMPONENT_REF.find((x) => x.id === id)
+  if (kind === 'pattern') return PATTERN_REF.find((x) => x.id === id)
   return PATTERN_REF.find((x) => x.id === id) ?? COMPONENT_REF.find((x) => x.id === id)
 }

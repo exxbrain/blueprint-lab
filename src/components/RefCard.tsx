@@ -1,12 +1,11 @@
 import { useEffect } from 'react'
-import { COMPONENT_REF, findRef, type RefEntry } from '../content/reference'
+import { findRef, isComponentRef, refKey, type RefEntry } from '../content/reference'
 import { KindIcon } from '../sim/builder/KindIcon'
-import { isNodeKind } from '../sim/builder/model'
 import { tr } from '../i18n'
 
 /** Значок записи: у компонента конструктора — тот же, что на схеме; у паттерна — его эмодзи */
 export function RefIcon({ e }: { e: RefEntry }) {
-  return COMPONENT_REF.includes(e) && isNodeKind(e.id) ? <KindIcon kind={e.id} /> : <>{e.icon}</>
+  return isComponentRef(e) ? <KindIcon kind={e.id} /> : <>{e.icon}</>
 }
 
 /** Полное описание паттерна или компонента */
@@ -39,8 +38,8 @@ export function RefBody({ e }: { e: RefEntry }) {
 }
 
 /** Всплывающая карточка справочника поверх страницы */
-export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const e = findRef(id)
+export function RefModal({ id, kind, onClose }: { id: string; kind?: 'pattern' | 'component'; onClose: () => void }) {
+  const e = findRef(id, kind)
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -61,11 +60,11 @@ export function RefModal({ id, onClose }: { id: string; onClose: () => void }) {
         <RefBody e={e} />
         <a
           className="small"
-          href={`#/reference/${e.id}`}
+          href={`#/reference/${refKey(e)}`}
           onClick={(ev) => {
             // сначала переход, потом закрытие: иначе ссылка исчезает из документа раньше перехода
             ev.preventDefault()
-            window.location.hash = `#/reference/${e.id}`
+            window.location.hash = `#/reference/${refKey(e)}`
             onClose()
           }}
         >

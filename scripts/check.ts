@@ -18,6 +18,7 @@ import { STRESS_TESTS } from '../src/sim/monolith/patterns'
 import { ES_TASKS } from '../src/sim/es/model'
 import { domainOf, emulateRequest, pickClient } from '../src/sim/builder/emulate'
 import { DDD_STAGES } from '../src/sim/ddd/tasks'
+import { COMPONENT_REF, PATTERN_REF, findRef, refKey } from '../src/content/reference'
 import { diagnose } from '../src/sim/builder/diagnose'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
@@ -216,6 +217,16 @@ console.log('\nТолько возможные связи')
   for (const [a, b] of no) if (!linkProblem(a, b)) fail(`связь ${a} → ${b} должна быть запрещена`)
   for (const [a, b] of yes) if (linkProblem(a, b)) fail(`связь ${a} → ${b} должна быть разрешена`)
   console.log(`- связей в стартах и эталонах проверено: ${n}; запрещённых пар: ${no.length}, разрешённых: ${yes.length}`)
+}
+
+// у каждого вида конструктора — своя карточка в справочнике (ⓘ в меню «Добавить»), ключи записей не повторяются
+console.log('\nСправочник')
+{
+  for (const k of Object.keys(KINDS) as NodeKind[]) if (!findRef(k, 'component')) fail(`у компонента «${k}» нет карточки в справочнике`)
+  const keys = [...PATTERN_REF, ...COMPONENT_REF].map(refKey)
+  const twice = keys.filter((k, i) => keys.indexOf(k) !== i)
+  if (twice.length) fail(`ключи справочника повторяются: ${twice.join(', ')}`)
+  console.log(`- карточек: паттернов ${PATTERN_REF.length}, компонентов ${COMPONENT_REF.length}; у каждого вида конструктора карточка есть`)
 }
 
 // подсказки должны вести к решению через свойства, а не называть инструмент или паттерн

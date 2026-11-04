@@ -768,7 +768,7 @@ function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metri
   const [refId, setRefId] = useState<string | null>(null)
   return (
     <section className="panel patterns-panel">
-      {refId && <RefModal id={refId} onClose={() => setRefId(null)} />}
+      {refId && <RefModal id={refId} kind="pattern" onClose={() => setRefId(null)} />}
       <div className="card-head">
         <h4>{tr('Паттерны', 'Patterns', '模式')}</h4>
         <span className="small muted">

@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
-import { COMPONENT_REF, PATTERN_REF, type RefEntry } from '../content/reference'
+import { COMPONENT_REF, PATTERN_REF, findRef, refKey, type RefEntry } from '../content/reference'
 import { RefBody, RefIcon } from '../components/RefCard'
 import { tr } from '../i18n'
 
 export default function ReferencePage({ focus }: { focus?: string }) {
   const [q, setQ] = useState('')
-  const [open, setOpen] = useState<string | null>(focus ?? null)
+  // в адресе — ключ записи (component-gateway) или, по-старому, голый id
+  const focused = focus ? findRef(focus) : undefined
+  const focusKey = focused ? refKey(focused) : null
+  const [open, setOpen] = useState<string | null>(focusKey)
 
   useEffect(() => {
-    if (!focus) return
-    setOpen(focus)
-    setTimeout(() => document.getElementById(`ref-${focus}`)?.scrollIntoView({ block: 'center' }), 50)
-  }, [focus])
+    if (!focusKey) return
+    setOpen(focusKey)
+    setTimeout(() => document.getElementById(`ref-${focusKey}`)?.scrollIntoView({ block: 'center' }), 50)
+  }, [focusKey])
 
   const match = (e: RefEntry) => {
     const s = q.trim().toLowerCase()
@@ -32,21 +35,24 @@ export default function ReferencePage({ focus }: { focus?: string }) {
             <div className="ref-grid">
               {shown
                 .filter((e) => e.category === g)
-                .map((e) => (
-                  <div key={e.id} id={`ref-${e.id}`} className={'panel ref-item' + (open === e.id ? ' open' : '')}>
-                    <button className="ref-head" onClick={() => setOpen(open === e.id ? null : e.id)}>
-                      <span className="ref-icon">
-                        <RefIcon e={e} />
-                      </span>
-                      <span>
-                        <b>{e.title}</b>
-                        <span className="small muted ref-sum"> — {e.summary}</span>
-                      </span>
-                      <span className="muted">{open === e.id ? '▾' : '▸'}</span>
-                    </button>
-                    {open === e.id && <RefBody e={e} />}
-                  </div>
-                ))}
+                .map((e) => {
+                  const key = refKey(e)
+                  return (
+                    <div key={key} id={`ref-${key}`} className={'panel ref-item' + (open === key ? ' open' : '')}>
+                      <button className="ref-head" onClick={() => setOpen(open === key ? null : key)}>
+                        <span className="ref-icon">
+                          <RefIcon e={e} />
+                        </span>
+                        <span>
+                          <b>{e.title}</b>
+                          <span className="small muted ref-sum"> — {e.summary}</span>
+                        </span>
+                        <span className="muted">{open === key ? '▾' : '▸'}</span>
+                      </button>
+                      {open === key && <RefBody e={e} />}
+                    </div>
+                  )
+                })}
             </div>
           </div>
         ))}

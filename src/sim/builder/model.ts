@@ -238,9 +238,6 @@ export const KINDS: Record<NodeKind, KindSpec> = {
   },
 }
 
-/** Это вид компонента конструктора? (ключи справочника и меню — строки) */
-export const isNodeKind = (id: string): id is NodeKind => Object.hasOwn(KINDS, id)
-
 /** Профили, которые кэш умеет закрывать попаданиями */
 const CACHEABLE: Workload[] = ['oltp', 'kv', 'search']
 

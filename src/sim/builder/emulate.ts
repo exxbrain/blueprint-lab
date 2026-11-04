@@ -132,9 +132,9 @@ export function domainOf(client: BNode, w: Workload, roll: () => number = rnd): 
 const WRITE_OF: Partial<Record<Domain, Domain>> = { product: 'order', link: 'newlink', image: 'upload', video: 'upload', doc: 'upload' }
 const READ_OF: Partial<Record<Domain, Domain>> = { signup: 'profile', newlink: 'link', upload: 'doc' }
 
-function makeCtx(client: BNode, w: Workload): Ctx {
+function makeCtx(client: BNode, w: Workload, forceWrite?: boolean): Ctx {
   // доля записей — та же, что в модели: иначе живой трафик и цифры разойдутся
-  const write = rnd() < writeShareOf(client)
+  const write = forceWrite ?? rnd() < writeShareOf(client)
   const base = domainOf(client, w)
   const domain = write ? (WRITE_OF[base] ?? base) : (READ_OF[base] ?? base)
   return {
@@ -148,6 +148,16 @@ function makeCtx(client: BNode, w: Workload): Ctx {
     amount: int(100, 9000),
     limit: int(5, 50) * 1000,
     price: int(500, 9000),
+  }
+}
+
+/** Примеры запросов клиента для его окна: чтение и (если клиент пишет) запись — так, как они выглядят в логе доступа */
+export function sampleRequests(client: BNode): { read?: string; write?: string } {
+  const w = client.workload ?? 'oltp'
+  const share = writeShareOf(client)
+  return {
+    read: share < 1 ? requestFor(makeCtx(client, w, false)) : undefined,
+    write: share > 0 ? requestFor(makeCtx(client, w, true)) : undefined,
   }
 }
 

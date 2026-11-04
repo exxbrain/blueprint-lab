@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../../i18n'
-import type { BEdge, BNode, Result } from './model'
+import { writeShareOf, type BEdge, type BNode, type Result } from './model'
 import { KindIcon } from './KindIcon'
-import { emulateRequest, pickClient, type Span, type Trace } from './emulate'
+import { emulateRequest, pickClient, sampleRequests, type Span, type Trace } from './emulate'
 import { HOP_MS, type LiveTrace } from './BuilderCanvas'
 
 /**
@@ -238,6 +238,60 @@ export function NodeLog({ nodeId, log }: { nodeId: string; log: Trace[] }) {
         </div>
       ))}
       </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Окно клиента: какие запросы он шлёт — чтение и запись с их долями, куда они идут, — и последние из них.
+ * Так видно, например, что картинки браузер загружает прямо в хранилище, а страницы и API идут через веб-сервер
+ */
+export function ClientLog({ client, nodes, edges, log }: { client: BNode; nodes: BNode[]; edges: BEdge[]; log: Trace[] }) {
+  const calm = useCalm(log)
+  const share = writeShareOf(client)
+  const pct = (v: number) => `${Math.round(v * 1000) / 10}%`
+  // пример меняется, только когда меняется сам клиент, а не на каждой перерисовке
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sample = useMemo(() => sampleRequests(client), [client.id, client.label, client.workload, share])
+  const label = (id: string) => nodes.find((n) => n.id === id)?.label ?? id
+  const targets = edges.filter((e) => e.from === client.id).map((e) => label(e.to))
+  const recent = calm.filter((t) => t.clientId === client.id).slice(0, 10)
+  return (
+    <div className="node-log">
+      <div className="pattern-group-title">{tr('Запросы клиента', 'Client requests', '客户端请求')}</div>
+      <div className="client-reqs">
+        {sample.read && (
+          <div className="log-line">
+            <span className="wf-ms">{pct(1 - share)}</span> <code>{sample.read}</code>
+          </div>
+        )}
+        {sample.write && (
+          <div className="log-line">
+            <span className="wf-ms">{pct(share)}</span> <code>{sample.write}</code>
+          </div>
+        )}
+      </div>
+      <p className="small muted">
+        {targets.length
+          ? tr('Куда: ', 'Sent to: ', '发往：') +
+            targets.join(', ') +
+            (targets.length > 1 ? tr(' — поток делится между связями поровну', ', the flow is split evenly between the connections', '，流量在各条连接之间平均分配') : '')
+          : tr('Клиент ни к чему не подключён', 'The client is not connected to anything', '客户端没有连接到任何组件')}
+      </p>
+      <div className="pattern-group-title">{tr('Последние запросы', 'Recent requests', '最近的请求')}</div>
+      {!recent.length && <p className="small muted">{tr('Запросов пока не было', 'No requests yet', '还没有请求')}</p>}
+      <div className="log-window">
+        <div className="log-slide">
+          {recent.map((t) => (
+            <div key={t.id} className={'log-line ' + (t.status === 'ok' ? 'ok' : 'error')}>
+              <span className="wf-ms">{ms(t.totalMs)}</span> <code>{t.request}</code>
+              {/* куда ушёл запрос — когда связей несколько */}
+              {targets.length > 1 && t.spans[0] && <span className="muted"> → {label(t.spans[0].nodeId)}</span>}{' '}
+              {t.status !== 'ok' && <span className="wf-status error">{codeOf(t)}</span>}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

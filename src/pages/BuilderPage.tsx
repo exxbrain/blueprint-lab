@@ -44,7 +44,7 @@ import { diagnose } from '../sim/builder/diagnose'
 import { markScenario, recordStars, cappedStars, useHints, referenceNote } from '../progress'
 import { tr } from '../i18n'
 import { TaskGate, TaskLevelTag } from '../components/Level'
-import { NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
+import { ClientLog, NodeLog, TrafficPanel, useLiveTraffic } from '../sim/builder/TrafficPanel'
 import { KindIcon } from '../sim/builder/KindIcon'
 
 const KIND_GROUP_LABEL: Record<'Трафик' | 'Вычисления' | 'Хранилища', string> = {
@@ -553,7 +553,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                       remove={remove}
                     />
                   ))}
-                  {estimated && selNode.kind !== 'client' && <NodeLog nodeId={selNode.id} log={traffic.log} />}
+                  {estimated &&
+                    (selNode.kind === 'client' ? (
+                      <ClientLog client={selNode} nodes={nodes} edges={edges} log={traffic.log} />
+                    ) : (
+                      <NodeLog nodeId={selNode.id} log={traffic.log} />
+                    ))}
                 </>
               )}
             </ElementDialog>

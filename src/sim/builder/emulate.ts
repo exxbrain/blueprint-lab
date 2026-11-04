@@ -267,8 +267,10 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
         : `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') IF NOT EXISTS`
     if (c.domain === 'crawl') return `INSERT INTO pages (url, body) VALUES ('https://${site(c)}/page/${c.id}', '…')  -- 500 KB`
     if (c.domain === 'static') return `INSERT INTO files (name, data) VALUES ('uploads/${c.code}.png', '\\x89504e47…')  -- 300 KB`
-    if (c.domain === 'feed') return `INSERT INTO posts (author_id, text) VALUES (${c.user}, '…')`
-    if (c.domain === 'suggest') return `INSERT INTO search_terms (term) VALUES ('${c.word}') ON CONFLICT DO NOTHING`
+    if (c.domain === 'feed')
+      return dialect === 'pg' ? `INSERT INTO posts (author_id, text) VALUES (${c.user}, '…')` : `INSERT INTO feed (user_id, post_id, ts) VALUES (${c.user}, now(), toTimestamp(now()))`
+    if (c.domain === 'suggest')
+      return dialect === 'pg' ? `INSERT INTO items (title) VALUES ('${c.word}') ON CONFLICT DO NOTHING` : `INSERT INTO items (title) VALUES ('${c.word}') IF NOT EXISTS`
   }
   switch (c.domain) {
     case 'order':

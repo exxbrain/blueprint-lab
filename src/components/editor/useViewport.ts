@@ -35,7 +35,10 @@ export interface ViewportOptions {
   height: number
   /** Витрина: без масштаба и жестов */
   disabled?: boolean
-  /** Что нарисовано — для «вписать схему»; без него — рамка всего, что в svg */
+  /**
+   * Что нарисовано — для «вписать схему» и предела сдвига (схему нельзя увести из кадра).
+   * Без него — рамка всего, что в svg, кроме помеченного data-viewport-ignore (служебные значки в углу и т. п.)
+   */
   content?: () => Rect | null
   /** Выбранное — для «к выбранному» */
   selection?: () => Rect | null
@@ -86,8 +89,14 @@ export function useViewport(o: ViewportOptions) {
     const w = maxW()
     return { x: (width - w) / 2, y: (height - w * A()) / 2, w }
   }
-  /** from — вид, от которого идёт сдвиг: если он уже за пределом, к пределу не прыгаем, только не пускаем дальше */
-  const clampView = (v: View, from: View | null = viewRef.current ?? whole()): View | null => {
+  /**
+   * Вид в допустимых границах. При чистом сдвиге (ширина вида та же, что у текущего) предел ослабляется текущим видом:
+   * если схема уже за пределом (прижата к краю), к пределу не прыгаем, только не пускаем дальше.
+   * При масштабе, вписывании и прочем — предел как есть
+   */
+  const clampView = (v: View): View | null => {
+    const cur0 = viewRef.current ?? whole()
+    const from = Math.abs(cur0.w - v.w) < 1e-6 ? cur0 : null
     const w = Math.max(Math.min(minW(), maxW()), Math.min(outW(), v.w))
     const h = w * A()
     // схему (то, что нарисовано: content страницы или рамка всего, что в svg; без них — холст) можно отодвинуть
@@ -154,12 +163,26 @@ export function useViewport(o: ViewportOptions) {
   }
   const drawn = (): Rect | null => {
     if (opts.current.content) return opts.current.content()
-    try {
-      const b = svgRef.current?.getBBox()
-      return b && b.width > 0 && b.height > 0 ? { x: b.x - 20, y: b.y - 20, w: b.width + 40, h: b.height + 40 } : null
-    } catch {
-      return null // svg ещё не отрисован
+    const svg = svgRef.current
+    if (!svg) return null
+    let x0 = Infinity
+    let y0 = Infinity
+    let x1 = -Infinity
+    let y1 = -Infinity
+    for (const el of Array.from(svg.children)) {
+      if (!(el instanceof SVGGraphicsElement) || el.hasAttribute('data-viewport-ignore')) continue
+      try {
+        const b = el.getBBox()
+        if (b.width <= 0 && b.height <= 0) continue
+        x0 = Math.min(x0, b.x)
+        y0 = Math.min(y0, b.y)
+        x1 = Math.max(x1, b.x + b.width)
+        y1 = Math.max(y1, b.y + b.height)
+      } catch {
+        // элемент ещё не отрисован
+      }
     }
+    return x0 < x1 && y0 < y1 ? { x: x0 - 20, y: y0 - 20, w: x1 - x0 + 40, h: y1 - y0 + 40 } : null
   }
   const fit = (maxScale = MAX_SCALE) => {
     const r = drawn()

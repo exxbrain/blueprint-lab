@@ -1239,7 +1239,7 @@ function MonolithCanvas({
         </g>
       )}
       {/* остальные включённые паттерны — значками */}
-      <g className="pattern-rail">
+      <g className="pattern-rail" data-viewport-ignore="">
         {RAIL.filter((k) => state.infra[k]).map((k, i) => (
           <g key={k} transform={`translate(${W - 40 - (i % 10) * 34},${10 + Math.floor(i / 10) * 34})`} className="appear">
             <rect width={30} height={30} rx={7} />

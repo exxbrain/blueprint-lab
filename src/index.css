@@ -3506,6 +3506,13 @@ body.ws-mode .page { animation: none; }
   animation: sheet-in 0.22s ease-out;
 }
 .ws .ref-banner { position: absolute; z-index: 3; left: 8px; right: 8px; top: calc(92px + env(safe-area-inset-top)); margin: 0; }
+/* в прокручиваемом поле (карта контекстов) плашка — в потоке над списком и прилипает под панелями при прокрутке */
+.ws .wsx-field.scroll .ref-banner.compact {
+  position: sticky;
+  top: calc(92px + env(safe-area-inset-top));
+  width: fit-content;
+  margin: 0 0 10px;
+}
 /* на телефоне плашка лежит поверх схемы: короткая, в одну строку, непрозрачная и по ширине содержимого */
 .ws .ref-banner.compact {
   right: auto;

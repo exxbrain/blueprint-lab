@@ -2815,7 +2815,7 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
   /* холст во всю ширину; вертикально пальцем листается страница, двумя пальцами — масштаб, вбок — сдвиг схемы */
   .canvas-wrap { padding: 6px; }
   .builder-canvas { touch-action: pan-y; }
-  /* приближенную схему пальцем двигаем во все стороны, страница при этом не листается */
+  /* сдвинутую или приближенную схему пальцем двигаем во все стороны, страница при этом не листается */
   .builder-canvas.zoomed { touch-action: none; }
   .canvas-zoom button.icon, .zoom-pct { height: 38px; }
   .canvas-zoom button.icon { width: 38px; }

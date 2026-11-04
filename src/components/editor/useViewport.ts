@@ -5,8 +5,14 @@ import { menuOpen } from '../popover'
 export const MAX_SCALE = 4
 /** Запас вокруг холста: отдалить можно ещё в столько раз мельче, чем «весь холст» */
 export const ZOOM_OUT = 3
-/** Запас при сдвиге: схему можно увести от края вида на такую долю вида — чтобы она не упиралась в края и панели */
-export const PAN_MARGIN = 0.5
+/**
+ * Сдвиг не теряет схему: маленькая схема остаётся в кадре хотя бы наполовину и серединой не ближе EDGE вида к краю
+ * (там панели рабочего экрана), а крупная занимает не меньше KEEP_IN_VIEW вида
+ */
+export const KEEP_IN_VIEW = 0.5
+const EDGE = 0.15
+/** Сдвиг пальцем или мышью начинается, когда указатель ушёл дальше этого (px): дрожание при щелчке схему не двигает */
+const PAN_START = 4
 
 /** Прямоугольник в координатах схемы */
 export interface Rect {
@@ -43,9 +49,9 @@ export interface ViewportOptions {
  * Общая для всех редакторов схем (конструктор, C4, распил) работа с полем, как в Figma.
  * Видимая часть задаётся viewBox: схема остаётся векторной и попадание по элементам точное.
  * - проценты масштаба, «вписать», «к выбранному», 100%, «весь холст»; отдалить можно и мельче всего холста — вокруг него запас;
- * - колесо: с Ctrl/⌘ и щипок на тачпаде — масштаб у курсора, без — сдвиг схемы, если вид сдвинут или приближен (иначе листается страница);
+ * - колесо: с Ctrl/⌘ и щипок на тачпаде — масштаб у курсора, без — сдвиг приближенной схемы (иначе листается страница);
  * - пробел + перетаскивание и средняя кнопка мыши — сдвиг откуда угодно;
- * - пальцы и мышь: по пустому месту — сдвиг схемы (с запасом за краями холста), двумя пальцами где угодно — масштаб и сдвиг;
+ * - пальцы и мышь: по пустому месту — сдвиг схемы (её можно отодвинуть от краёв, но не увести из кадра), двумя пальцами — масштаб и сдвиг;
  * - клавиши: Shift+1, Shift+2, Shift+0, +/−.
  * Поле может быть любой формы (на телефоне — весь экран): пропорции видимой части берутся из размера svg на экране.
  */
@@ -83,13 +89,14 @@ export function useViewport(o: ViewportOptions) {
   const clampView = (v: View): View | null => {
     const w = Math.max(Math.min(minW(), maxW()), Math.min(outW(), v.w))
     const h = w * A()
-    // вид может уйти за край холста на долю своего размера: схему можно отодвинуть от краёв и панелей;
-    // меньше холста — край холста не дальше этого запаса, больше — холст не уходит из кадра дальше него
-    const along = (pos: number, size: number, total: number) => {
-      const m = size * PAN_MARGIN
-      return size <= total ? Math.max(-m, Math.min(total - size + m, pos)) : Math.max(total - size - m, Math.min(m, pos))
+    // схему (то, что нарисовано, а без неё — холст) можно отодвинуть от краёв вида, но не увести из кадра:
+    // keep — сколько её (в единицах схемы) остаётся видно у ближнего края вида
+    const thing = opts.current.content?.() ?? { x: 0, y: 0, w: width, h: height }
+    const along = (pos: number, size: number, start: number, len: number) => {
+      const keep = Math.min(len / 2 + size * EDGE, size * KEEP_IN_VIEW)
+      return Math.max(start + keep - size, Math.min(start + len - keep, pos))
     }
-    const next = { x: along(v.x, w, width), y: along(v.y, h, height), w }
+    const next = { x: along(v.x, w, thing.x, thing.w), y: along(v.y, h, thing.y, thing.h), w }
     // ровно «весь холст» по центру — вид по умолчанию
     const all = whole()
     return Math.abs(w - all.w) < 1 && Math.abs(next.x - all.x) < 0.5 && Math.abs(next.y - all.y) < 0.5 ? null : next
@@ -219,6 +226,8 @@ export function useViewport(o: ViewportOptions) {
     if (!g || !pts.length) return
     const two = pts.length >= 2 && g.dist > 0
     const mid = two ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0]
+    // одним указателем — только после настоящего движения: щелчок с дрожанием на пару пикселей вид не трогает
+    if (!two && !panMoved.current && Math.hypot(mid.x - g.mid.x, mid.y - g.mid.y) < PAN_START) return
     const w = two ? g.view.w * (g.dist / Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y))) : g.view.w
     // точка схемы под пальцами в начале жеста остаётся под пальцами
     const s0 = g.rect.width / g.view.w
@@ -315,7 +324,8 @@ export function useViewport(o: ViewportOptions) {
     setPanning(false)
   }
 
-  // колесо: Ctrl/⌘ или щипок на тачпаде — масштаб у курсора; без них — сдвиг приближенной схемы (Shift — вбок)
+  // колесо: Ctrl/⌘ или щипок на тачпаде — масштаб у курсора; без них — сдвиг схемы, приближенной крупнее «всего холста»
+  // (Shift — вбок). Весь холст или мельче — колесо листает страницу, как обычно
   useEffect(() => {
     const svg = svgEl
     if (!svg || o.disabled) return
@@ -328,7 +338,7 @@ export function useViewport(o: ViewportOptions) {
         return
       }
       const v = viewRef.current
-      if (!v) return
+      if (!v || v.w >= maxW() - 1) return
       let dx = e.deltaX * unit
       let dy = e.deltaY * unit
       if (e.shiftKey && !dx) [dx, dy] = [dy, 0]

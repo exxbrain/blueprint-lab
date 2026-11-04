@@ -22,6 +22,7 @@ import { markScenario, recordStars, useProgress, cappedStars, useHints, referenc
 import { TaskGate, TaskLevelTag } from '../components/Level'
 import { tr } from '../i18n'
 import { menuOpen, usePhone } from '../components/popover'
+import { RefBanner } from '../components/RefBanner'
 import { Sheet, Tool, Workspace } from '../components/Workspace'
 import { useViewport, type Rect } from '../components/editor/useViewport'
 import { ZoomMenu } from '../components/editor/ZoomMenu'
@@ -258,20 +259,7 @@ function Exercise({ ex }: { ex: C4Exercise }) {
         </div>
       </div>
     </>
-  const refEl = <>
-      {viewingRef && (
-        <div className="ref-banner">
-          {tr(
-            <>👁 Вы смотрите <b>эталонную диаграмму</b> — в зачёт она не идёт.</>,
-            <>👁 You are viewing the <b>reference diagram</b> — it does not count towards your progress.</>,
-            <>👁 你正在查看<b>参考图表</b>——它不计入你的进度。</>,
-          )}
-          <button className="primary" onClick={toggleReference}>
-            {tr('↩ Вернуть мою диаграмму', '↩ Back to my diagram', '↩ 返回我的图表')}
-          </button>
-        </div>
-      )}
-    </>
+  const refEl = viewingRef && <RefBanner compact={phone} diagram onBack={toggleReference} />
   const resultEl = <>
       <ResultModal open={result$.open} onClose={() => result$.setOpen(false)} progressKey={`c4/${ex.id}`} stars={cappedStars(review.stars, hints)}>
         <ReviewPanel review={review} title={tr('Проверка диаграммы', 'Diagram check', '图表检查')} />

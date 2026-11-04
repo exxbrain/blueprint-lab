@@ -1206,7 +1206,7 @@ function MonolithCanvas({
       }}
       onPointerDownCapture={vp.onPointerDownCapture}
       onPointerDown={(e) => {
-        // пустое место (не модуль и не связь) — сдвиг приближенной схемы, в том числе внутри коробки монолита
+        // пустое место (не модуль и не связь) — сдвиг схемы, в том числе внутри коробки монолита
         if (!(e.target as Element).closest?.('.mmod, .mdep, .dep-chip')) vp.onBackgroundDown(e)
       }}
       onPointerMove={(e) => vp.onMove(e)}

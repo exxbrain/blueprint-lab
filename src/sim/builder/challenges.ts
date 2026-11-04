@@ -39,10 +39,10 @@ export interface BuilderChallenge {
   source?: { primer: PrimerDir }
 }
 
-/** System Design Primer (Donne Martin), CC BY 4.0: репозиторий, разбор задачи по каталогу в solutions/system_design и лицензия */
 /** Разборы System Design Primer, по мотивам которых сделаны задачи: опечатка в каталоге — ошибка типов, а не ссылка в никуда */
 export type PrimerDir = 'mint' | 'pastebin' | 'sales_rank' | 'scaling_aws' | 'social_graph' | 'twitter' | 'web_crawler'
 
+/** System Design Primer (Donne Martin), CC BY 4.0: репозиторий, разбор задачи по каталогу в solutions/system_design и лицензия */
 export const PRIMER = {
   solution: (dir: string) => `https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/${dir}/README.md`,
   license: 'https://creativecommons.org/licenses/by/4.0/',
@@ -606,9 +606,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '写入只能进入主库：副本无法加速写入，而最大的机器每秒也只能接收 4,000 个，只有峰值的一半。所以不能让买家等数据库。',
       ),
       tr(
-        'Нужно место, куда API мгновенно кладёт заявку и сразу отвечает «заявка принята», а отдельные обработчики забирают заявки с той скоростью, которую выдерживает база.',
-        'You need a place where the API drops a request instantly and immediately replies "request accepted", while separate workers pick requests up at the rate the database can sustain.',
-        '你需要这样一个地方：API 把申请往里一放，立刻回复“申请已受理”；再由单独的工作进程按数据库能承受的速度把申请取出来处理。',
+        'Нужно место, куда API мгновенно кладёт заявку и сразу отвечает «заявка принята», а отдельные обработчики забирают заявки с той скоростью, которую выдерживает база. Такой API сам почти ничего не делает — выберите ему в свойствах лёгкий профиль.',
+        'You need a place where the API drops a request instantly and immediately replies "request accepted", while separate workers pick requests up at the rate the database can sustain. Such an API does almost no work itself, so give it the light profile in its properties.',
+        '你需要这样一个地方：API 把申请往里一放，立刻回复“申请已受理”；再由单独的工作进程按数据库能承受的速度把申请取出来处理。这样的 API 自己几乎不做什么事，在它的属性里给它选轻量的服务类型。',
       ),
       tr(
         'Обработчиков должно быть ровно столько, чтобы primary не перегревался (до 90% загрузки). Заявки копятся на разницу между пиком и этой скоростью — чем быстрее принимает primary, тем меньше копится. Какой машины для этого хватит?',
@@ -2126,9 +2126,9 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     debrief: [
       tr(
-        'В Primer граф живёт на шардированных «Person Servers», а Lookup Service знает, на каком сервере какой человек. Здесь эту роль играет хранилище, которое шардирует данные само (Cassandra, DynamoDB). В жизни подошёл бы и PostgreSQL с шардами по user_id, но на этих числах ему нужно семь шардов (или меньше, но с репликами и на машинах крупнее), и в бюджет он не укладывается ни так, ни так. Кэш берёт на себя самых связанных людей — через них проходит большинство поисков.',
-        'In Primer the graph lives on sharded "Person Servers", and a Lookup Service knows which server holds which person. Here that role is played by a store that shards data by itself (Cassandra, DynamoDB). In real life PostgreSQL sharded by user_id would also do, but with these numbers it needs seven shards (or fewer, with replicas and bigger machines), and neither way fits the budget. The cache takes the most connected people, since most searches pass through them.',
-        '在 Primer 中，社交图存放在分片的“Person Server”上，由 Lookup Service 记录每个人在哪台服务器上。这里由能自己分片的存储（Cassandra、DynamoDB）来扮演这个角色。现实中按 user_id 分片的 PostgreSQL 也可以，但按这里的数字它需要七个分片（或者分片少一些，但要加副本、换更大的机器），无论哪种都超出预算。缓存负责那些人脉最广的人，因为大多数搜索都会经过他们。',
+        'В Primer граф живёт на шардированных «Person Servers», а Lookup Service знает, на каком сервере какой человек. Здесь эту роль играет хранилище, которое шардирует данные само (Cassandra, DynamoDB). В жизни подошёл бы и PostgreSQL с шардами по user_id, но на этих числах ему нужно семь шардов (или меньше, но с репликами или на машинах крупнее), и в бюджет он не укладывается ни так, ни так. Кэш берёт на себя самых связанных людей — через них проходит большинство поисков.',
+        'In Primer the graph lives on sharded "Person Servers", and a Lookup Service knows which server holds which person. Here that role is played by a store that shards data by itself (Cassandra, DynamoDB). In real life PostgreSQL sharded by user_id would also do, but with these numbers it needs seven shards (or fewer, with replicas or bigger machines), and neither way fits the budget. The cache takes the most connected people, since most searches pass through them.',
+        '在 Primer 中，社交图存放在分片的“Person Server”上，由 Lookup Service 记录每个人在哪台服务器上。这里由能自己分片的存储（Cassandra、DynamoDB）来扮演这个角色。现实中按 user_id 分片的 PostgreSQL 也可以，但按这里的数字它需要七个分片（或者分片少一些，但要加副本或换更大的机器），无论哪种都超出预算。缓存负责那些人脉最广的人，因为大多数搜索都会经过他们。',
       ),
       tr(
         'Сам обход в ширину на интервью ускоряют так: идут с двух концов навстречу, начинают с людей с большим числом друзей, группируют запросы к одному серверу, ограничивают глубину и заранее считают частые цепочки офлайн. Графовые базы (Neo4j) в этой задаче Primer нарочно запрещает.',

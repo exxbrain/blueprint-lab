@@ -233,7 +233,8 @@ export function BuilderCanvas({
           <path d="M 20 0 L 0 0 0 20" className="canvas-grid-line" />
         </pattern>
       </defs>
-      <rect className="canvas-bg" x={-width * 3} y={-height * 5} width={width * 7} height={height * 11} fill="url(#canvas-grid)" />
+      {/* сетка с большим запасом: её хватает и на самый мелкий масштаб (ZOOM_OUT), и на вытянутый экран телефона */}
+      <rect className="canvas-bg" x={-width * 10} y={-height * 20} width={width * 21} height={height * 41} fill="url(#canvas-grid)" />
       {/* границы холста: за них блоки не уходят — на вытянутом экране видно, где можно строить */}
       {!fit && <rect className="canvas-frame" x={0} y={0} width={width} height={height} rx={6} />}
 

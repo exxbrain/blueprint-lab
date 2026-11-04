@@ -312,13 +312,24 @@ export function linkProblem(from: NodeKind, to: NodeKind): string | null {
           )
     case 'lb':
     case 'gateway':
-      return to === 'service' || (to !== from && entry)
-        ? null
-        : tr(
-            `${KINDS[from].title} распределяет HTTP-запросы между экземплярами сервисов. В хранилища, кэш и очередь ходит сам сервис.`,
-            `${KINDS[from].title} routes HTTP requests to service instances. Stores, caches and queues are called by the service itself.`,
-            `${KINDS[from].title}把 HTTP 请求分发给服务实例。存储、缓存和队列由服务自己调用。`,
-          )
+      if (to === 'service' || (to !== from && entry)) return null
+      if (to === from)
+        return tr(
+          `Второй ${KINDS[from].title} подряд ничего не добавит: первый уже распределяет запросы. Нужно больше мощности — добавьте ему экземпляров.`,
+          `A second ${KINDS[from].title} in a row adds nothing: the first one already routes the requests. Need more capacity? Give it more instances.`,
+          `连续再放一个 ${KINDS[from].title} 没有意义：第一个已经在分发请求了。需要更多容量，就给它增加实例。`,
+        )
+      if (to === 'cdn')
+        return tr(
+          `CDN стоит перед ${KINDS[from].title}, со стороны клиентов, а не за ним.`,
+          `A CDN sits in front of the ${KINDS[from].title}, on the client side, not behind it.`,
+          `CDN 位于 ${KINDS[from].title} 前面、靠近客户端的一侧，而不是在它后面。`,
+        )
+      return tr(
+        `${KINDS[from].title} распределяет HTTP-запросы между экземплярами сервисов. В хранилища, кэш и очередь ходит сам сервис.`,
+        `${KINDS[from].title} routes HTTP requests to service instances. Stores, caches and queues are called by the service itself.`,
+        `${KINDS[from].title} 把 HTTP 请求分发给服务实例。存储、缓存和队列由服务自己调用。`,
+      )
     case 'service':
       if (to === 'gateway')
         return tr(
@@ -338,6 +349,12 @@ export function linkProblem(from: NodeKind, to: NodeKind): string | null {
             '队列自己不会写入任何地方，也不会调用谁：消息由消费者（一个服务）来读取。把队列连接到处理服务，再由这个服务写入存储。',
           )
     case 'cache':
+      if (!isStorage(to))
+        return tr(
+          'Redis сам никого не вызывает: он только отвечает на запросы сервиса.',
+          'Redis does not call anything itself: it only answers the service’s requests.',
+          'Redis 自己不会调用任何组件：它只应答服务的请求。',
+        )
       return tr(
         'Redis сам в базу не ходит: при промахе сервис читает базу и кладёт ответ в кэш (cache-aside). Подключите к сервису и кэш, и базу.',
         'Redis never calls the database itself: on a miss the service reads the database and puts the answer into the cache (cache-aside). Connect both the cache and the database to the service.',

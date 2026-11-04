@@ -127,9 +127,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '接下来瓶颈会落到数据库上。增加副本很贵。注意：目录被读取的次数远多于被修改的次数，而且同样的商品会被成千上万的人浏览。',
       ),
       tr(
-        'Нужен компонент, который запоминает недавние ответы базы и отдаёт их из памяти, а в базу пропускает только то, чего ещё не видел. Ему место между каталогом и базой.',
-        'You need a component that remembers recent database answers and serves them from memory, passing only unseen requests through to the database. It belongs between the catalog and the database.',
-        '你需要一个组件：它记住数据库最近的应答，直接从内存返回，只把没见过的请求放行到数据库。它应该放在目录和数据库之间。',
+        'Нужен компонент, который запоминает недавние ответы базы и отдаёт их из памяти, а в базу пропускает только то, чего ещё не видел. Ему место рядом с каталогом: каталог сначала спрашивает его и идёт в базу только при промахе.',
+        'You need a component that remembers recent database answers and serves them from memory, passing only unseen requests through to the database. It belongs next to the catalog: the catalog asks it first and goes to the database only on a miss.',
+        '你需要一个组件：它记住数据库最近的应答，直接从内存返回，只把没见过的请求放行到数据库。它应该放在目录服务旁边：目录先问它，未命中时才去数据库。',
       ),
     ],
     debrief: [
@@ -294,9 +294,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '多语言持久化（polyglot persistence）：每种查询都有自己的存储。PostgreSQL 是唯一可信的数据源，Elasticsearch 的索引从它构建而来（通常通过 CDC 或事件），可能会落后几秒钟。',
       ),
       tr(
-        'Кэш перед обоими хранилищами дешевле, чем реплики: при 80% попаданий в базу и поиск доходит пятая часть запросов.',
-        'A cache in front of both stores is cheaper than replicas: with an 80% hit ratio only a fifth of requests reach the database and search.',
-        '在两个存储前面加缓存，比加副本更便宜：命中率为 80% 时，只有五分之一的请求会到达数据库和搜索。',
+        'Кэш рядом с сервисом дешевле, чем реплики: при 80% попаданий в базу и поиск доходит пятая часть запросов.',
+        'A cache next to the service is cheaper than replicas: with an 80% hit ratio only a fifth of requests reach the database and search.',
+        '在服务旁边加缓存，比加副本更便宜：命中率为 80% 时，只有五分之一的请求会到达数据库和搜索。',
       ),
     ],
     hitRatio: { cache: 0.8 },

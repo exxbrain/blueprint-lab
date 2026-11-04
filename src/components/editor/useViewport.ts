@@ -242,9 +242,10 @@ export function useViewport(o: ViewportOptions) {
       e.preventDefault()
       const sel = window.getSelection()
       if (sel && !sel.isCollapsed) sel.removeAllRanges()
-      // без действия по умолчанию фокус сам не уходит из поля ввода — уводим, как при обычном щелчке
+      // без действия по умолчанию фокус сам не уходит с кнопки или поля вне схемы — уводим, как при обычном щелчке:
+      // иначе пробел и Enter снова нажмут последнюю кнопку («Подсказки», «Добавить», масштаб), а пробел не включит «руку»
       const active = document.activeElement as HTMLElement | null
-      if (active && active !== document.body && active.matches('input, textarea, select, [contenteditable="true"]')) active.blur()
+      if (active && active !== document.body && !svgRef.current?.contains(active)) active.blur()
     }
     const panMouse = mouse && (e.button === 1 || (e.button === 0 && spaceRef.current))
     const twoFingers = !mouse && pointers.current.size >= 2
@@ -385,21 +386,24 @@ export function useViewport(o: ViewportOptions) {
    * Центр той части схемы, которую человек сейчас видит: пересечение текущего вида (масштаб и сдвиг)
    * с видимой на экране частью холста (без шапки сайта). Холст целиком за краем экрана — центр вида
    */
-  const visibleCenter = (): { x: number; y: number } => {
+  const visibleRect = (): Rect => {
     const svg = svgRef.current
     const v = cur
-    const h = v.w * A()
-    const mid = { x: v.x + v.w / 2, y: v.y + h / 2 }
-    if (!svg) return mid
+    const whole: Rect = { x: v.x, y: v.y, w: v.w, h: v.w * A() }
+    if (!svg) return whole
     const r = svg.getBoundingClientRect()
-    if (!r.width || !r.height) return mid
+    if (!r.width || !r.height) return whole
     const top = Math.max(r.top, document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0)
     const bottom = Math.min(r.bottom, window.innerHeight)
     const left = Math.max(r.left, 0)
     const right = Math.min(r.right, window.innerWidth)
-    if (bottom - top < 40 || right - left < 40) return mid
+    if (bottom - top < 40 || right - left < 40) return whole
     const k = v.w / r.width
-    return { x: v.x + ((left + right) / 2 - r.left) * k, y: v.y + ((top + bottom) / 2 - r.top) * k }
+    return { x: v.x + (left - r.left) * k, y: v.y + (top - r.top) * k, w: (right - left) * k, h: (bottom - top) * k }
+  }
+  const visibleCenter = (): { x: number; y: number } => {
+    const r = visibleRect()
+    return { x: r.x + r.w / 2, y: r.y + r.h / 2 }
   }
 
   /** Последний сдвиг пальцем или мышью был только что: щелчок «по пустому месту» после него — не щелчок */
@@ -410,6 +414,7 @@ export function useViewport(o: ViewportOptions) {
     recentlyPanned,
     viewBox: `${cur.x} ${cur.y} ${cur.w} ${cur.w * A()}`,
     visibleCenter,
+    visibleRect,
     zoomed: !!view,
     scale,
     canZoomIn: scale < MAX_SCALE - 0.01,

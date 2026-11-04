@@ -3,6 +3,7 @@
  * и не должна считаться решённой в исходном состоянии.
  * Запуск: npm run check
  */
+import { rmSync } from 'node:fs'
 import { PROJECTS } from '../src/sim/monolith/projects'
 import { computeMetrics, evaluate, initialState, solutionState, stateCost } from '../src/sim/monolith/model'
 import { reviewMission } from '../src/sim/monolith/review'
@@ -25,6 +26,12 @@ import { MAP_PATTERNS, misplacedCards, partitionSolved, referenceState, reviewPa
 import worker, { guard } from '../worker/index.js'
 
 let failed = 0
+// проход упал (ошибка проверки или исключение) — запуск прерван, подписи его проходов больше не понадобятся
+process.on('exit', (code) => {
+  const run = process.env.BLUEPRINT_RUN
+  if (!code || !run) return
+  for (const l of ['ru', 'en', 'zh']) rmSync(new URL(`../.check-sig-${run}-${l}.txt`, import.meta.url), { force: true })
+})
 /** Подпись разбора, не зависящая от языка: сравнивается между проходами ru, en и zh */
 const signature: string[] = []
 const fail = (msg: string) => {
@@ -640,12 +647,6 @@ console.log('\nВход по логину и паролю')
 }
 
 if (failed) {
-  // запуск прерывается — подписи его проходов больше не понадобятся
-  const run = process.env.BLUEPRINT_RUN
-  if (run) {
-    const { rmSync } = await import('node:fs')
-    for (const l of ['ru', 'en', 'zh']) rmSync(new URL(`../.check-sig-${run}-${l}.txt`, import.meta.url), { force: true })
-  }
   console.log(`\nОшибок проверки: ${failed}`)
   process.exit(1)
 }

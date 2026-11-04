@@ -382,11 +382,11 @@ export function emulateRequest(nodes: BNode[], edges: BEdge[], r: Result, client
         n.kind === 'cdn'
           ? tr('MISS, и origin не подключён: 502 — файлам неоткуда взяться', 'MISS and no origin is connected: 502, the files have nowhere to come from', 'MISS，且没有连接源站（origin）：502，文件无从获取')
           : c.write
-          ? tr('запись некуда сохранить: за кэшем нет базы, а кэш — не хранилище', 'nowhere to persist the write: there is no database behind the cache, and a cache is not a store', '写入无处持久化：缓存后面没有数据库，而缓存并不是存储')
+          ? tr('запись некуда сохранить: у сервиса нет базы, а кэш — не хранилище', 'nowhere to persist the write: the service has no database, and a cache is not a store', '写入无处持久化：服务没有连接数据库，而缓存并不是存储')
           : tr(
-              `(nil) — кэш пуст: его наполняют из базы, а базы за ним нет`,
-              `(nil): the cache is empty; it is filled from a database, and there is none behind it`,
-              `(nil)：缓存是空的——它要从数据库填充，可它后面并没有数据库`,
+              `(nil) — кэш пуст: его наполняет сервис из базы, а базы у сервиса нет`,
+              `(nil): the cache is empty; the service fills it from a database, and the service has none`,
+              `(nil)：缓存是空的——它由服务从数据库读取后填充，可服务并没有连接数据库`,
             )
       if (!async) failed = true
       return ms

@@ -147,9 +147,12 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   const locked = (id: string) => challenge?.locked.includes(id) ?? false
 
   const [cycleNote, setCycleNote] = useState<string | null>(null)
+  // сообщение держится столько, сколько нужно, чтобы его прочитать (длинное объяснение — дольше), новое сменяет старое
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const say = (msg: string) => {
     setFlash(msg)
-    setTimeout(() => setFlash(null), 2500)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(null), Math.min(9000, Math.max(2500, msg.length * 55)))
   }
 
   /**
@@ -164,7 +167,8 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       x: Math.max(0, Math.min(1000 - NODE_W, c.x - NODE_W / 2)),
       y: Math.max(0, Math.min(540 - NODE_H, c.y - NODE_H / 2)),
     }
-    const pos = freeSpot(nodes, want.x, want.y)
+    // из меню — в пределах видимой части схемы (если там есть место), чтобы схема не уезжала к новому блоку
+    const pos = freeSpot(nodes, want.x, want.y, at ? undefined : vp.visibleRect())
     const n: BNode = {
       id: nextId('n'),
       kind,
@@ -422,9 +426,9 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                   '点一下即可把组件放到图上。要建立连接，从组件右侧的圆点拖出。',
                 )
               : tr(
-                  'Кликните — компонент появится внизу холста, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
-                  'Click to place a component at the bottom of the canvas, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
-                  '点击即可把组件放到画布底部，也可以把它拖到想要的位置。要建立连接，从组件右侧的圆点拖出。按 Del 删除选中的元素。',
+                  'Кликните — компонент появится посреди видимой части схемы, или перетащите его на нужное место. Связь — тяните за кружок справа от блока. Del — удалить выделенное.',
+                  'Click to place a component in the middle of the visible part of the diagram, or drag it where you want. To connect, drag from the circle on the right of a block. Del deletes the selection.',
+                  '点击即可把组件放到当前可见区域的中间，也可以把它拖到想要的位置。要建立连接，从组件右侧的圆点拖出。按 Del 删除选中的元素。',
                 )}
           </p>
           <p className="small muted">

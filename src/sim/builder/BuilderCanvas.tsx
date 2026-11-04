@@ -492,16 +492,26 @@ export function isFree(nodes: BNode[], x: number, y: number, width = 1000, heigh
   return nodes.every((n) => Math.abs(n.x - x) >= NODE_W + 20 || Math.abs(n.y - y) >= NODE_H + 16)
 }
 
-/** Ближайшее свободное место к желаемой точке: обходим соседние клетки сетки по спирали */
-export function freeSpot(nodes: BNode[], x: number, y: number): { x: number; y: number } {
+/**
+ * Ближайшее свободное место к желаемой точке: обходим соседние клетки сетки по спирали.
+ * within — сначала искать только внутри этой области (видимая часть схемы), и лишь если там тесно — где угодно
+ */
+export function freeSpot(nodes: BNode[], x: number, y: number, within?: Rect): { x: number; y: number } {
   const snap = (v: number) => Math.round(v / 10) * 10
-  for (let r = 0; r < 12; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
-        const cx = snap(x + dx * (NODE_W + 30))
-        const cy = snap(y + dy * (NODE_H + 26))
-        if (isFree(nodes, cx, cy)) return { x: cx, y: cy }
+  const inside = (cx: number, cy: number) =>
+    !within || (cx >= within.x && cy >= within.y && cx + NODE_W <= within.x + within.w && cy + NODE_H <= within.y + within.h)
+  for (const strict of within ? [true, false] : [false]) {
+    // мелкий шаг внутри видимой части (при сильном приближении в неё помещается всего пара блоков), крупный — по всему холсту
+    const sx = strict ? 40 : NODE_W + 30
+    const sy = strict ? 30 : NODE_H + 26
+    for (let r = 0; r < (strict ? 30 : 12); r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
+          const cx = snap(x + dx * sx)
+          const cy = snap(y + dy * sy)
+          if ((!strict || inside(cx, cy)) && isFree(nodes, cx, cy)) return { x: cx, y: cy }
+        }
       }
     }
   }

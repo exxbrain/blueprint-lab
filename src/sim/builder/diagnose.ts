@@ -111,7 +111,7 @@ export function diagnose(input: {
     if (st.deadEnd) {
       const text =
         n.kind === 'cache'
-          ? tr(`${name(n)} пуст: за ним нет источника данных, наполнить его нечем.`, `${name(n)} is empty: there is no data source behind it to fill it.`, `${name(n)}是空的：它后面没有数据源，没有东西可以填充它。`)
+          ? tr(`${name(n)} пуст: сервис рядом с ним не подключён к базе — наполнить его нечем.`, `${name(n)} is empty: the service next to it is not connected to a database, so there is nothing to fill it with.`, `${name(n)}是空的：它旁边的服务没有连接数据库，没有东西可以填充它。`)
           : n.kind === 'cdn'
             ? tr(`${name(n)} пуст: за ним нет хранилища файлов, копировать нечего.`, `${name(n)} is empty: there is no file store behind it to copy from.`, `${name(n)}是空的：它后面没有文件存储，没有东西可以复制。`)
             : n.kind === 'service'

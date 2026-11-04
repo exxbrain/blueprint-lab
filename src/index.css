@@ -1506,55 +1506,38 @@ table.cmp th {
 .problems li.excess {
   color: var(--accent-2);
 }
-/* применённые паттерны — строкой над схемой распила (на телефоне — полосой под плашкой метрик) */
-.platform-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 6px;
-}
-.platform-strip-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.platform-chip {
-  padding: 2px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(124, 196, 255, 0.08);
-  color: var(--text);
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-.platform-chip:hover { border-color: var(--accent); }
-.ws .platform-strip {
-  position: absolute;
-  z-index: 3;
-  top: calc(92px + env(safe-area-inset-top));
-  left: 8px;
-  right: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: 0;
-  padding: 4px 8px;
-  background: rgba(13, 39, 66, 0.9);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.ws .platform-strip::-webkit-scrollbar { display: none; }
 .sidecar rect {
   fill: var(--accent-2);
   stroke: #0a1f36;
   stroke-width: 2;
 }
-.k8s-badge {
-  fill: var(--accent);
-  font-size: 15px;
-}
+/* паттерны на схеме распила: узлы платформы, их связи, детали на связях, обёртки (PatternLayers) */
+.pl-cluster > rect { fill: rgba(124, 196, 255, 0.04); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 8 5; }
+.pl-cluster-label { fill: var(--muted); font-size: 11px; font-weight: 600; }
+.pl-pod-label { fill: var(--muted); font-size: 9px; }
+.pl-pod > rect { fill: rgba(255, 209, 102, 0.05); stroke: var(--accent-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.pl-container > rect { fill: rgba(124, 196, 255, 0.05); stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.pl-node > rect { fill: #10304f; stroke-width: 1.5; }
+.pl-node-label { fill: var(--text); font-size: 12px; font-weight: 600; }
+.pl-line { fill: none; stroke-width: 1.2; opacity: 0.35; stroke-dasharray: 3 4; }
+.pl-line.flow-toNode, .pl-line.flow-fromNode, .pl-line.flow-both { animation: flow linear infinite; animation-duration: 2.2s; }
+.pl-line.flow-fromNode { animation-direction: reverse; }
+.pl-node:hover .pl-line { opacity: 1; stroke-width: 1.8; }
+.pl-mark > circle, .pl-mark > rect { fill: #0d2742; stroke-width: 1.2; }
+.pl-mark text { font-size: 11px; fill: var(--text); }
+.pl-bulkhead rect { fill: rgba(94, 230, 168, 0.55); }
+.pl-canary rect { fill: #2a2a10; stroke: var(--accent-2); }
+.pl-canary-shadow { fill: #12304d; stroke: var(--accent-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.pl-canary text, .pl-outbox text { font-size: 10px; fill: var(--text); }
+.pl-outbox rect { fill: rgba(255, 209, 102, 0.15); stroke: var(--accent-2); }
+/* цвета по назначению: доступ — жёлтый, инфраструктура — голубой, наблюдаемость — сиреневый, данные — оранжевый */
+.tone-auth > rect, .tone-auth > circle, .pl-line.tone-auth { stroke: var(--accent-2); }
+.tone-infra > rect, .tone-infra > circle, .pl-line.tone-infra { stroke: var(--accent); }
+.tone-k8s > rect, .pl-line.tone-k8s { stroke: var(--accent); }
+.tone-obs > rect, .tone-obs > circle, .pl-line.tone-obs { stroke: #b48cff; }
+.tone-data > rect, .tone-data > circle, .pl-line.tone-data { stroke: var(--warn); }
+.tone-guard > rect, .tone-guard > circle { stroke: var(--bad); }
+.pl-mark.tone-ok text { fill: var(--ok); }
 @media (max-width: 1100px) {
   .mono-bottom {
     grid-template-columns: 1fr;

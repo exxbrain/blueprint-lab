@@ -45,6 +45,7 @@ import { loadDraft, signature, useSaveDraft } from '../drafts'
 import { tr } from '../i18n'
 import { CLIENT, GATEWAY, KAFKA, MONO_DB, emulateMono } from '../sim/monolith/emulate'
 import { NodeLog, TrafficPanel } from '../sim/builder/TrafficPanel'
+import { EdgeMarks, EntryMarks, PatternWrappers, PlatformNodes, ServiceMarks } from '../sim/monolith/PatternLayers'
 import { HOP_MS, type LiveTrace } from '../sim/builder/BuilderCanvas'
 import type { SpanStatus, Trace } from '../sim/builder/emulate'
 
@@ -628,7 +629,6 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
           }
         >
           {canvasEl}
-          <PlatformStrip state={state} />
           {refEl}
         </Workspace>
         {sheet === 'patterns' && (
@@ -666,7 +666,6 @@ function MissionView({ project, mission }: { project: Project; mission: Mission 
         <div className="panel canvas-wrap mono-wrap" ref={wrapRef}>
           <div className={'canvas-stage' + vp.stage.className} onPointerEnter={vp.stage.onPointerEnter} onPointerLeave={vp.stage.onPointerLeave}>
             <EditorBar vp={vp} />
-            <PlatformStrip state={state} />
             {canvasEl}
           </div>
           {trafficEl}
@@ -762,30 +761,6 @@ const SEVERITY_ICON: Record<Metrics['problems'][number]['severity'], string> = {
   risk: '💥',
   warn: '⚠️',
   excess: '🧰',
-}
-
-/**
- * Применённые паттерны — строкой поверх схемы, вне масштаба: значок и название, касание открывает карточку справочника.
- * Раньше они были значками-квадратиками в углу доски, и на телефоне при мелком масштабе от них оставалась точка.
- */
-function PlatformStrip({ state }: { state: State }) {
-  const enabled = (Object.keys(PATTERNS) as PatternId[]).filter((k) => state.infra[k])
-  const [refId, setRefId] = useState<string | null>(null)
-  if (!enabled.length) return null
-  return (
-    <>
-      {/* карточка — рядом со строкой, а не внутри: у строки на телефоне свой слой, и окно осталось бы под панелями экрана */}
-      {refId && <RefModal id={refId} kind="pattern" onClose={() => setRefId(null)} />}
-      <div className="platform-strip" aria-label={tr('Применённые паттерны', 'Applied patterns', '已应用的模式')}>
-        <span className="platform-strip-title">🧩 {tr('Платформа', 'Platform', '平台')}</span>
-        {enabled.map((k) => (
-          <button key={k} type="button" className="platform-chip" onClick={() => setRefId(k)} title={tr('Что это и когда применять', 'What it is and when to use it', '这是什么，什么时候该用')}>
-            {PATTERNS[k].icon} {PATTERNS[k].title}
-          </button>
-        ))}
-      </div>
-    </>
-  )
 }
 
 function PatternsPanel({ state, metrics, apply }: { state: State; metrics: Metrics; apply: Apply }) {
@@ -1239,6 +1214,9 @@ function MonolithCanvas({
     return { d, mode, path, cls, isBroken, mid, showChip, geom }
   })
 
+  // паттерны на схеме — узлами, связями, деталями и обёртками (PatternLayers)
+  const layer = { project, state, pos, box: { w: BOX_W, h: BOX_H }, mono: MONO, monoDb: MONO_DB, H, entry }
+
   return (
     <svg
       ref={vp.bindSvg}
@@ -1258,6 +1236,9 @@ function MonolithCanvas({
       onPointerCancel={(e) => vp.onUp(e)}
       onContextMenu={(e) => vp.onContextMenu(e)}
     >
+      {/* обёртки (кластер, поды) и узлы платформы с их связями — под всем остальным */}
+      <PatternWrappers {...layer} />
+      <PlatformNodes {...layer} />
       {/* клиенты и фасад */}
       <g>
         <rect x={50} y={20} width={140} height={44} rx={8} className="mono-client" />
@@ -1342,6 +1323,8 @@ function MonolithCanvas({
         </g>
       )}
 
+      <EntryMarks {...layer} />
+
       {/* связи */}
       {edges.map(({ d, mode, path, cls, isBroken, mid }) => (
         <g
@@ -1397,14 +1380,13 @@ function MonolithCanvas({
                 <title>{tr('Sidecar-прокси service mesh', 'Service mesh sidecar proxy', 'Service mesh 的 sidecar 代理')}</title>
               </g>
             )}
-            {ext && state.infra.containers && (
-              <text x={BOX_W - 22} y={20} className="appear k8s-badge">
-                ☸
-              </text>
-            )}
           </g>
         )
       })}
+
+      {/* детали на связях и в сервисах — поверх модулей, чтобы их было видно */}
+      <EdgeMarks state={state} edges={edges} />
+      <ServiceMarks {...layer} />
 
       {traces && traces.length > 0 && (
         <MonoTrafficLayer

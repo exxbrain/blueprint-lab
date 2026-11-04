@@ -127,7 +127,8 @@ const lat = (id: string, ms: number) => (r: Result) =>
 // ---------- «Рост»: одна система от одного сервера до миллионов, три шага (по мотивам scaling_aws из System Design Primer).
 // Каждый шаг начинается с эталона предыдущего — с теми же блоками и местами на поле, но с новой нагрузкой
 const gUsers = (rps: number) => n('c1', 'client', tr('Пользователи', 'Users', '用户'), 40, 110, { rps, workload: 'oltp', writeShare: 0.01 })
-const gStatic = (rps: number) => n('c2', 'client', tr('Статика', 'Static files', '静态文件'), 40, 260, { rps, workload: 'blob', writeShare: 0 })
+// около 1% запросов к статике — пользователи загружают картинки (в «Росте 1/3» — прямо в хранилище по подписанной ссылке)
+const gStatic = (rps: number) => n('c2', 'client', tr('Статика', 'Static files', '静态文件'), 40, 260, { rps, workload: 'blob', writeShare: 0.01 })
 const gWeb = (extra: Partial<BNode>) => n('s1', 'service', tr('Веб-сервер', 'Web server', 'Web 服务器'), 400, 110, { ...svc('fast'), ...extra })
 const gDb = (instances: number) => n('d1', 'postgres', 'PostgreSQL', 820, 110, { instances })
 const gS3 = () => n('s3', 's3', 'S3', 820, 300)
@@ -1647,9 +1648,9 @@ export const builderChallenges: BuilderChallenge[] = [
     source: { primer: 'scaling_aws' },
     brief: [
       tr(
-        'Небольшой сервис взлетел. Пока всё устроено просто: один веб-сервер и одна база PostgreSQL, а картинки, скрипты и стили лежат прямо в базе и отдаются через тот же веб-сервер. Сейчас приходит **600 rps** на страницы и API (записей — около 1%) и **400 rps** на статические файлы.',
-        'A small service has taken off. So far everything is simple: one web server and one PostgreSQL database, with images, scripts and stylesheets stored right in the database and served by that same web server. Traffic is now **600 rps** to pages and the API (about 1% are writes) and **400 rps** to static files.',
-        '一个小服务火了起来。目前一切都很简单：一台 Web 服务器加一个 PostgreSQL 数据库，图片、脚本和样式表直接存在数据库里，也由同一台 Web 服务器对外提供。现在页面和 API 的流量是 **600 rps**（约 1% 是写入），静态文件的流量是 **400 rps**。',
+        'Небольшой сервис взлетел. Пока всё устроено просто: один веб-сервер и одна база PostgreSQL, а картинки, скрипты и стили лежат прямо в базе и отдаются через тот же веб-сервер. Сейчас приходит **600 rps** на страницы и API (записей — около 1%) и **400 rps** на статические файлы; около 1% из них — пользователи загружают свои картинки.',
+        'A small service has taken off. So far everything is simple: one web server and one PostgreSQL database, with images, scripts and stylesheets stored right in the database and served by that same web server. Traffic is now **600 rps** to pages and the API (about 1% are writes) and **400 rps** to static files, about 1% of which are users uploading their images.',
+        '一个小服务火了起来。目前一切都很简单：一台 Web 服务器加一个 PostgreSQL 数据库，图片、脚本和样式表直接存在数据库里，也由同一台 Web 服务器对外提供。现在页面和 API 的流量是 **600 rps**（约 1% 是写入），静态文件的流量是 **400 rps**，其中约 1% 是用户上传自己的图片。',
       ),
       tr(
         'Страницы должны открываться быстрее **100 мс**, статика — быстрее **60 мс**. Бюджет — **$500 в месяц**. Это первый шаг из трёх: следующие начнутся с эталонного решения этого.',
@@ -1677,9 +1678,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '看看哪个组件是红色的。PostgreSQL 几乎把全部力气都花在了图片和脚本上：打开它的属性，看看它处理文件比处理普通查询差多少？',
       ),
       tr(
-        'Файлам нужно своё хранилище — дешёвое и рассчитанное на файлы любого размера. Найдите в палитре то, у кого в таблице «подходит для» родной профиль — файлы. Браузер может забирать статику оттуда напрямую, не нагружая веб-сервер.',
-        'Files need their own storage, cheap and built for files of any size. Find the palette item whose "good for" table lists files as native. The browser can fetch static files from there directly, without loading the web server.',
-        '文件需要自己的存储：便宜，而且能存放任意大小的文件。在组件面板里找一找，哪个组件的“适合的负载”表把文件列为“原生”。浏览器可以直接从那里获取静态文件，不必经过 Web 服务器。',
+        'Файлам нужно своё хранилище — дешёвое и рассчитанное на файлы любого размера. Найдите в палитре то, у кого в таблице «подходит для» родной профиль — файлы. Браузер может забирать статику оттуда напрямую и туда же загружать картинки, не нагружая веб-сервер.',
+        'Files need their own storage, cheap and built for files of any size. Find the palette item whose "good for" table lists files as native. The browser can fetch static files from there directly and upload images there too, without loading the web server.',
+        '文件需要自己的存储：便宜，而且能存放任意大小的文件。在组件面板里找一找，哪个组件的“适合的负载”表把文件列为“原生”。浏览器可以直接从那里获取静态文件，也可以直接把图片上传到那里，不必经过 Web 服务器。',
       ),
       tr(
         'Один экземпляр веб-сервера держит 300 rps, а на страницы приходит 600. Сколько экземпляров нужно, чтобы остался запас примерно в треть?',
@@ -1692,6 +1693,11 @@ export const builderChallenges: BuilderChallenge[] = [
         'Первый шаг роста почти всегда один и тот же: развести то, что мешает друг другу. Статика уходит в объектное хранилище (S3): оно дешёвое, масштабируется само и отдаёт файлы прямо браузеру. Веб-сервер становится легче и растёт экземплярами, а база занимается только данными.',
         'The first growth step is almost always the same: separate the things that get in each other\'s way. Static files move to object storage (S3): it is cheap, scales on its own and serves files straight to the browser. The web server gets lighter and grows by adding instances, while the database deals only with data.',
         '增长的第一步几乎总是一样的：把互相拖累的东西拆开。静态文件搬到对象存储（S3）：它便宜、能自己扩展，还能直接把文件发给浏览器。Web 服务器因此变轻，可以靠增加实例来扩展，数据库则只管数据。',
+      ),
+      tr(
+        'Как файлы попадают в S3, в Primer не сказано — это наше дополнение. Скрипты и стили кладёт в бакет сборка при каждом релизе. Картинки, которые уже лежат в базе, один раз переносят скриптом, а в базе оставляют только ключи. Новые картинки пользователей идут мимо веб-сервера: он проверяет права и подписывает ссылку на загрузку своим ключом (к S3 при этом не обращается), а браузер кладёт файл по этой ссылке прямо в бакет. Поэтому на схеме нет связи «веб-сервер → S3»: и чтение, и загрузка идут по связи «Статика → S3».',
+        'Primer does not say how files get into S3; this part is our addition. Scripts and stylesheets are put into the bucket by the build on every release. Images already stored in the database are moved once by a script, and the database keeps only their keys. New user images bypass the web server: it checks permissions and signs an upload URL with its own key (without calling S3), and the browser puts the file straight into the bucket via that URL. That is why the diagram has no "web server → S3" connection: both reads and uploads go along "Static files → S3".',
+        'Primer 没有讲文件是怎么进入 S3 的，这部分是我们补充的。脚本和样式表由每次发布时的构建流程放进存储桶。已经存在数据库里的图片用脚本一次性迁移过去，数据库里只保留它们的 key。用户新上传的图片不经过 Web 服务器：服务器检查权限，用自己的密钥为上传链接签名（这一步不需要访问 S3），浏览器再通过这个链接把文件直接放进存储桶。所以图上没有“Web 服务器 → S3”的连接：读取和上传都走“静态文件 → S3”这条连接。',
       ),
       tr(
         'В System Design Primer на этом шаге ещё выносят базу на отдельную машину (здесь она уже отдельный блок) и прячут всё, кроме веб-сервера, в приватную сеть. Вертикальное масштабирование — машина побольше — помогает ненадолго: цена растёт быстрее мощности, и скоро упираешься в потолок.',
@@ -1838,6 +1844,11 @@ export const builderChallenges: BuilderChallenge[] = [
         'Тяжёлую работу, которую не обязательно делать во время запроса, отдают очереди и воркерам: загрузка сохраняет файл и ставит задание, превью появится через секунду-другую. Дальше по этой дороге — шардирование или NoSQL, когда запись перестанет помещаться в один primary, и отдельное хранилище для аналитики вместо отчётов по рабочей базе.',
         'Heavy work that does not have to happen during the request goes to a queue and workers: the upload saves the file and enqueues a job, and the preview appears a second or two later. Further down this road come sharding or NoSQL, once writes no longer fit into one primary, and a separate analytics store instead of reports over the production database.',
         '不必在请求过程中完成的重活，交给队列和工作进程：上传先保存文件并把任务放进队列，预览会在一两秒后出现。沿着这条路继续走下去，还会遇到分片或 NoSQL（当一个 primary 装不下全部写入时），以及用单独的分析存储代替在生产数据库上跑报表。',
+      ),
+      tr(
+        'Загрузку файлов здесь принимает Upload API: ему нужно сразу поставить задание на превью. В жизни и такие файлы часто грузят прямо в S3 по подписанной ссылке, как картинки в первом шаге, а задание ставит событие бакета (S3 Event Notifications). В конструкторе хранилища никого не вызывают, поэтому этот путь показан через сервис.',
+        'Here file uploads are accepted by the Upload API because it has to enqueue the preview job right away. In real life such files are also often uploaded straight to S3 via a signed URL, like the images in step one, and a bucket event (S3 Event Notifications) enqueues the job. In the builder, stores never call anyone, so this path is shown through a service.',
+        '这里由 Upload API 接收文件上传，因为它需要立刻把生成预览的任务放进队列。现实中，这类文件也经常像第一步里的图片那样，通过签名链接直接上传到 S3，再由存储桶事件（S3 Event Notifications）把任务放进队列。在构建器里，存储不会调用任何组件，所以这条路径是通过服务来表示的。',
       ),
     ],
     hitRatio: { cache: 0.8, cdn: 0.9 },

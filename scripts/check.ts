@@ -8,7 +8,7 @@ import { PROJECTS } from '../src/sim/monolith/projects'
 import { computeMetrics, evaluate, initialState, solutionState, stateCost } from '../src/sim/monolith/model'
 import { reviewMission } from '../src/sim/monolith/review'
 import { recommendedOrder, replay, reviewOrder } from '../src/sim/monolith/order'
-import { builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
+import { SERVICE_PROFILES, builderChallenges, estimateOk, sandboxStart } from '../src/sim/builder/challenges'
 import { KINDS, WORKLOADS, linkProblem, reaches, simulate, type BEdge, type BNode, type NodeKind, type Workload } from '../src/sim/builder/model'
 import { reviewBuilder } from '../src/sim/builder/review'
 import { BOARD_H, BOARD_W, NODE_H, NODE_W } from '../src/sim/builder/layout'
@@ -93,14 +93,16 @@ for (const c of builderChallenges) {
   for (const g of c.goals) if (!g.check(r)) fail(`эталон не выполняет цель «${g.text}»`)
   for (const pth of c.paths) if (!reaches(edges, pth.from, pth.to)) fail(`эталон нарушает путь «${pth.text}»`)
   for (const id of c.locked) if (!nodes.some((x) => x.id === id)) fail(`в эталоне нет обязательного узла ${id}`)
-  // у заблокированного блока редактор меняет только масштаб (экземпляры, размер, шарды): тип и профиль сервиса — нет,
-  // поэтому эталон не может требовать их смены
+  // у заблокированного блока редактор меняет только масштаб (экземпляры, размер, шарды) и — у сервисов из tunable — профиль;
+  // тип не меняется никогда, поэтому эталон не может требовать большего
   for (const id of c.locked) {
     const a = c.nodes.find((x) => x.id === id)
     const b = nodes.find((x) => x.id === id)
     if (!a || !b || a.kind === 'client') continue
-    if (a.kind !== b.kind || (a.kind === 'service' && (a.capacity !== b.capacity || a.latency !== b.latency)) || a.hitRatio !== b.hitRatio)
-      lockedChanged.push(`${c.id}/${id}`)
+    const profileChanged = a.kind === 'service' && (a.capacity !== b.capacity || a.latency !== b.latency)
+    if (a.kind !== b.kind || (profileChanged && !c.tunable?.includes(id)) || a.hitRatio !== b.hitRatio) lockedChanged.push(`${c.id}/${id}`)
+    // профиль эталона — один из тех, что можно выбрать в редакторе
+    if (profileChanged && !SERVICE_PROFILES.some((p) => p.capacity === b.capacity && p.latency === b.latency)) fail(`у ${id} в эталоне профиль, которого нет в списке`)
   }
   for (const x of c.nodes.filter((x) => x.kind === 'client')) {
     const sx = nodes.find((y) => y.id === x.id)
@@ -119,12 +121,24 @@ for (const c of builderChallenges) {
   if (startOk && start.cost <= c.budget) fail('задача решена уже в исходном состоянии')
 }
 {
-  // Известная проблема старых задач: подсказки просят сделать заблокированный сервис лёгким, а выбора профиля
-  // у заблокированных блоков нет. Решается отдельно (снять блокировку или показать выбор профиля); новых таких задач быть не должно
-  const known = ['catalog-search/s1', 'profiles/s1', 'tickets/s1']
-  for (const x of lockedChanged) if (!known.includes(x)) fail(`эталон меняет тип или профиль заблокированного блока ${x}: в редакторе это сделать нельзя`)
-  for (const x of known) if (!lockedChanged.includes(x)) fail(`${x} больше не меняет заблокированный блок — уберите его из списка известных`)
-  console.log(`- эталоны не меняют тип и профиль заблокированных блоков (известные исключения: ${known.join(', ')})`)
+  // у заблокированного блока в редакторе меняется только профиль — и только у сервисов из tunable задачи
+  for (const x of lockedChanged) fail(`эталон меняет заблокированный блок ${x}: в редакторе это сделать нельзя`)
+  for (const c of builderChallenges)
+    for (const id of c.tunable ?? []) {
+      const x = c.nodes.find((y) => y.id === id)
+      if (!x || x.kind !== 'service' || !c.locked.includes(id)) fail(`${c.id}: tunable «${id}» — не заблокированный сервис`)
+    }
+  // одна смена профиля, без остальной работы, задачу не решает
+  for (const c of builderChallenges)
+    for (const id of c.tunable ?? [])
+      for (const p of SERVICE_PROFILES) {
+        const nodes = c.nodes.map((x) => (x.id === id ? { ...x, capacity: p.capacity, latency: p.latency } : x))
+        const r = simulate(nodes, c.edges)
+        if (c.goals.every((g) => g.check(r)) && c.paths.every((pth) => reaches(c.edges, pth.from, pth.to)) && r.cost <= c.budget)
+          fail(`${c.id}: задачу решает одна смена профиля ${id} на «${p.id}»`)
+      }
+  const tunable = builderChallenges.flatMap((c) => (c.tunable ?? []).map((id) => `${c.id}/${id}`))
+  console.log(`- эталоны меняют у заблокированных блоков только профиль сервиса, где это разрешено (${tunable.join(', ')})`)
 }
 
 // ловушки: обходные пути, которые не должны решать задачи
@@ -224,7 +238,7 @@ console.log('\nЛовушки конструктора')
     return [set(a, 'd1', { instances: 5 }), b]
   })
   trap('growth-3', 'превью никуда не сохраняются', (n, e) => [n, e.filter((x) => !(x.from === 'pv' && x.to === 's3'))])
-  // клиент делит поток поровну между связями: вторая связь в обход отправляет мимо нужного блока половину запросов (приёмка, раунд 3)
+  // клиент делит поток поровну между связями: вторая связь в обход отправляет мимо нужного блока половину запросов
   const bypass = (id: string, extra: N[number], extraEdges: E, scale: [string, number][]) =>
     trap(id, 'половина потока в обход', (n, e) => [
       [...n.map((x) => scale.find(([sid]) => sid === x.id) ? { ...x, instances: scale.find(([sid]) => sid === x.id)![1] } : x), extra],
@@ -233,7 +247,7 @@ console.log('\nЛовушки конструктора')
   const light = (id: string) => ({ id, kind: 'service' as const, label: id, x: 0, y: 0, instances: 1, capacity: 1000, latency: 5 })
   bypass('finance', light('bp'), [edge('c1', 'bp'), edge('bp', 'd1')], [['w1', 3]])
   bypass('crawler', light('bp'), [edge('c2', 'bp'), edge('bp', 'es')], [['w1', 4]])
-  // поток дошёл, но потерялся дальше: посредник за очередью прячет перегрузку рабочего блока (приёмка, раунд 4)
+  // поток дошёл, но потерялся дальше: посредник за очередью прячет перегрузку рабочего блока
   const svcNode = (id: string, instances: number, capacity: number, latency: number) => ({ id, kind: 'service' as const, label: id, x: 0, y: 0, instances, capacity, latency })
   const middle = (id: string, queue: string, worker: string, sizes: Record<string, Partial<N[number]>>) =>
     trap(id, 'посредник после очереди', (n, e) => [
@@ -243,12 +257,12 @@ console.log('\nЛовушки конструктора')
   middle('finance', 'q1', 'w1', { w1: { instances: 1 }, d1: { shards: 1 } })
   middle('growth-3', 'q1', 'pv', { pv: { instances: 1 } })
   middle('crawler', 'q1', 'w1', { w1: { instances: 1 } })
-  // экран бюджета пишет и читает через ту же очередь приёма, PostgreSQL ×1 за категоризацией (схема приёмки, раунд 4)
+  // экран бюджета пишет и читает через ту же очередь приёма, PostgreSQL ×1 за категоризацией
   trap('finance', 'категоризация впритык, PostgreSQL ×1 за очередью', (n, e) => [
     n.map((x) => (x.id === 'd1' ? { ...x, shards: 1 } : x)),
     e.map((x) => (x.from === 's2' && x.to === 'd1' ? edge('s2', 'q1') : x)),
   ])
-  // потеря за второй очередью: «принято» ещё не значит «обработано» (приёмка, раунд 5)
+  // потеря за второй очередью: «принято» ещё не значит «обработано»
   const second = (id: string, worker: string, store: string, sizes: Record<string, Partial<N[number]>>, last: [number, number, number]) =>
     trap(id, 'вторая очередь за рабочим блоком', (n, e) => [
       [...n.map((x) => (sizes[x.id] ? { ...x, ...sizes[x.id] } : x)), { id: 'q8', kind: 'queue' as const, label: 'q8', x: 0, y: 0, instances: 1 }, svcNode('mid', 2, 1000, 5), svcNode('lst', ...last)],
@@ -256,17 +270,17 @@ console.log('\nЛовушки конструктора')
     ])
   second('finance', 'w1', 'd1', { d1: { shards: 1 } }, [1, 300, 20])
   second('crawler', 'w1', 'es', { w1: { instances: 7 }, es: { instances: 1 } }, [1, 100, 120])
-  // экран бюджета и отчёты читают через очередь приёма: ответа на чтение никто не ждёт (приёмка, раунд 5)
+  // экран бюджета и отчёты читают через очередь приёма: ответа на чтение никто не ждёт
   trap('finance', 'экран бюджета и отчёты через очередь приёма', (n, e) => [
     n.filter((x) => x.id !== 's2' && x.id !== 's3').map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x)),
     [...e.filter((x) => !['s2', 's3'].includes(x.from) && !['s2', 's3'].includes(x.to)), edge('c2', 's1'), edge('c3', 's1'), edge('w1', 'ch')],
   ])
-  // обойдённые страницы не попадают в индекс: обходчики никуда не пишут (приёмка, раунд 5)
+  // обойдённые страницы не попадают в индекс: обходчики никуда не пишут
   trap('crawler', 'страницы пишет в индекс фронтир, а не обходчики', (n, e) => [
     n.map((x) => (x.id === 's2' ? { ...x, instances: 2 } : x.id === 'w1' ? { ...x, instances: 7 } : x)),
     [...e.filter((x) => !(x.from === 'w1' && x.to === 'es')), edge('s2', 'es')],
   ])
-  // приёмка, раунд 6: страницы пишутся не туда, где ищут пользователи, или вовсе не обходчиками; половина чтений — через очередь
+  // страницы пишутся не туда, где ищут пользователи, или вовсе не обходчиками; половина чтений — через очередь
   trap('crawler', 'отдельный индекс для обходчиков', (n, e) => [
     [...n.map((x) => (x.id === 'es' ? { ...x, instances: 1 } : x)), { id: 'es2', kind: 'elastic' as const, label: 'es2', x: 0, y: 0, instances: 1 }],
     e.map((x) => (x.from === 'w1' && x.to === 'es' ? edge('w1', 'es2') : x)),
@@ -279,14 +293,14 @@ console.log('\nЛовушки конструктора')
     n.map((x) => (x.id === 'd1' ? { ...x, shards: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)),
     [...e, edge('c2', 's1')],
   ])
-  // приёмка, раунд 7: исходный файл не сохраняется до ответа; экран бюджета читает базу, куда операции не попадают
+  // исходный файл не сохраняется до ответа; экран бюджета читает базу, куда операции не попадают
   trap('growth-3', 'загрузка только через очередь', (n, e) => [n, e.filter((x) => !(x.from === 'up' && x.to === 's3'))])
   for (const [shards, size, w1, s3] of [[2, 1, 6, 2], [1, 2, 5, 1]] as const)
     trap('finance', `экран бюджета читает отдельную базу (PostgreSQL ${shards} шард., размер ×${size})`, (n, e) => [
       [...n.map((x) => (x.id === 'd1' ? { ...x, shards, size } : x.id === 'w1' ? { ...x, instances: w1 } : x.id === 's3' ? { ...x, instances: s3 } : x)), { id: 'd9', kind: 'postgres' as const, label: 'd9', x: 0, y: 0, instances: 1 }],
       e.map((x) => (x.from === 's2' && x.to === 'd1' ? edge('s2', 'd9') : x)),
     ])
-  // приёмка, раунд 8: половина потока в обход новых целей
+  // половина потока в обход новых целей
   trap('crawler', 'половина поиска — по пустому отдельному индексу', (n, e) => [
     [
       ...n.map((x) => (x.id === 's1' ? { ...x, instances: 3 } : x.id === 'es' ? { ...x, instances: 1 } : x.id === 'w1' ? { ...x, instances: 7 } : x)),
@@ -304,13 +318,13 @@ console.log('\nЛовушки конструктора')
     [...n.map((x) => (x.id === 'up' ? { ...x, instances: 1 } : x)), svcNode('u2', 1, 300, 20)],
     [...e, edge('c3', 'u2'), edge('u2', 'q1')],
   ])
-  // приёмка, раунд 9: половина запросов — во внешний API, у которого данных нет
+  // половина запросов — во внешний API, у которого данных нет
   trap('finance', 'половина отчётов во внешний API', (n, e) => [
     [...n.map((x) => (x.id === 'd1' ? { ...x, shards: 1, size: 2 } : x.id === 'w1' ? { ...x, instances: 5 } : x.id === 's3' ? { ...x, instances: 1 } : x)), svcNode('ext', 2, 100, 300)],
     [...e, edge('c3', 'ext')],
   ])
   trap('sales-rank', 'половина пересчёта во внешний API', (n, e) => [[...n, svcNode('ext', 1, 100, 300)], [...e, edge('c3', 'ext')]])
-  // приёмка, раунд 10: половина потока в обход, а другая — через рабочий блок дважды (объём сходится, запросы — нет)
+  // половина потока в обход, а другая — через рабочий блок дважды (объём сходится, запросы — нет)
   trap('crawler', 'половина ссылок в обход, другая обходится дважды', (n, e) => [
     [...n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x)), svcNode('lx', 1, 1000, 5), svcNode('ly', 1, 1000, 5)],
     [...e, edge('c2', 'lx'), edge('lx', 'es'), edge('s2', 'ly'), edge('ly', 'q1')],
@@ -323,7 +337,7 @@ console.log('\nЛовушки конструктора')
     [...n.map((x) => (x.id === 'd1' ? { ...x, instances: 1 } : x)), svcNode('lw', 1, 1000, 5), { id: 'cs2', kind: 'cassandra' as const, label: 'cs2', x: 0, y: 0, instances: 1 }],
     [...e.filter((x) => !(x.from === 'c2' && x.to === 'l1')), edge('c2', 'lw'), edge('lw', 'cs2')],
   ])
-  // приёмка, раунд 11: отдельное хранилище и связь без единого запроса в общее — пустая связь не делает хранилище общим
+  // отдельное хранилище и связь без единого запроса в общее — пустая связь не делает хранилище общим
   trap('crawler', 'отдельный индекс и пустые связи в отпечатки', (n, e) => [
     [
       ...n.map((x) => (x.id === 's1' ? { ...x, instances: 6 } : x.id === 'w1' ? { ...x, instances: 7 } : x.id === 'es' ? { ...x, instances: 1 } : x)),
@@ -400,7 +414,7 @@ console.log('\nЛовушки конструктора')
       trap('finance', `отчёты в ${name} ×${instances}`, (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind, instances } : x)), e])
       trap('sales-rank', `журнал и пересчёт в ${name} ×${instances}`, (n, e) => [n.map((x) => (x.id === 'ch' ? { ...x, kind, instances } : x)), e])
     }
-  // схемы, которые экономят на остальном и проходят по деньгам (приёмка, раунд 2): агрегаты не в родном хранилище — не засчитываются
+  // схемы, которые экономят на остальном и проходят по деньгам: агрегаты не в родном хранилище — не засчитываются
   trap('sales-rank', 'рейтинг, журнал и пересчёт в одной Cassandra ×2', (n, e) => {
     const nodes = [...n.filter((x) => x.id !== 'd1' && x.id !== 'ch'), { id: 'cs', kind: 'cassandra' as const, label: 'Cassandra', x: 700, y: 240, instances: 2 }]
     const edges = [...e.filter((x) => x.to !== 'd1' && x.to !== 'ch'), edge('s1', 'cs'), edge('s2', 'cs'), edge('s3', 'cs')]

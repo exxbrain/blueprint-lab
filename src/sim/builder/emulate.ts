@@ -79,6 +79,10 @@ interface Ctx {
   write: boolean
   /** Запрос прошёл через fan-out: в хранилище уходит столько записей */
   fanout?: number
+  /** Числа из тела запроса — разыгрываются один раз, чтобы запрос и запись в базе совпадали */
+  amount: number
+  limit: number
+  price: number
 }
 
 const has = (label: string, re: RegExp) => re.test(label.toLowerCase())
@@ -141,6 +145,9 @@ function makeCtx(client: BNode, w: Workload): Ctx {
     domain,
     request: '',
     write,
+    amount: int(100, 9000),
+    limit: int(5, 50) * 1000,
+    price: int(500, 9000),
   }
 }
 
@@ -154,15 +161,17 @@ function requestFor(c: Ctx): string {
     if (c.domain === 'notify') return `GET /api/notifications/${c.id}`
     if (c.domain === 'crawl') return `GET /frontier/next?worker=${int(1, 40)}`
   } else {
+    // пользователь загружает картинку (в свободном режиме у клиента «файлы» по умолчанию есть доля записи)
+    if (c.domain === 'static') return `PUT /static/uploads/${c.code}.png  (300 KB)`
     if (c.domain === 'profile') return `PATCH /api/users/${c.user}/profile  {"city":"…"}`
-    if (c.domain === 'card') return `PUT /api/cards/${c.id}  {"price":${int(500, 9000)}}`
+    if (c.domain === 'card') return `PUT /api/cards/${c.id}  {"price":${c.price}}`
     if (c.domain === 'kv') return `PUT /kv/${c.code}`
     if (c.domain === 'search') return `POST /items/_doc  {"title":"${c.word}"}`
     if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'ranking') return `POST /events  {"type":"order_paid"}`
-    if (c.domain === 'spending') return `POST /events  {"type":"card_payment","amount":-${int(100, 9000)}}`
-    if (c.domain === 'txn') return `POST /api/transactions  {"account":"acc-${c.id}","amount":-${int(100, 9000)},"merchant":"${merchant(c)[0]}"}`
-    if (c.domain === 'budget') return `PUT /api/budgets/${c.user}  {"category":"${budgetCat(c)}","limit":${int(5, 50) * 1000}}`
-    if (c.domain === 'friends') return `POST /api/friendships  {"a":${c.user},"b":${int(10000, 999999)}}`
+    if (c.domain === 'spending') return `POST /events  {"type":"card_payment","amount":-${c.amount}}`
+    if (c.domain === 'txn') return `POST /api/transactions  {"account":"acc-${c.id}","amount":-${c.amount},"merchant":"${merchant(c)[0]}"}`
+    if (c.domain === 'budget') return `PUT /api/budgets/${c.user}  {"category":"${budgetCat(c)}","limit":${c.limit}}`
+    if (c.domain === 'friends') return `POST /api/friendships  {"a":${c.user},"b":${c.id}}`
     if (c.domain === 'dedup') return `PUT /seen/${c.code}${c.code}  {"url":"https://${site(c)}/"}`
     if (c.domain === 'rank') return `PUT /api/rank/${cat(c)}  {"top":[…100]}`
   }
@@ -230,14 +239,14 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
     if (c.domain === 'crawl') return `SELECT url FROM frontier ORDER BY priority DESC LIMIT 1 FOR UPDATE SKIP LOCKED`
   } else {
     if (c.domain === 'profile') return `UPDATE users SET city = '…' WHERE id = ${c.user}`
-    if (c.domain === 'card') return `UPDATE cards SET price = ${int(500, 9000)} WHERE id = ${c.id}`
+    if (c.domain === 'card') return `UPDATE cards SET price = ${c.price} WHERE id = ${c.id}`
     if (c.domain === 'kv') return dialect === 'pg' ? `INSERT INTO kv VALUES ('${c.code}', …) ON CONFLICT DO UPDATE …` : `INSERT INTO kv (k, v) VALUES ('${c.code}', …)`
     if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'spending' || c.domain === 'ranking') return `INSERT INTO events (type, ts) VALUES ('order_paid', now())`
     if (c.domain === 'txn')
       return dialect === 'pg'
-        ? `INSERT INTO transactions (account_id, amount, merchant, category) VALUES ('acc-${c.id}', -${int(100, 9000)}, '${merchant(c)[0]}', '${merchant(c)[1]}')`
-        : `INSERT INTO transactions (account_id, ts, amount) VALUES ('acc-${c.id}', toTimestamp(now()), -${int(100, 9000)})`
-    if (c.domain === 'budget') return `UPDATE budgets SET amount_limit = ${int(5, 50) * 1000} WHERE user_id = ${c.user} AND category = '${budgetCat(c)}'`
+        ? `INSERT INTO transactions (account_id, amount, merchant, category) VALUES ('acc-${c.id}', -${c.amount}, '${merchant(c)[0]}', '${merchant(c)[1]}')`
+        : `INSERT INTO transactions (account_id, ts, amount) VALUES ('acc-${c.id}', toTimestamp(now()), -${c.amount})`
+    if (c.domain === 'budget') return `UPDATE budgets SET amount_limit = ${c.limit} WHERE user_id = ${c.user} AND category = '${budgetCat(c)}'`
     if (c.domain === 'rank') return `INSERT INTO sales_rank (category, product_id, rank) VALUES ('${cat(c)}', ${c.id}, …)`
     if (c.domain === 'friends') return `INSERT INTO friendships (user_id, friend_id) VALUES (${c.user}, ${c.id}), (${c.id}, ${c.user})`
     if (c.domain === 'dedup')
@@ -245,6 +254,7 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
         ? `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') ON CONFLICT DO NOTHING`
         : `INSERT INTO seen_pages (signature, url) VALUES ('${c.code}${c.code}', 'https://${site(c)}/') IF NOT EXISTS`
     if (c.domain === 'crawl') return `INSERT INTO pages (url, body) VALUES ('https://${site(c)}/page/${c.id}', '…')  -- 500 KB`
+    if (c.domain === 'static') return `INSERT INTO files (name, data) VALUES ('uploads/${c.code}.png', '\\x89504e47…')  -- 300 KB`
   }
   switch (c.domain) {
     case 'order':
@@ -332,6 +342,7 @@ function opFor(n: BNode, c: Ctx, phase?: Phase, async = false): string {
       if (c.domain === 'analytics' || c.domain === 'trends' || c.domain === 'spending' || c.domain === 'ranking')
         return `POST /${TABLE[c.domain]}/_search {"size":0,"aggs":{"by":{"terms":{"field":"${c.domain === 'spending' ? 'category' : c.domain === 'ranking' ? 'product_id' : 'region'}"}}}}`
       if (c.domain === 'crawl' && c.write) return `POST /pages/_doc {"url":"https://${site(c)}/page/${c.id}","title":"…","body":"…"}`
+      if (c.domain === 'crawl') return `POST /frontier/_search {"query":{"term":{"status":"queued"}},"sort":[{"priority":"desc"}],"size":1}`
       if (c.domain === 'suggest') return `POST /items/_search {"suggest":{"s":{"prefix":"${c.word.slice(0, 3)}","completion":{"field":"title.suggest"}}}}`
       if (c.write) return `POST /${TABLE[c.domain]}/_doc {…}`
       return `POST /items/_search {"query":{"match":{"title":"${c.word}"}}}`
@@ -347,7 +358,8 @@ function opFor(n: BNode, c: Ctx, phase?: Phase, async = false): string {
       if (c.domain === 'video') return `GET s3://video/${c.code}/720p/seg.ts`
       if (c.domain === 'doc') return `GET s3://docs/scan-${c.id}.pdf`
       if (c.domain === 'image') return `GET s3://media/sku-${c.id % 7000}/800.webp`
-      if (c.domain === 'static') return `GET s3://static/${c.request.split(' ')[1].replace('/static/', '')}`
+      if (c.domain === 'static')
+        return c.write ? `PUT s3://static/uploads/${c.code}.png (300 KB)` : `GET s3://static/${c.request.split(' ')[1].replace('/static/', '')}`
       return c.write ? `PUT s3://data/${TABLE[c.domain]}/${c.id}.json` : `GET s3://data/${TABLE[c.domain]}/${c.id}.json`
     default:
       return ''

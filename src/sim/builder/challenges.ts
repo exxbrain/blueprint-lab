@@ -24,6 +24,8 @@ export interface BuilderChallenge {
   budget: number
   /** Узлы, которые нельзя удалять (исходная система) */
   locked: string[]
+  /** Заблокированные сервисы, у которых игрок может сменить профиль: по ходу решения их работа меняется (например, API только кладёт заявку в очередь) */
+  tunable?: string[]
   goals: { text: string; check: (r: Result) => boolean }[]
   /** Обязательные пути данных: нельзя «решить» задачу, просто удалив зависимость */
   paths: { from: string; to: string; text: string }[]
@@ -34,10 +36,13 @@ export interface BuilderChallenge {
   /** Эталонное решение: им проверяется, что задача решаема (npm run check) */
   solution: { nodes: BNode[]; edges: BEdge[] }
   /** Сюжет по мотивам задачи из System Design Primer: под условием — ссылка на неё, автор и лицензия (CC BY 4.0) */
-  source?: { primer: string }
+  source?: { primer: PrimerDir }
 }
 
 /** System Design Primer (Donne Martin), CC BY 4.0: репозиторий, разбор задачи по каталогу в solutions/system_design и лицензия */
+/** Разборы System Design Primer, по мотивам которых сделаны задачи: опечатка в каталоге — ошибка типов, а не ссылка в никуда */
+export type PrimerDir = 'mint' | 'pastebin' | 'sales_rank' | 'scaling_aws' | 'social_graph' | 'twitter' | 'web_crawler'
+
 export const PRIMER = {
   solution: (dir: string) => `https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/${dir}/README.md`,
   license: 'https://creativecommons.org/licenses/by/4.0/',
@@ -134,7 +139,7 @@ const gPreviews = (instances: number) => n('pv', 'service', tr('Превью', '
 const gPath = [{ from: 's1', to: 'd1', text: tr('Веб-сервер хранит данные в PostgreSQL', 'The web server stores its data in PostgreSQL', 'Web 服务器把数据存放在 PostgreSQL 中') }]
 const gPersisted = { text: tr('Данные и файлы сохраняются', 'Data and files are persisted', '数据和文件都已持久化保存') }
 /** Все запросы страниц обслуживает веб-сервер задачи, а не новый сервис рядом с ним */
-const gViaWeb = (rps: number) => ({ text: tr('Веб-сервер обрабатывает все запросы страниц', 'The web server handles all page requests', 'Web 服务器能处理全部页面请求'), check: flowsAll('s1', 'c1', 'oltp', rps) })
+const gViaWeb = (rps: number) => ({ text: tr('Веб-сервер обрабатывает все запросы страниц', 'The web server handles all page requests', '所有页面请求都由 Web 服务器处理'), check: flowsAll('s1', 'c1', 'oltp', rps) })
 /** Эталон шага 1 при заданной нагрузке — он же старт шага 2 */
 const growth1Solution = (users: number, statics: number) => ({
   nodes: [gUsers(users), gStatic(statics), gWeb({ instances: 3 }), gDb(1), gS3()],
@@ -323,6 +328,7 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     budget: 1100,
     locked: ['c1', 'c2', 's1', 'd1'],
+    tunable: ['s1'],
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%', '成功响应 ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Страница товара ≤ 80 мс', 'Product page ≤ 80 ms', '商品页面 ≤ 80 ms'), check: lat('c1', 80) },
@@ -491,6 +497,7 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     budget: 1400,
     locked: ['c1', 's1', 'd1'],
+    tunable: ['s1'],
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%', '成功响应 ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Профиль ≤ 50 мс', 'Profile ≤ 50 ms', '用户资料 ≤ 50 ms'), check: lat('c1', 50) },
@@ -571,6 +578,7 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     budget: 2900,
     locked: ['c1', 'g1', 's1', 'd1'],
+    tunable: ['s1'],
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%', '成功响应 ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Ответ «заявка принята» ≤ 100 мс', '"Request accepted" response ≤ 100 ms', '“申请已受理”响应 ≤ 100 ms'), check: lat('c1', 100) },
@@ -1767,9 +1775,9 @@ export const builderChallenges: BuilderChallenge[] = [
         '服务已经增长到每天 **5M** 名用户，每人平均发出 **100** 次页面和 API 请求；峰值是平均值的两倍，写入仍然约占 1%。静态文件的流量是 **30,000 rps**。还上线了一个新功能：用户上传文件（每秒 **300** 个），每个文件都要生成预览。这是重活：一个实例每秒能生成 100 个预览，每个耗时 120 ms。',
       ),
       tr(
-        'Веб-серверы по-прежнему хранят сессии пользователей у себя в памяти, поэтому они тяжёлые, и добавлять их бесконечно нельзя. Страницы — быстрее **50 мс**, статика — быстрее **20 мс**, загрузка файла — быстрее **150 мс**, превью не должны копиться. Бюджет — **$2300**.',
-        'The web servers still keep user sessions in their own memory, so they are heavy and cannot be added forever. Pages must load in under **50 ms**, static files in under **20 ms**, a file upload must finish in under **150 ms**, and previews must not pile up. Budget: **$2300**.',
-        'Web 服务器仍然把用户会话保存在自己的内存里，所以它们很重，也不能无限增加。页面必须在 **50 ms** 内打开，静态文件必须在 **20 ms** 内返回，文件上传必须在 **150 ms** 内完成，预览不能积压。预算：**$2300**。',
+        'Веб-серверы по-прежнему хранят сессии пользователей у себя в памяти, поэтому каждый держит немного запросов, и добавлять их бесконечно нельзя. Страницы — быстрее **50 мс**, статика — быстрее **20 мс**, загрузка файла — быстрее **150 мс**, превью не должны копиться. Бюджет — **$2300**.',
+        'The web servers still keep user sessions in their own memory, so each one handles few requests, and they cannot be added forever. Pages must load in under **50 ms**, static files in under **20 ms**, a file upload must finish in under **150 ms**, and previews must not pile up. Budget: **$2300**.',
+        'Web 服务器仍然把用户会话保存在自己的内存里，所以每台服务器能承担的请求不多，也不能无限增加。页面必须在 **50 ms** 内打开，静态文件必须在 **20 ms** 内返回，文件上传必须在 **150 ms** 内完成，预览不能积压。预算：**$2300**。',
       ),
     ],
     estimate: {
@@ -1785,9 +1793,10 @@ export const builderChallenges: BuilderChallenge[] = [
     nodes: [...growth2Solution(11574, 30000).nodes, gUploads(), gPreviews(1)],
     edges: growth2Solution(11574, 30000).edges,
     budget: 2300,
-    // веб-сервер не заблокирован: профиль сервиса в редакторе меняется только у незаблокированных блоков,
-    // а удалить его без потерь нельзя — путь «Веб-сервер хранит данные в PostgreSQL» перестанет выполняться
-    locked: ['c1', 'c2', 'c3', 'd1', 's3', 'pv'],
+    // веб-сервер заблокирован (его не удалить — путь «Веб-сервер хранит данные в PostgreSQL» проверяется по нему),
+    // но профиль у него меняется: в этом и есть ход задачи
+    locked: ['c1', 'c2', 'c3', 's1', 'd1', 's3', 'pv'],
+    tunable: ['s1'],
     goals: [
       { text: tr('Успешных ответов ≥ 99.9%', 'Successful responses ≥ 99.9%', '成功响应 ≥ 99.9%'), check: (r) => r.clientSuccess >= 0.999 },
       { text: tr('Страницы ≤ 50 мс', 'Pages ≤ 50 ms', '页面 ≤ 50 ms'), check: lat('c1', 50) },
@@ -1804,9 +1813,9 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     hints: [
       tr(
-        'Посчитайте веб-серверы: 40 экземпляров по 300 rps — это 12 000 rps, впритык к пику, и больше не поставить. Загрузка под 100%, а значит, страницы будут открываться сотни миллисекунд. Тяжёлыми серверы делают сессии в памяти каждого из них. Если вынести сессии в общее быстрое хранилище, серверы станут лёгкими и взаимозаменяемыми — в свойствах сервиса есть такой профиль.',
-        'Count the web servers: 40 instances at 300 rps make 12,000 rps, barely above the peak, and you cannot add more. Utilization near 100% means pages take hundreds of milliseconds to load. What makes the servers heavy is the sessions in each one\'s memory. Move the sessions to a shared fast store, and the servers become light and interchangeable: the service properties have such a profile.',
-        '算一算 Web 服务器：40 个实例、每个 300 rps，合计 12,000 rps，刚刚超过峰值，而且不能再多了。利用率接近 100%，页面打开就要几百毫秒。让服务器变重的，正是每台服务器内存里的会话。把会话移到一个共享的快速存储里，服务器就会变得轻量、可以互相替换：服务的属性里就有这样的类型。',
+        'Посчитайте веб-серверы: 40 экземпляров по 300 rps — это 12 000 rps, впритык к пику, и больше не поставить. Загрузка под 100%, а значит, страницы будут открываться сотни миллисекунд. Держать мало запросов серверы заставляют сессии в памяти каждого из них. Если вынести сессии в общее быстрое хранилище, серверы станут лёгкими и взаимозаменяемыми — в свойствах сервиса есть такой профиль.',
+        'Count the web servers: 40 instances at 300 rps make 12,000 rps, barely above the peak, and you cannot add more. Utilization near 100% means pages take hundreds of milliseconds to load. What keeps each server\'s capacity low is the sessions in its memory. Move the sessions to a shared fast store, and the servers become light and interchangeable: the service properties have such a profile.',
+        '算一算 Web 服务器：40 个实例、每个 300 rps，合计 12,000 rps，刚刚超过峰值，而且不能再多了。利用率接近 100%，页面打开就要几百毫秒。让每台服务器承担不了多少请求的，正是它内存里的会话。把会话移到一个共享的快速存储里，服务器就会变得轻量、可以互相替换：服务的属性里就有这样的类型。',
       ),
       tr(
         'Реплик у базы максимум пять, а чтений больше десяти тысяч в секунду. Большинство из них одинаковые: популярные страницы смотрят миллионы людей. Ответы на повторы можно держать в памяти рядом с веб-сервером: он сначала спросит память и пойдёт в базу только за тем, чего там нет, — до базы дойдёт лишь малая часть.',
@@ -2106,9 +2115,9 @@ export const builderChallenges: BuilderChallenge[] = [
     ],
     debrief: [
       tr(
-        'В Primer граф живёт на шардированных «Person Servers», а Lookup Service знает, на каком сервере какой человек. Здесь эту роль играет хранилище, которое шардирует данные само (Cassandra, DynamoDB). В жизни подошёл бы и PostgreSQL с шардами по user_id, но на этих числах ему нужно не меньше пяти шардов, и в бюджет он не укладывается. Кэш берёт на себя самых связанных людей — через них проходит большинство поисков.',
-        'In Primer the graph lives on sharded "Person Servers", and a Lookup Service knows which server holds which person. Here that role is played by a store that shards data by itself (Cassandra, DynamoDB). In real life PostgreSQL sharded by user_id would also do, but with these numbers it needs at least five shards and does not fit the budget. The cache takes the most connected people, since most searches pass through them.',
-        '在 Primer 中，社交图存放在分片的“Person Server”上，由 Lookup Service 记录每个人在哪台服务器上。这里由能自己分片的存储（Cassandra、DynamoDB）来扮演这个角色。现实中按 user_id 分片的 PostgreSQL 也可以，但按这里的数字它至少需要五个分片，超出预算。缓存负责那些人脉最广的人，因为大多数搜索都会经过他们。',
+        'В Primer граф живёт на шардированных «Person Servers», а Lookup Service знает, на каком сервере какой человек. Здесь эту роль играет хранилище, которое шардирует данные само (Cassandra, DynamoDB). В жизни подошёл бы и PostgreSQL с шардами по user_id, но на этих числах ему нужно семь шардов (или меньше, но с репликами и на машинах крупнее), и в бюджет он не укладывается ни так, ни так. Кэш берёт на себя самых связанных людей — через них проходит большинство поисков.',
+        'In Primer the graph lives on sharded "Person Servers", and a Lookup Service knows which server holds which person. Here that role is played by a store that shards data by itself (Cassandra, DynamoDB). In real life PostgreSQL sharded by user_id would also do, but with these numbers it needs seven shards (or fewer, with replicas and bigger machines), and neither way fits the budget. The cache takes the most connected people, since most searches pass through them.',
+        '在 Primer 中，社交图存放在分片的“Person Server”上，由 Lookup Service 记录每个人在哪台服务器上。这里由能自己分片的存储（Cassandra、DynamoDB）来扮演这个角色。现实中按 user_id 分片的 PostgreSQL 也可以，但按这里的数字它需要七个分片（或者分片少一些，但要加副本、换更大的机器），无论哪种都超出预算。缓存负责那些人脉最广的人，因为大多数搜索都会经过他们。',
       ),
       tr(
         'Сам обход в ширину на интервью ускоряют так: идут с двух концов навстречу, начинают с людей с большим числом друзей, группируют запросы к одному серверу, ограничивают глубину и заранее считают частые цепочки офлайн. Графовые базы (Neo4j) в этой задаче Primer нарочно запрещает.',

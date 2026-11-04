@@ -148,7 +148,8 @@ export function taskLevel(key: string): TaskLevel | undefined {
 
 /**
  * Уровни открываются по порядку: задачи следующего уровня доступны,
- * только когда решены все задачи предыдущего. Уже решённые задачи остаются открытыми.
+ * только когда решены все задачи предыдущего. Уже решённые задачи остаются открытыми,
+ * и уровень, где (или дальше которого) уже есть решённые задачи, тоже: новые задачи в прежних уровнях его не закрывают.
  */
 export interface LevelStatus {
   level: TaskLevel
@@ -160,13 +161,16 @@ export interface LevelStatus {
 
 export function levelStatus(p: Progress): LevelStatus[] {
   const out: LevelStatus[] = []
+  // самый дальний уровень, где игрок уже что-то решил: до него всё было открыто
+  const reached = Math.max(0, ...TASKS.filter((t) => p.scenarios[t.key]).map((t) => t.level))
   let open = true
   for (const l of [1, 2, 3, 4] as TaskLevel[]) {
     const list = TASKS.filter((t) => t.level === l)
     const done = list.filter((t) => p.scenarios[t.key]).length
     const passed = done === list.length
-    out.push({ level: l, done, total: list.length, open, passed })
-    open = open && passed
+    const isOpen: boolean = open || l <= reached
+    out.push({ level: l, done, total: list.length, open: isOpen, passed })
+    open = isOpen && passed
   }
   return out
 }
@@ -181,8 +185,10 @@ export function isTaskOpen(key: string, p: Progress): boolean {
 export function blockerOf(key: string, p: Progress): { level: TaskLevel; left: Task[]; status: LevelStatus } | null {
   if (isTaskOpen(key, p)) return null
   const st = levelStatus(p)
-  const first = st.find((s) => !s.passed)!
-  return { level: first.level, status: first, left: TASKS.filter((t) => t.level === first.level && !p.scenarios[t.key]) }
+  // ближайший открытый уровень перед закрытым: его и нужно пройти
+  const t = BY_KEY.get(key)!
+  const first = st.slice(0, t.level - 1).reverse().find((s) => s.open)!
+  return { level: first.level, status: first, left: TASKS.filter((x) => x.level === first.level && !p.scenarios[x.key]) }
 }
 
 /** Опыт за задачу: базовый по уровню, звёзды оценки добавляют по 25% */

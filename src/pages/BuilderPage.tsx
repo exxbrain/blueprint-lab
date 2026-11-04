@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot, nodesBox } from '../sim/builder/BuilderCanvas'
+import { BuilderCanvas, MOOD_FACE, PALETTE_MIME, clientMood, fmt, freeSpot, nodesBox } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
   SIZES,
@@ -27,7 +27,7 @@ import {
   PRIMER,
   type BuilderChallenge,
 } from '../sim/builder/challenges'
-import { BOARD_H, BOARD_W } from '../sim/builder/layout'
+import { BOARD_H, BOARD_W, NODE_H, NODE_W } from '../sim/builder/layout'
 import { Rich } from '../components/Rich'
 import { RefBanner } from '../components/RefBanner'
 import { ReviewPanel } from '../components/ReviewPanel'
@@ -548,6 +548,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                       fixedHit={challenge ? challenge.hitRatio : null}
                       stats={result.nodes[selNode.id]}
                       locked={locked(selNode.id)}
+                      tunable={challenge?.tunable?.includes(selNode.id) ?? false}
                       patch={(p) => patch(selNode.id, p)}
                       remove={remove}
                     />
@@ -682,7 +683,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       {reviewEl}
       {resultEl}
       {refId && <RefModal id={refId} kind="component" onClose={() => setRefId(null)} />}
-      <div className="panel canvas-wrap builder-wrap" ref={wrapRef}>
+      <div className="panel canvas-wrap builder-wrap" ref={wrapRef} style={{ ['--board-ratio' as string]: `${BOARD_W} / ${BOARD_H}` }}>
         {statsEl}
         {cycleEl}
         {stage(
@@ -752,6 +753,7 @@ function NodeProps({
   node,
   stats,
   locked,
+  tunable,
   patch,
   remove,
   hideLoad,
@@ -764,6 +766,8 @@ function NodeProps({
   node: BNode
   stats?: ReturnType<typeof simulate>['nodes'][string]
   locked: boolean
+  /** Заблокированный сервис, у которого профиль менять можно */
+  tunable: boolean
   patch: (p: Partial<BNode>) => void
   remove: () => void
 }) {
@@ -817,7 +821,7 @@ function NodeProps({
       ) : (
         <Scaling node={node} patch={patch} external={profile?.id === 'external'} />
       )}
-      {node.kind === 'service' && !locked && (
+      {node.kind === 'service' && (!locked || tunable) && (
         <label>
           {tr('профиль', 'profile', '服务类型')}
           <select
@@ -835,7 +839,7 @@ function NodeProps({
           </select>
         </label>
       )}
-      {node.kind === 'service' && locked && (
+      {node.kind === 'service' && locked && !tunable && (
         <p className="small">
           {tr(`${node.capacity} rps на экземпляр, ${node.latency} мс`, `${node.capacity} rps per instance, ${node.latency} ms`, `每个实例 ${node.capacity} rps，${node.latency} ms`)}
         </p>
@@ -1085,7 +1089,7 @@ function Scaling({ node, patch, external }: { node: BNode; patch: (p: Partial<BN
   const unitHint: Record<typeof spec.unit, string> = {
     instances: external
       ? tr('Внешний API ограничен лимитом провайдера и числом подключений, а не процессором', 'An external API is limited by the provider’s rate limit and connections, not by CPU', '外部 API 受限于提供方的调用频率上限和连接数，而不是 CPU')
-      : tr('Без состояния — просто добавляйте одинаковые экземпляры', 'Stateless: just add identical instances', '无状态：直接添加相同的实例即可'),
+      : tr('Одинаковые экземпляры делят нагрузку поровну', 'Identical instances share the load evenly', '相同的实例平均分担负载'),
     replicas: tr('Реплики масштабируют только чтение: вся запись идёт в primary', 'Replicas scale reads only: all writes go to the primary', '副本只能扩展读取：所有写入都进入 primary'),
     nodes: tr('Масштабируется и чтение, и запись', 'Scales both reads and writes', '读取和写入都能扩展'),
     brokers: tr('Больше брокеров — больше пропускная способность и партиций', 'More brokers means more throughput and partitions', 'Broker 越多，吞吐量越大，能容纳的分区也越多'),

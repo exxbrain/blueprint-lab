@@ -3264,7 +3264,8 @@ button.danger:hover:not(:disabled) { background: #ff8a96; }
 .ws-start { display: none; }
 /* холст на компьютере держит пропорции 1000×540 сам, что бы ни показывала видимая часть */
 /* только у холста конструктора; витрина на главной, C4 и распил — по своему viewBox */
-.builder-wrap .builder-canvas { aspect-ratio: 1000 / 540; }
+/* пропорции поля задаёт страница из layout.ts (--board-ratio) */
+.builder-wrap .builder-canvas { aspect-ratio: var(--board-ratio, 1000 / 540); }
 .hub-demo .builder-canvas { aspect-ratio: auto; }
 /* границы холста: за них блоки не уходят */
 .canvas-frame { fill: none; stroke: rgba(124, 196, 255, 0.2); stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; pointer-events: none; }

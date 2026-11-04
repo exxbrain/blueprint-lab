@@ -6,8 +6,6 @@ import type { SpanStatus, Trace } from './emulate'
 import { KindGlyph } from './KindIcon'
 import { BOARD_H, BOARD_W, NODE_H, NODE_W } from './layout'
 
-export { NODE_H, NODE_W }
-
 /** Рамка вокруг блоков (с отступом) — для «вписать схему» и «к выбранному» */
 export function nodesBox(ns: BNode[], pad: number): Rect | null {
   if (!ns.length) return null

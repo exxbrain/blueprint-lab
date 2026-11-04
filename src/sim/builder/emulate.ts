@@ -289,7 +289,10 @@ function sqlFor(c: Ctx, dialect: 'pg' | 'cql'): string {
         : `SELECT * FROM feed WHERE user_id = ${c.user} LIMIT 20`
     case 'notify': return `INSERT INTO notifications (user_id, channel, status) VALUES (${c.user}, 'push', 'queued')`
     case 'search':
-    case 'suggest': return `SELECT * FROM items WHERE title ILIKE '%${c.word}%' LIMIT 20`
+    case 'suggest':
+      return dialect === 'pg'
+        ? `SELECT * FROM items WHERE title ILIKE '%${c.word}%' LIMIT 20`
+        : `SELECT * FROM items WHERE title LIKE '%${c.word}%' LIMIT 20  -- SASI-индекс`
     case 'analytics': return `SELECT region, sum(total) FROM orders WHERE created_at >= '2026-01-01' GROUP BY region`
     case 'trends': return `SELECT date_trunc('hour', ts), count(*) FROM events WHERE ts > now() - interval '7 days' GROUP BY 1`
     case 'txn': return `SELECT * FROM transactions WHERE account_id = 'acc-${c.id}' ORDER BY created_at DESC LIMIT 50`

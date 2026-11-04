@@ -3509,7 +3509,9 @@ body.ws-mode .page { animation: none; }
 /* в прокручиваемом поле (карта контекстов) плашка — в потоке над списком и прилипает под панелями при прокрутке */
 .ws .wsx-field.scroll .ref-banner.compact {
   position: sticky;
-  top: calc(92px + env(safe-area-inset-top));
+  /* отступ липкости считается от края содержимого поля, а у поля сверху уже отступ под панели */
+  top: 0;
+  left: 0;
   width: fit-content;
   margin: 0 0 10px;
 }

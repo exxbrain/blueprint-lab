@@ -37,7 +37,7 @@ export interface ViewportOptions {
   disabled?: boolean
   /**
    * Что нарисовано — для «вписать схему» и предела сдвига (схему нельзя увести из кадра).
-   * Без него — рамка всего, что в svg, кроме помеченного data-viewport-ignore (служебные значки в углу и т. п.)
+   * Без него — рамка всего, что в svg (с учётом transform элементов), кроме помеченного data-viewport-ignore (служебные значки в углу и т. п.)
    */
   content?: () => Rect | null
   /** Выбранное — для «к выбранному» */
@@ -90,9 +90,9 @@ export function useViewport(o: ViewportOptions) {
     return { x: (width - w) / 2, y: (height - w * A()) / 2, w }
   }
   /**
-   * Вид в допустимых границах. При чистом сдвиге (ширина вида та же, что у текущего) предел ослабляется текущим видом:
-   * если схема уже за пределом (прижата к краю), к пределу не прыгаем, только не пускаем дальше.
-   * При масштабе, вписывании и прочем — предел как есть
+   * Вид в допустимых границах. Если ширина вида не меняется (сдвиг, колесо, смена размера окна, reveal, вписывание
+   * в том же масштабе), предел ослабляется текущим видом: если схема уже за пределом (прижата к краю), к пределу
+   * не прыгаем, только не пускаем дальше. Когда ширина меняется (масштаб у курсора, щипок, вписывание) — предел как есть
    */
   const clampView = (v: View): View | null => {
     const cur0 = viewRef.current ?? whole()
@@ -174,10 +174,21 @@ export function useViewport(o: ViewportOptions) {
       try {
         const b = el.getBBox()
         if (b.width <= 0 && b.height <= 0) continue
-        x0 = Math.min(x0, b.x)
-        y0 = Math.min(y0, b.y)
-        x1 = Math.max(x1, b.x + b.width)
-        y1 = Math.max(y1, b.y + b.height)
+        // getBBox — в собственных координатах элемента, без его transform (блоки C4 и модули распила — <g translate>):
+        // переводим углы рамки в координаты схемы
+        const m = el.transform.baseVal.consolidate()?.matrix
+        const corners = [
+          [b.x, b.y],
+          [b.x + b.width, b.y],
+          [b.x, b.y + b.height],
+          [b.x + b.width, b.y + b.height],
+        ].map(([x, y]) => (m ? [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f] : [x, y]))
+        for (const [x, y] of corners) {
+          x0 = Math.min(x0, x)
+          y0 = Math.min(y0, y)
+          x1 = Math.max(x1, x)
+          y1 = Math.max(y1, y)
+        }
       } catch {
         // элемент ещё не отрисован
       }

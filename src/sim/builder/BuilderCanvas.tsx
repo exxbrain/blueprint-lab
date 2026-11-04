@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react'
 import { tr } from '../../i18n'
 import { useViewport, type Rect, type Viewport } from '../../components/editor/useViewport'
-import { KINDS, WORKLOADS, canLinkFrom, scaleText, type BEdge, type BNode, type NodeKind, type Result } from './model'
+import { WORKLOADS, canLinkFrom, scaleText, type BEdge, type BNode, type Result } from './model'
 import type { SpanStatus, Trace } from './emulate'
+import { KindGlyph } from './KindIcon'
 
 export const NODE_W = 150
 export const NODE_H = 74
@@ -302,7 +303,6 @@ export function BuilderCanvas({
 
       {nodes.map((n) => {
         const st = result.nodes[n.id]
-        const spec = KINDS[n.kind]
         const util = st?.util ?? 0
         const color = n.kind === 'client' ? 'var(--accent)' : utilColor(util, st?.success ?? 1)
         const overloaded = n.kind !== 'client' && util > 1
@@ -322,13 +322,15 @@ export function BuilderCanvas({
               capture(e.pointerId)
             }}
           >
-            <NodeShape kind={n.kind} color={color} />
-            <text x={12} y={24} className="bnode-title">
-              {n.kind === 'client' && !hideLoad ? (
-                <tspan className={'bnode-mood ' + clientMood(st?.success ?? 1, st?.latency ?? 0)}>{MOOD_FACE[clientMood(st?.success ?? 1, st?.latency ?? 0)]}</tspan>
-              ) : (
-                spec.icon
-              )}{' '}
+            <rect width={NODE_W} height={NODE_H} rx={10} className="bnode-box" style={{ stroke: color }} />
+            {/* у клиентов под нагрузкой на месте значка — их настроение */}
+            {!(n.kind === 'client' && !hideLoad) && <KindGlyph kind={n.kind} x={12} y={10} color={color} />}
+            <text x={n.kind === 'client' && !hideLoad ? 12 : 34} y={24} className="bnode-title">
+              {n.kind === 'client' && !hideLoad && (
+                <>
+                  <tspan className={'bnode-mood ' + clientMood(st?.success ?? 1, st?.latency ?? 0)}>{MOOD_FACE[clientMood(st?.success ?? 1, st?.latency ?? 0)]}</tspan>{' '}
+                </>
+              )}
               {n.label}
               {n.kind === 'client' && !hideLoad && (
                 <title>
@@ -404,76 +406,6 @@ export function BuilderCanvas({
       {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} />}
     </svg>
   )
-}
-
-/**
- * Форма блока — в принятой нотации схем микросервисов (как на microservices.io, но свои рисунки):
- * сервис — шестиугольник, базы и кэш — цилиндры, объектное хранилище — ведро, очередь — канал-труба,
- * CDN — облако, клиент — окно приложения, балансировщик — блок со срезанными углами, шлюз — блок с «воротами» слева.
- * Все формы вписаны в прямоугольник блока: текст и полоса загрузки остаются на своих местах.
- */
-function NodeShape({ kind, color }: { kind: NodeKind; color: string }) {
-  const W = NODE_W
-  const H = NODE_H
-  const box = { className: 'bnode-box', style: { stroke: color } }
-  const deco = { className: 'bnode-deco', style: { stroke: color } }
-  switch (kind) {
-    case 'service':
-      return <path {...box} d={`M14,0 H${W - 14} L${W},${H / 2} L${W - 14},${H} H14 L0,${H / 2} Z`} />
-    case 'postgres':
-    case 'mongo':
-    case 'cassandra':
-    case 'clickhouse':
-    case 'elastic':
-    case 'cache':
-      return (
-        <>
-          <path {...box} d={`M0,6 A${W / 2},6 0 0,1 ${W},6 V${H - 6} A${W / 2},6 0 0,1 0,${H - 6} Z`} />
-          <path {...deco} d={`M0,6 A${W / 2},6 0 0,0 ${W},6`} />
-        </>
-      )
-    case 's3':
-      return (
-        <>
-          <path {...box} d={`M0,6 A${W / 2},6 0 0,1 ${W},6 L${W - 8},${H - 6} A${W / 2 - 8},6 0 0,1 8,${H - 6} Z`} />
-          <path {...deco} d={`M0,6 A${W / 2},6 0 0,0 ${W},6`} />
-        </>
-      )
-    case 'queue':
-      return (
-        <>
-          <path {...box} d={`M12,0 H${W - 12} A12,${H / 2} 0 0,1 ${W - 12},${H} H12 A12,${H / 2} 0 0,1 12,0 Z`} />
-          <path {...deco} d={`M${W - 12},0 A12,${H / 2} 0 0,0 ${W - 12},${H}`} />
-        </>
-      )
-    case 'cdn':
-      return (
-        <path
-          {...box}
-          d={`M10,${H} H${W - 10} A10,10 0 0,0 ${W},${H - 10} V22 A14,14 0 0,0 ${W - 26},12 A24,14 0 0,0 ${W - 74},8 A22,12 0 0,0 ${W - 116},12 A14,12 0 0,0 4,22 A8,8 0 0,0 0,30 V${H - 10} A10,10 0 0,0 10,${H} Z`}
-        />
-      )
-    case 'client':
-      return (
-        <>
-          <rect {...box} width={W} height={H} rx={8} />
-          <path {...deco} d={`M0,9 H${W}`} />
-          <circle className="bnode-dot" cx={8} cy={5} r={1.6} />
-          <circle className="bnode-dot" cx={14} cy={5} r={1.6} />
-          <circle className="bnode-dot" cx={20} cy={5} r={1.6} />
-        </>
-      )
-    case 'lb':
-      return <path {...box} d={`M10,0 H${W - 10} L${W},10 V${H - 10} L${W - 10},${H} H10 L0,${H - 10} V10 Z`} />
-    case 'gateway':
-      return (
-        <>
-          <rect {...box} width={W} height={H} rx={4} />
-          <path {...deco} d={`M6,0 V${H}`} />
-        </>
-      )
-  }
-  return <rect {...box} width={W} height={H} rx={10} />
 }
 
 /** Тип данных при перетаскивании компонента из палитры */

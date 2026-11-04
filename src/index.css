@@ -1008,14 +1008,8 @@ table.cmp th {
     stroke 0.4s,
     filter 0.2s;
 }
-/* линии формы (обод цилиндра, полоса окна, «ворота» шлюза) — цветом обводки блока, тоньше */
-.bnode-deco {
-  fill: none;
-  stroke-width: 1.5;
-  opacity: 0.8;
-  transition: stroke 0.4s;
-}
-.bnode-dot { fill: var(--muted); }
+/* значок вида компонента (нотация схем) — цветом рамки блока */
+.bnode-glyph { transition: color 0.4s; }
 .bnode.selected .bnode-box {
   fill: #163e66;
   filter: drop-shadow(0 0 8px rgba(124, 196, 255, 0.6));
@@ -3600,3 +3594,11 @@ body.ws-mode .page { animation: none; }
   .lang-btn { padding: 3px 8px; font-size: 0.8rem; }
 }
 
+/* значок вида компонента в строке текста: меню «Добавить», окно свойств, трасса запроса */
+.kind-icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  vertical-align: -0.22em;
+}
+.palette-item .kind-icon { color: var(--accent); }

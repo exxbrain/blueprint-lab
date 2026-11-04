@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { tr } from '../../i18n'
-import { KINDS, type BEdge, type BNode, type Result } from './model'
+import { type BEdge, type BNode, type Result } from './model'
+import { KindIcon } from './KindIcon'
 import { emulateRequest, pickClient, type Span, type Trace } from './emulate'
 import { HOP_MS, type LiveTrace } from './BuilderCanvas'
 
@@ -110,14 +111,14 @@ export function TrafficPanel({
   log: Trace[]
   nodes?: BNode[]
   /** Подпись узла трассы; по умолчанию — блок конструктора */
-  describe?: (id: string) => { icon: string; label: string } | undefined
+  describe?: (id: string) => { icon: ReactNode; label: string } | undefined
   running: boolean
   setRunning: (v: boolean) => void
   onPickNode: (id: string) => void
 }) {
   const [pinned, setPinned] = useState<number | null>(null)
   const byId = Object.fromEntries((nodes ?? []).map((n) => [n.id, n]))
-  const name = describe ?? ((id: string) => (byId[id] ? { icon: KINDS[byId[id].kind].icon, label: byId[id].label } : undefined))
+  const name = describe ?? ((id: string) => (byId[id] ? { icon: <KindIcon kind={byId[id].kind} />, label: byId[id].label } : undefined))
   const calm = useCalm(log)
   const shown = (pinned !== null && log.find((t) => t.id === pinned)) || calm.slice(0, 8).find((t) => t.status === 'error') || calm[0]
   const recent = calm.slice(0, 40)
@@ -182,7 +183,7 @@ function Waterfall({
   onPickNode,
 }: {
   trace: Trace
-  describe: (id: string) => { icon: string; label: string } | undefined
+  describe: (id: string) => { icon: ReactNode; label: string } | undefined
   onPickNode: (id: string) => void
 }) {
   const span = Math.max(1, trace.totalMs, ...trace.spans.map((s) => s.start + s.ms))

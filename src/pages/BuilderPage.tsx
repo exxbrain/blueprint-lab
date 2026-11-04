@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { KindIcon } from '../sim/builder/KindIcon'
 import { BuilderCanvas, MOOD_FACE, NODE_H, NODE_W, PALETTE_MIME, clientMood, fmt, freeSpot, nodesBox } from '../sim/builder/BuilderCanvas'
 import {
   KINDS,
@@ -404,7 +405,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                       e.dataTransfer.effectAllowed = 'copy'
                     }}
                   >
-                    <span>{KINDS[k].icon}</span> {KINDS[k].title}
+                    <KindIcon kind={k} /> {KINDS[k].title}
                     <span className="small muted">{KINDS[k].cost ? `$${KINDS[k].cost}` : ''}</span>
                   </button>
                   <button
@@ -525,7 +526,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
                 <>
                   <div className="card-head">
                     <b>
-                      {KINDS[selNode.kind].icon} {selNode.label}
+                      <KindIcon kind={selNode.kind} /> {selNode.label}
                     </b>
                     <button className="icon" onClick={() => setSelected(null)} title={tr('Закрыть (Esc)', 'Close (Esc)', '关闭（Esc）')}>
                       ✕

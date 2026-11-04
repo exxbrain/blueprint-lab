@@ -129,7 +129,11 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   // пока смотрим эталон, в черновике — своё решение
   const work = useMemo(() => ({ nodes: mine?.nodes ?? nodes, edges: mine?.edges ?? edges, estimated }), [mine, nodes, edges, estimated])
   useSaveDraft(draftKey, draftSig, work)
-  const result = useMemo(() => simulate(nodes, edges), [nodes, edges])
+  // симуляция, подсказки и оценка не зависят от того, где стоят блоки: перетаскивание блока их не пересчитывает
+  // (на телефоне пересчёт на каждом шаге сетки давал рывки)
+  const topology = useMemo(() => JSON.stringify([nodes.map(({ x: _x, y: _y, ...rest }) => rest), edges]), [nodes, edges])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const result = useMemo(() => simulate(nodes, edges), [topology])
   const traffic = useLiveTraffic(nodes, edges, result, estimated)
 
   const goals = challenge
@@ -144,15 +148,21 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
   // динамические подсказки: что сейчас мешает на поле
   const live = useMemo(
     () => diagnose({ nodes, edges, result, goals: challenge ? goals : undefined, budget: challenge?.budget }),
-    // goals пересчитываются из тех же nodes/edges/result и отметки о прикидке
+    // goals пересчитываются из тех же nodes/edges/result и отметки о прикидке; координаты блоков ни на что не влияют
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodes, edges, result, challenge, estimated],
+    [topology, result, challenge, estimated],
   )
   useEffect(() => {
     if (solved && challenge && !viewingRef) markScenario(`builder/${challenge.id}`)
   }, [solved, challenge, viewingRef])
 
-  const review = challenge && (showReview || solved) ? reviewBuilder(challenge, nodes, edges, result, estimated) : null
+  const showsReview = !!challenge && (showReview || solved)
+  const review = useMemo(
+    () => (challenge && showsReview ? reviewBuilder(challenge, nodes, edges, result, estimated) : null),
+    // как и подсказки, оценка не зависит от координат блоков
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [challenge, showsReview, topology, result, estimated],
+  )
   // звёзды — оценка решения, но не выше потолка по подсказкам и просмотру эталона
   const stars = solved && !viewingRef && review ? cappedStars(review.stars, hints) : undefined
   const result$ = useResultModal(solved, !viewingRef)

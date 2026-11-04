@@ -108,12 +108,21 @@ export function BuilderCanvas({
   /** Нажатие на связь: окно открываем при отпускании без сдвига — иначе это начало жеста двумя пальцами */
   const tap = useRef<{ id: string; pid: number; x: number; y: number } | null>(null)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null)
+  /**
+   * Тянут блок или связь. Пока идёт жест (это или сдвиг и щипок схемы), анимации потока, свечения и точек трафика
+   * стоят: на телефоне каждый кадр жеста и так перерисовывает всю схему, лишняя работа в кадре — это рывки
+   */
+  const [moving, setMoving] = useState(false)
+  const dragging = (active: boolean) => {
+    setMoving(active)
+    onDragging?.(active)
+  }
 
   /** Второй палец: начатое перетаскивание блока или связи отменяется, блок возвращается на место */
   const cancelDrag = () => {
     const d = drag.current
     if (d?.moved) onMove(d.id, d.ox, d.oy)
-    if (d?.moved || link) onDragging?.(false)
+    if (d?.moved || link) dragging(false)
     drag.current = null
     tap.current = null
     setLink(null)
@@ -150,7 +159,7 @@ export function BuilderCanvas({
         if (Math.hypot(e.clientX - drag.current.sx, e.clientY - drag.current.sy) < 4) return
         drag.current.moved = true
         onSelect(null)
-        onDragging?.(true)
+        dragging(true)
       }
       const x = Math.max(0, Math.min(width - NODE_W, p.x - drag.current.dx))
       const y = Math.max(0, Math.min(height - NODE_H, p.y - drag.current.dy))
@@ -170,7 +179,7 @@ export function BuilderCanvas({
       if (Math.hypot(e.clientX - t.x, e.clientY - t.y) < 6) onSelect(selected === t.id ? null : t.id)
       return
     }
-    if (drag.current?.moved || link) onDragging?.(false)
+    if (drag.current?.moved || link) dragging(false)
     // щелчок без движения — открыть параметры блока
     // повторный щелчок по выбранному блоку закрывает окно
     if (drag.current && !drag.current.moved) onSelect(selected === drag.current.id ? null : drag.current.id)
@@ -184,11 +193,12 @@ export function BuilderCanvas({
   }
 
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  const busy = moving || vp.panning
 
   return (
     <svg
       ref={vp.bindSvg}
-      className={'builder-canvas has-grid' + (vp.zoomed ? ' zoomed' : '')}
+      className={'builder-canvas has-grid' + (vp.zoomed ? ' zoomed' : '') + (busy ? ' busy' : '')}
       viewBox={fit && nodes.length ? fitBox(nodes) : vp.viewBox}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -392,7 +402,7 @@ export function BuilderCanvas({
                   if (e.button !== 0 || (e.pointerType === 'mouse' && e.ctrlKey)) return
                   const p = toSvg(e)
                   setLink({ from: n.id, x: p.x, y: p.y })
-                  onDragging?.(true)
+                  dragging(true)
                   capture(e.pointerId)
                 }}
               >
@@ -402,7 +412,7 @@ export function BuilderCanvas({
           </g>
         )
       })}
-      {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} />}
+      {traces && traces.length > 0 && <TrafficLayer traces={traces} nodes={byId} edges={edges} paused={busy} />}
     </svg>
   )
 }
@@ -532,10 +542,10 @@ export function schedule(t: LiveTrace, nodes: Record<string, BNode>, edges: BEdg
 /** Кадр точек трафика: 30 в секунду вместо 60 — движение чуть проще, а страница вдвое легче (особенно на телефоне) */
 const TRAFFIC_FRAME_MS = 33
 
-function TrafficLayer({ traces, nodes, edges }: { traces: LiveTrace[]; nodes: Record<string, BNode>; edges: BEdge[] }) {
+function TrafficLayer({ traces, nodes, edges, paused }: { traces: LiveTrace[]; nodes: Record<string, BNode>; edges: BEdge[]; paused?: boolean }) {
   const [now, setNow] = useState(() => performance.now())
-  // нет запросов в полёте (пауза, схема не видна) — слой не перерисовывается
-  const active = traces.length > 0
+  // нет запросов в полёте (пауза, схема не видна) или идёт жест — слой не перерисовывается, точки замирают
+  const active = traces.length > 0 && !paused
   useEffect(() => {
     if (!active) return
     let raf = 0

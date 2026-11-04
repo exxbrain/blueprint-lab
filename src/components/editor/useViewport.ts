@@ -526,6 +526,8 @@ export function useViewport(o: ViewportOptions) {
     secondFinger,
     reveal,
     toSvg,
+    /** Идёт жест: сдвиг или щипок (холст может на это время остановить анимации) */
+    panning,
     capture,
     /** Обёртке холста: наведение (для клавиш) и курсоры руки */
     stage: {

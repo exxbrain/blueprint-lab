@@ -81,8 +81,14 @@ export function useViewport(o: ViewportOptions) {
   const A = () => aspectRef.current
   /** Ширина вида «весь холст» */
   const maxW = () => Math.max(width, height / A())
-  /** Самый мелкий масштаб — с запасом вокруг холста */
-  const outW = () => maxW() * ZOOM_OUT
+  /**
+   * Самый мелкий масштаб — с запасом вокруг холста. У холста без краёв (конструктор: content дешёвый, по блокам)
+   * схема может быть больше поля — тогда запас вокруг неё, чтобы её можно было увидеть целиком
+   */
+  const outW = () => {
+    const c = opts.current.content?.()
+    return Math.max(maxW(), c ? Math.max(c.w, c.h / A()) : 0) * ZOOM_OUT
+  }
   const minW = () => (svgRef.current?.clientWidth || width) / MAX_SCALE
   /** Весь холст целиком, по центру */
   const whole = (): View => {
@@ -158,7 +164,8 @@ export function useViewport(o: ViewportOptions) {
     const cw = svgRef.current?.clientWidth || width
     // ширину ограничиваем до расчёта угла: упор в предел масштаба не сдвигает схему от центра
     const raw = Math.max(r.w, r.h / A(), cw / maxScale)
-    const w = Math.max(Math.min(minW(), maxW()), Math.min(maxW(), raw))
+    // крупнее «всего холста» — только если сама схема больше поля
+    const w = Math.max(Math.min(minW(), maxW()), Math.min(Math.max(maxW(), Math.max(r.w, r.h / A())), raw))
     setView(clampView({ x: r.x + r.w / 2 - w / 2, y: r.y + r.h / 2 - (w * A()) / 2, w }))
   }
   const drawn = (): Rect | null => {

@@ -161,9 +161,8 @@ export function BuilderCanvas({
         onSelect(null)
         dragging(true)
       }
-      const x = Math.max(0, Math.min(width - NODE_W, p.x - drag.current.dx))
-      const y = Math.max(0, Math.min(height - NODE_H, p.y - drag.current.dy))
-      onMove(drag.current.id, Math.round(x / 10) * 10, Math.round(y / 10) * 10)
+      // холст без краёв: блок ставят куда угодно, вид и масштаб идут за схемой (useViewport)
+      onMove(drag.current.id, Math.round((p.x - drag.current.dx) / 10) * 10, Math.round((p.y - drag.current.dy) / 10) * 10)
     } else if (link) {
       setLink({ ...link, x: p.x, y: p.y })
     }
@@ -247,8 +246,6 @@ export function BuilderCanvas({
       <rect className="canvas-bg" data-viewport-ignore="" x={vb[0] - vb[2]} y={vb[1] - vb[3]} width={vb[2] * 3} height={vb[3] * 3} fill="transparent" />
       {/* сетка — часть холста: при масштабе и сдвиге она движется вместе со схемой */}
       <path className="canvas-grid-line" data-viewport-ignore="" d={grid} />
-      {/* границы холста: за них блоки не уходят — на вытянутом экране видно, где можно строить */}
-      {!fit && <rect className="canvas-frame" x={0} y={0} width={width} height={height} rx={6} />}
 
       {edges.map((e) => {
         const a = byId[e.from]
@@ -422,9 +419,8 @@ export function BuilderCanvas({
 /** Тип данных при перетаскивании компонента из палитры */
 export const PALETTE_MIME = 'application/x-blueprint-kind'
 
-/** Свободно ли место под блок (с зазором), с учётом границ холста */
-export function isFree(nodes: BNode[], x: number, y: number, width = BOARD_W, height = BOARD_H): boolean {
-  if (x < 0 || y < 0 || x + NODE_W > width || y + NODE_H > height) return false
+/** Свободно ли место под блок (с зазором от соседей); краёв у холста нет */
+export function isFree(nodes: BNode[], x: number, y: number): boolean {
   return nodes.every((n) => Math.abs(n.x - x) >= NODE_W + 20 || Math.abs(n.y - y) >= NODE_H + 16)
 }
 

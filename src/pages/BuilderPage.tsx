@@ -210,10 +210,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
     // перетащили — ставим туда, куда бросили; по клику — на свободное место в середине видимой части схемы
     // (с учётом масштаба, сдвига и прокрутки страницы), а не рядом с выделенным: с чем его связать, решает игрок
     const c = at ?? vp.visibleCenter()
-    const want = {
-      x: Math.max(0, Math.min(BOARD_W - NODE_W, c.x - NODE_W / 2)),
-      y: Math.max(0, Math.min(BOARD_H - NODE_H, c.y - NODE_H / 2)),
-    }
+    const want = { x: c.x - NODE_W / 2, y: c.y - NODE_H / 2 }
     // из меню — в пределах видимой части схемы (если там есть место), чтобы схема не уезжала к новому блоку
     const pos = freeSpot(nodes, want.x, want.y, at ? undefined : vp.visibleRect())
     const n: BNode = {
@@ -278,10 +275,7 @@ function Builder({ challenge }: { challenge?: BuilderChallenge }) {
       if (step && selNode && !isTyping(e.target) && !e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
         const d = e.shiftKey ? 50 : 10
-        patch(selNode.id, {
-          x: Math.max(0, Math.min(BOARD_W - NODE_W, selNode.x + step[0] * d)),
-          y: Math.max(0, Math.min(BOARD_H - NODE_H, selNode.y + step[1] * d)),
-        })
+        patch(selNode.id, { x: selNode.x + step[0] * d, y: selNode.y + step[1] * d })
       }
       if (e.key === 'Escape') {
         setSelected(null)

@@ -3,7 +3,12 @@
 Hands-on software architecture: short lessons, live simulations and incident-style exercises.
 The interface is available in English, Russian and Chinese: pick the language in the top bar.
 
-[Русская версия](README.ru.md) · Deploying privately: [Cloudflare Workers + password](docs/deploy-cloudflare.md)
+[Русская версия](README.ru.md) · Public deployment: [GitHub Pages + custom domain](docs/deploy-github-pages.md)
+
+The production URL is `https://blueprint-lab.infinitower.com/`. GitHub Actions checks pull requests and publishes
+`dist` after successful checks on `main`. Enable Pages with the **GitHub Actions** source and set the custom domain
+in the repository settings, then add the DNS record described in the deployment guide. The site is public and
+does not require a password.
 
 ## Run locally
 

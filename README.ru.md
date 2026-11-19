@@ -1,6 +1,10 @@
 # Blueprint Lab
 
-[English version](README.md) · Публикация под паролем: [Cloudflare Workers](docs/deploy-cloudflare.md)
+[English version](README.md) · Публичная публикация: [GitHub Pages и свой домен](docs/deploy-github-pages.md)
+
+Адрес публикации — `https://blueprint-lab.infinitower.com/`. GitHub Actions проверяет pull request и публикует
+`dist` после успешных проверок `main`. Для первого выпуска нужно включить Pages с источником **GitHub Actions**,
+задать домен в настройках репозитория и добавить DNS-запись по инструкции. Сайт публичный, пароль не требуется.
 
 Интерактивное обучение архитектуре: короткие уроки, живые симуляции и задачи-инциденты.
 Интерфейс на русском, английском и китайском: язык выбирается в шапке (или `?lang=ru|en|zh`). Тексты — `tr('русский', 'English', '中文')` из `src/i18n.ts`.

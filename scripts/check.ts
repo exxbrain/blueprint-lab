@@ -25,8 +25,6 @@ import { nextId } from '../src/components/editor/nextId'
 import { emulateMono } from '../src/sim/monolith/emulate'
 import { K8S_TASKS, runTask } from '../src/sim/k8s/tasks'
 import { MAP_PATTERNS, misplacedCards, partitionSolved, referenceState, reviewPartition, scoreMap } from '../src/sim/ddd/model'
-// Worker перед сайтом на Cloudflare: вход по логину и паролю
-import worker, { guard } from '../worker/index.js'
 
 let failed = 0
 // проход упал (ошибка проверки или исключение) — запуск прерван, подписи его проходов больше не понадобятся
@@ -915,51 +913,6 @@ for (const ch of builderChallenges) {
   }
 }
 console.log('- доля успешных запросов совпадает с моделью во всех задачах')
-
-// проверки выше пишут ошибки в failed; итог — только после всех, иначе ошибка не остановит сборку
-// вход по логину и паролю на Cloudflare Workers (worker/index.js)
-console.log('\nВход по логину и паролю')
-{
-  const env = { AUTH_USER: 'Guest ', AUTH_PASSWORD: 'пароль: с двоеточием' }
-  const asset = () => new Response('<html>', { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } })
-  const call = (auth: string | null, e: Record<string, string> = env) =>
-    guard(new Request('https://x.workers.dev/', { headers: auth ? { Authorization: auth } : {} }), e, async () => asset()) as Promise<Response>
-  const basic = (user: string, pass: string) => 'Basic ' + Buffer.from(`${user}:${pass}`, 'utf8').toString('base64')
-  const none = await call(null)
-  if (none.status !== 401 || !none.headers.get('WWW-Authenticate')?.startsWith('Basic')) fail(`без входа: ${none.status}`)
-  if ((await call(basic('guest', 'не тот'))).status !== 401) fail('неверный пароль пропущен')
-  if ((await call(basic('admin', env.AUTH_PASSWORD))).status !== 401) fail('чужой логин пропущен')
-  if ((await call('Basic !!!')).status !== 401) fail('битый заголовок пропущен')
-  const ok = await call(basic(' GUEST', env.AUTH_PASSWORD))
-  if (ok.status !== 200 || (await ok.text()) !== '<html>') fail(`верный вход не пропущен: ${ok.status}`)
-  if (ok.headers.get('X-Robots-Tag') !== 'noindex, nofollow') fail('за паролем нет noindex')
-  if (!/^private\b/.test(ok.headers.get('Cache-Control') ?? '')) fail(`за паролем кэш не private: ${ok.headers.get('Cache-Control')}`)
-  if ((await call(basic('', ''), { AUTH_USER: '', AUTH_PASSWORD: '' })).status !== 503) fail('без настроек сайт не закрыт')
-  if ((await call(basic('team', 'guest:x'), { AUTH_USER: 'team:guest', AUTH_PASSWORD: 'x' })).status !== 503) fail('логин с двоеточием не отвергнут как ошибка настройки')
-  // сам Worker: без входа файлы сборки не отдаются, с входом — отдаются из привязки ASSETS
-  const served: string[] = []
-  const assets = { fetch: async (r: Request) => (served.push(new URL(r.url).pathname), asset()) }
-  const req = (auth?: string) => new Request('https://x.workers.dev/assets/index.js', { headers: auth ? { Authorization: auth } : {} })
-  if ((await worker.fetch(req(), { ...env, ASSETS: assets })).status !== 401 || served.length) fail('Worker отдал файл сборки без входа')
-  if ((await worker.fetch(req(basic('guest', env.AUTH_PASSWORD)), { ...env, ASSETS: assets })).status !== 200 || served[0] !== '/assets/index.js') fail('Worker не отдал файл после входа')
-  // конфигурация Worker'а: без run_worker_first Cloudflare отдаёт файлы мимо Worker'а, без адресов версий — старые версии закрыты
-  const { readFileSync } = await import('node:fs')
-  // JSONC: комментарии и висячие запятые убираем (строк с // внутри в конфиге нет)
-  const jsonc = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:"])\/\/.*$/gm, '$1')
-    .replace(/,(\s*[}\]])/g, '$1')
-  let cfg: { main?: string; preview_urls?: boolean; assets?: { directory?: string; binding?: string; run_worker_first?: unknown } } = {}
-  try {
-    cfg = JSON.parse(jsonc)
-  } catch (err) {
-    fail(`wrangler.jsonc не читается: ${(err as Error).message}`)
-  }
-  if (cfg.assets?.run_worker_first !== true) fail('wrangler.jsonc: нет assets.run_worker_first: true — файлы сайта отдаются без пароля')
-  if (cfg.preview_urls !== false) fail('wrangler.jsonc: адреса версий не выключены (preview_urls: false)')
-  if (cfg.main !== 'worker/index.js' || cfg.assets?.directory !== './dist' || cfg.assets?.binding !== 'ASSETS') fail('wrangler.jsonc: Worker, папка сборки или привязка ASSETS не те')
-  console.log('- без входа, с чужим логином, неверным паролем и битым заголовком — 401; верный вход — 200, noindex, private; без настроек или с двоеточием в логине — 503')
-}
 
 // разбор текста — подсказки на поле (по тексту целей: хранение, задержка) и домены клиентов — должен давать одно и то же на всех языках:
 // каждый проход пишет подпись, последний сравнивает её с остальными
